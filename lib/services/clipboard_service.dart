@@ -7,6 +7,15 @@ import 'package:share_plus/share_plus.dart';
 class ClipboardService {
   static const _channel = MethodChannel('com.memehelper.app/clipboard');
 
+  static Future<String?> readText() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      return data?.text;
+    } catch (e) {
+      return null;
+    }
+  }
+
   static Future<bool> copyImageToClipboard(String filePath) async {
     try {
       final file = File(filePath);
