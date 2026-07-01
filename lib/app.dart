@@ -86,10 +86,7 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     final preview = paths.take(3).map((p) => p.length > 80 ? '${p.substring(0, 80)}...' : p).toList();
     _log.info('Intent', 'getPendingFiles returned ${paths.length} paths: $preview');
     if (paths.isNotEmpty && mounted) {
-      _log.info('Intent', 'push ImportReceiverScreen via Navigator');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _pushImportReceiver(paths);
-      });
+      _showImportSheet(paths);
       return;
     }
     if (mounted) {
@@ -103,10 +100,7 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     final preview = paths.take(3).map((p) => p.length > 80 ? '${p.substring(0, 80)}...' : p).toList();
     _log.info('Intent', 'getPendingFiles returned ${paths.length} paths: $preview');
     if (paths.isNotEmpty && mounted) {
-      _log.info('Intent', 'push ImportReceiverScreen via Navigator (resume)');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _pushImportReceiver(paths);
-      });
+      _showImportSheet(paths);
       return;
     }
     if (mounted && !_clipboardCheckBusy) {
@@ -115,17 +109,14 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     }
   }
 
-  /// 分享/剪贴板导入的统一入口：先回到首页，再弹出底部预览弹窗
-  void _pushImportReceiver(List<String> paths) {
-    if (!mounted || _navCtx == null) return;
-    _log.info('Intent', 'popToRoot + showImportPreviewSheet');
-    // 回到导航栈根（首页）
-    Navigator.of(_navCtx!).popUntil((route) => route.isFirst);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_navCtx != null && mounted) {
-        showImportPreviewSheet(_navCtx!, paths);
-      }
-    });
+  /// 在当前页面弹出导入预览弹窗（不跳转首页，避免导航时序冲突）
+  void _showImportSheet(List<String> paths) {
+    if (!mounted || _navCtx == null) {
+      _log.warning('Intent', '_navCtx null, cannot show import sheet');
+      return;
+    }
+    _log.info('Intent', 'showImportPreviewSheet');
+    showImportPreviewSheet(_navCtx!, paths);
   }
 
   /// app 启动时检查剪贴板（无需延迟）
