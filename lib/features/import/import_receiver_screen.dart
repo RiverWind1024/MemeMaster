@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -106,6 +107,7 @@ class _ImportReceiverScreenState extends ConsumerState<ImportReceiverScreen> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('[ImportReceiverScreen] build called, filePaths=${widget.filePaths?.length}');
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 

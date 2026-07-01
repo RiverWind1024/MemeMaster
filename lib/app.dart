@@ -75,8 +75,8 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     final preview = paths.take(3).map((p) => p.length > 80 ? '${p.substring(0, 80)}...' : p).toList();
     _log.info('Intent', 'getPendingFiles returned ${paths.length} paths: $preview');
     if (paths.isNotEmpty && mounted) {
-      _log.info('Intent', 'pushing import-receive with ${paths.length} files');
-      context.pushNamed('import-receive', extra: paths);
+      _log.info('Intent', 'goNamed import-receive');
+      GoRouter.of(context).goNamed('import-receive', extra: paths);
       return;
     }
     if (mounted) {
@@ -90,8 +90,8 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     final preview = paths.take(3).map((p) => p.length > 80 ? '${p.substring(0, 80)}...' : p).toList();
     _log.info('Intent', 'getPendingFiles returned ${paths.length} paths: $preview');
     if (paths.isNotEmpty && mounted) {
-      _log.info('Intent', 'pushing import-receive with ${paths.length} files');
-      context.pushNamed('import-receive', extra: paths);
+      _log.info('Intent', 'goNamed import-receive');
+      GoRouter.of(context).goNamed('import-receive', extra: paths);
       return;
     }
     if (mounted && !_clipboardCheckBusy) {
