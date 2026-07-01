@@ -25,6 +25,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        android.util.Log.d(tag, "configureFlutterEngine called, intent=$intent")
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -90,6 +91,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        android.util.Log.d(tag, "onNewIntent called: action=${intent.action} data=${intent.data}")
         handleIntent(intent)
     }
 

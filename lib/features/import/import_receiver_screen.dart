@@ -29,14 +29,20 @@ class _ImportReceiverScreenState extends ConsumerState<ImportReceiverScreen> {
   }
 
   Future<void> _doImport() async {
+    final log = ref.read(logServiceProvider);
+
     List<String> paths;
     if (widget.filePaths != null && widget.filePaths!.isNotEmpty) {
       paths = widget.filePaths!;
+      log.info('ImportReceiver', '使用 widget.filePaths: ${paths.length} paths');
     } else {
+      log.info('ImportReceiver', '调用 getPendingFiles...');
       paths = await SharedMediaHandler().getPendingFiles();
+      log.info('ImportReceiver', 'getPendingFiles 返回 ${paths.length} 条: ${paths.take(3)}');
     }
 
     if (paths.isEmpty) {
+      log.warning('ImportReceiver', '没有待导入文件');
       if (mounted) {
         setState(() {
           _importing = false;
@@ -47,6 +53,7 @@ class _ImportReceiverScreenState extends ConsumerState<ImportReceiverScreen> {
     }
 
     setState(() => _total = paths.length);
+    log.info('ImportReceiver', '开始导入 $_total 个文件');
 
     final service = ref.read(importServiceProvider);
     int success = 0;
@@ -54,25 +61,31 @@ class _ImportReceiverScreenState extends ConsumerState<ImportReceiverScreen> {
     final errors = <String>[];
 
     for (final rawPath in paths) {
-      // 如果路径是 content:// 或 file:// URI，先用原生方法复制到缓存
       String? localPath = rawPath;
       if (rawPath.startsWith('content://') || rawPath.startsWith('file://')) {
+        log.info('ImportReceiver', '检测到 URI 类型的路径: $rawPath');
         localPath = await SharedMediaHandler().copyContentUri(rawPath);
         if (localPath == null) {
+          log.error('ImportReceiver', 'copyContentUri 失败: $rawPath');
           errors.add('$rawPath: 无法读取 URI');
           if (mounted) setState(() => _processed++);
           continue;
         }
+        log.info('ImportReceiver', 'URI 已复制到缓存: $localPath');
       }
 
       try {
+        log.info('ImportReceiver', '正在导入: $localPath');
         final meme = await service.importImage(localPath);
         if (meme != null) {
           success++;
+          log.info('ImportReceiver', '导入成功: ${meme.filename}');
         } else {
           skipped++;
+          log.info('ImportReceiver', '跳过（已存在）: $localPath');
         }
       } catch (e) {
+        log.error('ImportReceiver', '导入异常: $localPath -> $e');
         errors.add('$localPath: $e');
       }
       if (mounted) {
@@ -80,6 +93,7 @@ class _ImportReceiverScreenState extends ConsumerState<ImportReceiverScreen> {
       }
     }
 
+    log.info('ImportReceiver', '导入完成: 成功=$success 跳过=$skipped 错误=${errors.length}');
     if (mounted) {
       setState(() {
         _result = ImportResult(success: success, skipped: skipped, errors: errors);
