@@ -222,7 +222,10 @@ class MainActivity : FlutterActivity() {
             }
         } catch (_: Exception) {}
 
-        val destFile = File(cacheDir, "share_import/$fileName$ext")
+        // 如果 fileName 已有扩展名（来自 DISPLAY_NAME），不再重复拼接 ext
+        val finalName = if (fileName.contains('.')) fileName else "$fileName$ext"
+
+        val destFile = File(cacheDir, "share_import/$finalName")
         destFile.parentFile?.mkdirs()
         destFile.outputStream().use { output ->
             inputStream.copyTo(output)
