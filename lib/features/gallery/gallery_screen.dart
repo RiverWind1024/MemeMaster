@@ -490,11 +490,11 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               _closeRadial();
               switch (i) {
                 case 0:
-                  context.pushNamed('import');
-                case 1:
-                  _importFromClipboard();
-                case 2:
                   context.pushNamed('scan');
+                case 1:
+                  context.pushNamed('import');
+                case 2:
+                  _importFromClipboard();
                 case 3:
                   _showNewAlbumDialog();
               }
