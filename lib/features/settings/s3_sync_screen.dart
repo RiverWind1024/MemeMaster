@@ -20,6 +20,8 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
   S3SyncProgress _lastProgress = const S3SyncProgress();
   bool _testingConnection = false;
   bool? _connectionOk;
+  SyncStats? _storageStats;
+  bool _loadingStats = false;
 
   @override
   void dispose() {
@@ -50,6 +52,28 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
       _testingConnection = false;
       _connectionOk = ok;
     });
+  }
+
+  Future<void> _refreshStorageStats() async {
+    setState(() {
+      _loadingStats = true;
+      _storageStats = null;
+    });
+    try {
+      final stats =
+          await ref.read(s3SyncServiceProvider).getStorageStats();
+      if (mounted) {
+        setState(() => _storageStats = stats);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('获取 S3 存储统计失败，请检查配置')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingStats = false);
+    }
   }
 
   Future<void> _showClearPasswordDialog() async {
@@ -459,45 +483,52 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
             const SizedBox(height: 16),
           ],
 
-          // ---- 存储统计 ----
+          // ---- 存储统计（手动触发） ----
           Text('存储统计', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Card(
-            child: FutureBuilder<SyncStats>(
-              future: inProgress
-                  ? null
-                  : ref.read(s3SyncServiceProvider).getStorageStats(),
-              builder: (context, snapshot) {
-                final stats = snapshot.data;
-                return Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.cloud),
-                      title: const Text('S3 存储'),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.cloud),
+                  title: const Text('S3 存储'),
+                  subtitle: Text(
+                    _storageStats != null
+                        ? '${_formatBytes(_storageStats!.totalBytes)} · ${_storageStats!.objectCount} 个文件'
+                        : _loadingStats
+                            ? '统计中...'
+                            : '点击右侧按钮刷新',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  trailing: TextButton.icon(
+                    icon: _loadingStats
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh, size: 18),
+                    label: const Text('刷新'),
+                    onPressed: isConfigured && !_loadingStats
+                        ? _refreshStorageStats
+                        : null,
+                  ),
+                ),
+                FutureBuilder<int>(
+                  future: ref.read(fileStorageServiceProvider).storageUsed(),
+                  builder: (ctx, localSnapshot) {
+                    final localBytes = localSnapshot.data ?? 0;
+                    return ListTile(
+                      leading: const Icon(Icons.storage),
+                      title: const Text('本地存储'),
                       subtitle: Text(
-                        stats != null
-                            ? '${_formatBytes(stats.totalBytes)} · ${stats.objectCount} 个文件'
-                            : '加载中...',
+                        _formatBytes(localBytes),
                         style: theme.textTheme.bodySmall,
                       ),
-                    ),
-                    FutureBuilder<int>(
-                      future: ref.read(fileStorageServiceProvider).storageUsed(),
-                      builder: (ctx, localSnapshot) {
-                        final localBytes = localSnapshot.data ?? 0;
-                        return ListTile(
-                          leading: const Icon(Icons.storage),
-                          title: const Text('本地存储'),
-                          subtitle: Text(
-                            _formatBytes(localBytes),
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                );
-              },
+                    );
+                  },
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
