@@ -441,6 +441,33 @@ final autoSyncIntervalProvider =
   AutoSyncIntervalNotifier.new,
 );
 
+// ---- 分析进度 ----
+
+class AnalysisProgress {
+  final int queued;
+  final int running;
+  final int total;
+  const AnalysisProgress({
+    this.queued = 0,
+    this.running = 0,
+  }) : total = queued + running;
+  bool get isEmpty => total == 0;
+}
+
+final analysisProgressProvider = StreamProvider<AnalysisProgress>((ref) async* {
+  while (true) {
+    await Future.delayed(const Duration(seconds: 3));
+    final queueDao = ref.read(queueDaoProvider);
+    try {
+      final queued = await queueDao.countQueued();
+      final running = (await queueDao.getRunning()).length;
+      yield AnalysisProgress(queued: queued, running: running);
+    } catch (_) {
+      yield const AnalysisProgress();
+    }
+  }
+});
+
 final memesByAlbumProvider = FutureProvider.family<List<Meme>, String>((ref, albumId) async {
   final albumDao = ref.read(albumDaoProvider);
   final memeIds = await albumDao.getMemeIdsByAlbum(albumId);
