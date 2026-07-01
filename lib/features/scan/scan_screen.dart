@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -257,7 +258,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
             },
             child: const ListTile(
               leading: Icon(Icons.edit),
-              title: Text('自定义路径…'),
+              title: Text('选择目录…'),
             ),
           ),
         ],
@@ -276,45 +277,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   }
 
   Future<void> _showCustomPathInput() async {
-    final ctl = TextEditingController();
-    final dir = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('输入目录路径'),
-        content: TextField(
-          controller: ctl,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: '/storage/emulated/0/…',
-            border: const OutlineInputBorder(),
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.paste),
-              onPressed: () async {
-                // 尝试从剪贴板读取路径
-              },
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, ctl.text.trim()),
-            child: const Text('确定'),
-          ),
-        ],
-      ),
-    );
-
-    if (dir != null && dir.isNotEmpty && mounted) {
-      if (!Directory(dir).existsSync()) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('目录不存在: $dir')),
-        );
-        return;
-      }
+    // 使用系统目录选择器（SAF）
+    final dir = await _pickDirectoryWithFileSelector();
+    if (dir != null && mounted) {
       setState(() {
         _scanDir = dir;
         _allImages = [];
@@ -322,6 +287,35 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
         _progress = null;
       });
       _startScan();
+    }
+  }
+
+  /// 调用 file_selector 的系统目录选择器，返回真实文件路径
+  Future<String?> _pickDirectoryWithFileSelector() async {
+    try {
+      final uriStr = await getDirectoryPath();
+      if (uriStr == null) return null;
+
+      // content://com.android.externalstorage.documents/tree/primary%3ADownload
+      // → /storage/emulated/0/Download
+      final uri = Uri.tryParse(uriStr);
+      if (uri == null) return null;
+
+      final pathSegment = uri.pathSegments.last; // "primary%3ADownload"
+      final decoded = Uri.decodeComponent(pathSegment); // "primary:Download"
+
+      if (decoded.startsWith('primary:')) {
+        return '/storage/emulated/0/${decoded.substring(8)}';
+      }
+      // 外置 SD 卡：XXXX-XXXX:path
+      return '/storage/$decoded';
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('选择目录失败: $e')),
+        );
+      }
+      return null;
     }
   }
 
