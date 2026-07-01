@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'features/gallery/gallery_provider.dart';
+import 'features/import/import_receiver_screen.dart';
 import 'router.dart';
 import 'services/log_service.dart';
 import 'services/shared_media_handler.dart';
@@ -85,17 +86,9 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     final preview = paths.take(3).map((p) => p.length > 80 ? '${p.substring(0, 80)}...' : p).toList();
     _log.info('Intent', 'getPendingFiles returned ${paths.length} paths: $preview');
     if (paths.isNotEmpty && mounted) {
-      _log.info('Intent', 'push /import/receive');
+      _log.info('Intent', 'push ImportReceiverScreen via Navigator');
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          try {
-            GoRouter.of(context).push('/import/receive', extra: paths);
-          } catch (e) {
-            _log.error('Intent', 'push /import/receive failed: $e');
-          }
-        } else {
-          _log.warning('Intent', 'push skipped: not mounted');
-        }
+        _pushImportReceiver(paths);
       });
       return;
     }
@@ -110,24 +103,31 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     final preview = paths.take(3).map((p) => p.length > 80 ? '${p.substring(0, 80)}...' : p).toList();
     _log.info('Intent', 'getPendingFiles returned ${paths.length} paths: $preview');
     if (paths.isNotEmpty && mounted) {
-      _log.info('Intent', 'push /import/receive (scheduled post-frame)');
+      _log.info('Intent', 'push ImportReceiverScreen via Navigator (resume)');
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          try {
-            GoRouter.of(context).push('/import/receive', extra: paths);
-          } catch (e) {
-            _log.error('Intent', 'push /import/receive failed: $e');
-          }
-        } else {
-          _log.warning('Intent', 'push skipped: not mounted');
-        }
+        _pushImportReceiver(paths);
       });
       return;
     }
     if (mounted && !_clipboardCheckBusy) {
       _clipboardRetryCount = 0;
-      _scheduleClipboardCheck(delay: const Duration(seconds: 2));
+      _scheduleClipboardCheck(delay: const Duration(milliseconds: 500));
     }
+  }
+
+  /// 绕过 GoRouter（14.x null bug），直接用 Navigator 推 ImportReceiverScreen
+  void _pushImportReceiver(List<String> paths) {
+    if (!mounted) return;
+    final navState = rootNavigatorKey.currentState;
+    if (navState == null) {
+      _log.error('Intent', 'rootNavigatorState is null, cannot push');
+      return;
+    }
+    navState.push(MaterialPageRoute(
+      builder: (_) => ImportReceiverScreen(filePaths: paths),
+      settings: const RouteSettings(name: 'import-receive'),
+    ));
+    _log.info('Intent', 'Navigator.push ImportReceiverScreen done');
   }
 
   /// app 启动时检查剪贴板（无需延迟）
