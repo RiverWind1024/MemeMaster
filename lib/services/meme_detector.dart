@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 
 import '../core/ocr/ocr_service.dart';
 
+typedef DetectorLogger = void Function(String tag, String message);
+
 class MemeDetectionResult {
   final String filePath;
   final double score;
@@ -47,6 +49,15 @@ class ScanProgress {
 
 /// OCR + 文本位置分析判断 meme，阈值 ≥0.5
 class MemeDetector {
+  final DetectorLogger? logger;
+
+  MemeDetector({this.logger});
+
+  void _log(String msg) {
+    if (logger != null) logger!('MemeDetector', msg);
+    _log( $msg');
+  }
+
   static const double _topBand = 0.30;
   static const double _bottomBand = 0.25;
   static const double _wideThreshold = 0.6;
@@ -59,15 +70,15 @@ class MemeDetector {
 
     final fileSize = await file.length();
     if (fileSize < 1024 || fileSize > 2 * 1024 * 1024) {
-      debugPrint('[MemeDetector] detect: size filter $imagePath size=$fileSize');
+      _log( detect: size filter $imagePath size=$fileSize');
       return MemeDetectionResult(filePath: imagePath, score: 0);
     }
     final dims = await _imageDimensions(imagePath);
     if (dims.$1 == 0 || dims.$2 == 0) {
-      debugPrint('[MemeDetector] detect: cannot read dimensions $imagePath');
+      _log( detect: cannot read dimensions $imagePath');
     }
 
-    debugPrint('[MemeDetector] detect: OCR starting $imagePath ${dims.$1}x${dims.$2}');
+    _log( detect: OCR starting $imagePath ${dims.$1}x${dims.$2}');
     final imgW = dims.$1;
     final imgH = dims.$2;
 
@@ -116,7 +127,7 @@ class MemeDetector {
     bool isTooLarge = fileSize > 2 * 1024 * 1024;       // > 2MB：高清照片
 
     // ---- 打分 ----
-    debugPrint('[MemeDetector] OCR done: "${ocrResult.text.substring(0, (ocrResult.text.length).clamp(0, 50))}" '
+    _log( OCR done: "${ocrResult.text.substring(0, (ocrResult.text.length).clamp(0, 50))}" '
         '${ocrResult.blocks.length}blocks top=$hasTop bottom=$hasBottom wide=$hasWide');
 
     double score = 0;
@@ -138,7 +149,7 @@ class MemeDetector {
 
     score = score.clamp(0.0, 1.0);
 
-    debugPrint('[MemeDetector] score=${score.toStringAsFixed(2)} isMeme=${score >= 0.5} '
+    _log( score=${score.toStringAsFixed(2)} isMeme=${score >= 0.5} '
         '${imagePath.split('/').last}');
 
     return MemeDetectionResult(
@@ -186,7 +197,7 @@ class MemeDetector {
   static List<String> scanDirectory(String dirPath) {
     final dir = Directory(dirPath);
     if (!dir.existsSync()) {
-      debugPrint('[MemeDetector] scanDirectory: dir not found: $dirPath');
+      _log( scanDirectory: dir not found: $dirPath');
       return [];
     }
     final images = <String>[];
@@ -198,21 +209,21 @@ class MemeDetector {
           if (!exts.any((e) => name.endsWith(e))) continue;
           final size = entity.statSync().size;
           if (size < 1024 || size > 2 * 1024 * 1024) {
-            debugPrint('[MemeDetector] skip ${entity.path}: size=${size}B');
+            _log( skip ${entity.path}: size=${size}B');
             continue;
           }
           images.add(entity.path);
         }
       }
     } catch (e) {
-      debugPrint('[MemeDetector] scanDirectory error: $e');
+      _log( scanDirectory error: $e');
     }
-    debugPrint('[MemeDetector] scanDirectory found ${images.length} images in $dirPath');
+    _log( scanDirectory found ${images.length} images in $dirPath');
     return images;
   }
 
-  static Stream<ScanProgress> batchDetect(List<String> imagePaths) async* {
-    final detector = MemeDetector();
+  static Stream<ScanProgress> batchDetect(List<String> imagePaths, {DetectorLogger? logger}) async* {
+    final detector = MemeDetector(logger: logger);
     int memesFound = 0, textFound = 0, noText = 0, completed = 0;
     final total = imagePaths.length;
     for (int i = 0; i < imagePaths.length; i += 5) {
