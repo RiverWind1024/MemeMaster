@@ -32,6 +32,7 @@ class _AppBody extends ConsumerStatefulWidget {
 }
 
 class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver {
+  final DateTime _appStartTime = DateTime.now();
   String? _lastClipboardPath;
   int _clipboardRetryCount = 0;
   static const _maxClipboardRetries = 3;
@@ -42,8 +43,11 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
 
   @override
   void initState() {
+    final t0 = DateTime.now();
     super.initState();
+    debugPrint('[Startup] _AppBodyState.initState: ${t0.difference(_appStartTime).inMilliseconds}ms');
     SharedMediaHandler.init();
+    debugPrint('[Startup] SharedMediaHandler.init: ${DateTime.now().difference(t0).inMilliseconds}ms');
     SharedMediaHandler.onNativeEvent = (method) {
       if (method == 'onNewIntent' && mounted) {
         _log.info('Intent', 'native onNewIntent event → checking pending files');
@@ -51,7 +55,11 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
       }
     };
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkOnStart());
+    debugPrint('[Startup] addObserver: ${DateTime.now().difference(t0).inMilliseconds}ms');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      debugPrint('[Startup] postFrameCallback: ${DateTime.now().difference(_appStartTime).inMilliseconds}ms');
+      _checkOnStart();
+    });
   }
 
   @override

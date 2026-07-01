@@ -34,7 +34,10 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 // ---- Database ----
 
 final databaseProvider = Provider<AppDatabase>((ref) {
-  return AppDatabase();
+  final t0 = DateTime.now();
+  final db = AppDatabase();
+  debugPrint('[Startup] AppDatabase created: ${DateTime.now().difference(t0).inMilliseconds}ms');
+  return db;
 });
 
 // ---- DAOs ----
@@ -139,6 +142,7 @@ final colorExtractionConfigProvider =
 );
 
 final analysisSchedulerProvider = Provider<AnalysisQueueScheduler>((ref) {
+  final t0 = DateTime.now();
   final config = ref.watch(colorExtractionConfigProvider);
   final scheduler = AnalysisQueueScheduler(
     queueDao: ref.read(queueDaoProvider),
@@ -147,6 +151,8 @@ final analysisSchedulerProvider = Provider<AnalysisQueueScheduler>((ref) {
     storage: ref.read(fileStorageServiceProvider),
     log: ref.read(logServiceProvider),
   );
+
+  debugPrint('[Startup] Scheduler created: ${DateTime.now().difference(t0).inMilliseconds}ms');
 
   // 同步颜色提取配置到调度器（运行时修改会即时生效）
   scheduler.setColorExtractionConfig(config);
@@ -165,6 +171,7 @@ final analysisSchedulerProvider = Provider<AnalysisQueueScheduler>((ref) {
   scheduler.setLlmEnabled(ref.read(llmEnabledProvider));
 
   scheduler.start();
+  debugPrint('[Startup] Scheduler started: ${DateTime.now().difference(t0).inMilliseconds}ms');
 
   ref.onDispose(() {
     scheduler.stop();
