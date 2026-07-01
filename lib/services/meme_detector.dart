@@ -53,9 +53,9 @@ class MemeDetector {
 
   MemeDetector({this.logger});
 
-  void _log(String msg) {
-    if (logger != null) logger!('MemeDetector', msg);
-    _log('$msg');
+  static void _log(String msg, {DetectorLogger? logger}) {
+    if (logger != null) logger('MemeDetector', msg);
+    debugPrint('[MemeDetector] $msg');
   }
 
   static const double _topBand = 0.30;
