@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:ui' show Rect;
 
+import 'package:flutter/foundation.dart';
+
 import '../core/ocr/ocr_service.dart';
 
 class MemeDetectionResult {
@@ -57,9 +59,15 @@ class MemeDetector {
 
     final fileSize = await file.length();
     if (fileSize < 1024 || fileSize > 2 * 1024 * 1024) {
+      debugPrint('[MemeDetector] detect: size filter $imagePath size=$fileSize');
       return MemeDetectionResult(filePath: imagePath, score: 0);
     }
     final dims = await _imageDimensions(imagePath);
+    if (dims.$1 == 0 || dims.$2 == 0) {
+      debugPrint('[MemeDetector] detect: cannot read dimensions $imagePath');
+    }
+
+    debugPrint('[MemeDetector] detect: OCR starting $imagePath ${dims.$1}x${dims.$2}');
     final imgW = dims.$1;
     final imgH = dims.$2;
 
@@ -108,6 +116,9 @@ class MemeDetector {
     bool isTooLarge = fileSize > 2 * 1024 * 1024;       // > 2MB：高清照片
 
     // ---- 打分 ----
+    debugPrint('[MemeDetector] OCR done: "${ocrResult.text.substring(0, (ocrResult.text.length).clamp(0, 50))}" '
+        '${ocrResult.blocks.length}blocks top=$hasTop bottom=$hasBottom wide=$hasWide');
+
     double score = 0;
     if (ocrResult.text.isNotEmpty) score += 0.25;
     if (hasTop && hasBottom)      score += 0.45;
@@ -126,6 +137,9 @@ class MemeDetector {
     if (isTooSmall || isTooLarge)  score -= 0.15;
 
     score = score.clamp(0.0, 1.0);
+
+    debugPrint('[MemeDetector] score=${score.toStringAsFixed(2)} isMeme=${score >= 0.5} '
+        '${imagePath.split('/').last}');
 
     return MemeDetectionResult(
       filePath: imagePath,
@@ -171,7 +185,10 @@ class MemeDetector {
 
   static List<String> scanDirectory(String dirPath) {
     final dir = Directory(dirPath);
-    if (!dir.existsSync()) return [];
+    if (!dir.existsSync()) {
+      debugPrint('[MemeDetector] scanDirectory: dir not found: $dirPath');
+      return [];
+    }
     final images = <String>[];
     const exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.avif'};
     try {
@@ -180,11 +197,17 @@ class MemeDetector {
           final name = entity.path.toLowerCase();
           if (!exts.any((e) => name.endsWith(e))) continue;
           final size = entity.statSync().size;
-          if (size < 1024 || size > 2 * 1024 * 1024) continue; // 硬过滤
+          if (size < 1024 || size > 2 * 1024 * 1024) {
+            debugPrint('[MemeDetector] skip ${entity.path}: size=${size}B');
+            continue;
+          }
           images.add(entity.path);
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[MemeDetector] scanDirectory error: $e');
+    }
+    debugPrint('[MemeDetector] scanDirectory found ${images.length} images in $dirPath');
     return images;
   }
 

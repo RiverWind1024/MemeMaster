@@ -321,32 +321,73 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
 
   Future<void> _startScan() async {
     if (_scanDir == null) return;
+
+    debugPrint('[Scan] startScan: $_scanDir');
     setState(() {
       _scanning = true;
       _memes = [];
       _progress = null;
     });
 
+    // 1. 扫描目录
     final images = MemeDetector.scanDirectory(_scanDir!);
     _allImages = images;
+    debugPrint('[Scan] scanDirectory found ${images.length} images');
 
+    if (images.isEmpty) {
+      if (mounted) {
+        setState(() => _scanning = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('该目录未找到图片文件')),
+        );
+      }
+      return;
+    }
+
+    // 2. 批量检测（每批5张并发），直接收集结果
+    int memesFound = 0, textFound = 0, noText = 0, completed = 0;
+    final total = images.length;
     final memes = <MemeDetectionResult>[];
-    await for (final progress in MemeDetector.batchDetect(images)) {
+
+    for (int i = 0; i < images.length; i += 5) {
       if (!mounted) return;
-      setState(() => _progress = progress);
+      final batch = images.skip(i).take(5).toList();
+      debugPrint('[Scan] batch ${i ~/ 5 + 1}/${(total + 4) ~/ 5}');
+
+      final results = await Future.wait(
+          batch.map((p) => MemeDetector().detect(p)));
+
+      for (final r in results) {
+        completed++;
+        debugPrint('[Scan] ${r.filePath.split('/').last}: score=${r.score.toStringAsFixed(2)}'
+            ' text=${r.text?.substring(0, (r.text?.length ?? 0).clamp(0, 30))}');
+        if (r.isMeme) {
+          memesFound++;
+          memes.add(r);
+        } else if (r.text != null && r.text!.isNotEmpty) {
+          textFound++;
+        } else {
+          noText++;
+        }
+        if (mounted) {
+          setState(() => _progress = ScanProgress(
+            total: total, completed: completed,
+            memesFound: memesFound, textFound: textFound, noText: noText,
+            currentFile: r.filePath,
+          ));
+        }
+      }
     }
 
-    // Collect all meme results
-    for (final img in images) {
-      if (!mounted) return;
-      final r = await MemeDetector().detect(img);
-      if (r.isMeme) memes.add(r);
-    }
-
+    debugPrint('[Scan] done: memes=$memesFound text=$textFound noText=$noText');
     if (mounted) {
       setState(() {
         _memes = memes;
         _scanning = false;
+        _progress = ScanProgress(
+          total: total, completed: completed,
+          memesFound: memesFound, textFound: textFound, noText: noText,
+        );
       });
     }
   }
