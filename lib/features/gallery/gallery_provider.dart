@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/database/database.dart';
@@ -269,38 +270,52 @@ final llmEnabledProvider =
 
 // ---- S3 同步 ----
 
-class S3ConfigNotifier extends Notifier<S3Config> {
+/// S3 配置持久化到 FlutterSecureStorage（密钥不会明文暴露）
+class S3ConfigNotifier extends AsyncNotifier<S3Config> {
   @override
-  S3Config build() {
+  Future<S3Config> build() async {
     try {
-      final prefs = ref.read(sharedPreferencesProvider);
-      final jsonStr = prefs.getString('s3_config');
-      if (jsonStr != null) {
-        return S3Config.fromJson(jsonDecode(jsonStr) as Map<String, dynamic>);
-      }
-    } catch (_) {}
-    return const S3Config();
+      const storage = FlutterSecureStorage();
+      return S3Config(
+        endpoint: await storage.read(key: 's3_endpoint') ?? '',
+        bucket: await storage.read(key: 's3_bucket') ?? '',
+        region: await storage.read(key: 's3_region') ?? 'us-east-1',
+        accessKey: await storage.read(key: 's3_access_key') ?? '',
+        secretKey: await storage.read(key: 's3_secret_key') ?? '',
+        useSsl: true,
+        pathStyle: true,
+        connectTimeout: 30,
+      );
+    } catch (_) {
+      return const S3Config();
+    }
   }
 
-  void update(S3Config config) {
-    state = config;
-    try {
-      ref
-          .read(sharedPreferencesProvider)
-          .setString('s3_config', jsonEncode(config.toJson()));
-    } catch (_) {}
+  Future<void> save(S3Config config) async {
+    state = AsyncData(config);
+    const storage = FlutterSecureStorage();
+    await Future.wait([
+      storage.write(key: 's3_endpoint', value: config.endpoint),
+      storage.write(key: 's3_bucket', value: config.bucket),
+      storage.write(key: 's3_region', value: config.region),
+      storage.write(key: 's3_access_key', value: config.accessKey),
+      storage.write(key: 's3_secret_key', value: config.secretKey),
+    ]);
   }
 }
 
 final s3ConfigProvider =
-    NotifierProvider<S3ConfigNotifier, S3Config>(S3ConfigNotifier.new);
+    AsyncNotifierProvider<S3ConfigNotifier, S3Config>(S3ConfigNotifier.new);
 
 final s3SyncServiceProvider = Provider<S3SyncService>((ref) {
   final service = S3SyncService(
     memeRepo: ref.read(memeRepositoryProvider),
     storage: ref.read(fileStorageServiceProvider),
   );
-  service.updateConfig(ref.read(s3ConfigProvider));
+  final config = ref.read(s3ConfigProvider).valueOrNull;
+  if (config != null) {
+    service.updateConfig(config);
+  }
   return service;
 });
 
@@ -362,7 +377,6 @@ final themeModeProvider =
 
 final memesByAlbumProvider = FutureProvider.family<List<Meme>, String>((ref, albumId) async {
   final albumDao = ref.read(albumDaoProvider);
-  final memeRepo = ref.read(memeRepositoryProvider);
   final memeIds = await albumDao.getMemeIdsByAlbum(albumId);
   if (memeIds.isEmpty) return [];
   final allMemes = await ref.watch(memeListProvider.future);

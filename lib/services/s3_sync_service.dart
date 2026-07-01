@@ -36,6 +36,7 @@ class S3SyncService {
       secretKey: _config.secretKey,
       region: _config.region,
       useSSL: _config.useSsl,
+      pathStyle: _config.pathStyle,
     );
     return _client!;
   }
