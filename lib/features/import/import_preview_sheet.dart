@@ -33,18 +33,26 @@ class _ImportPreviewSheet extends ConsumerStatefulWidget {
 }
 
 class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
+  final PageController _pageCtrl = PageController();
   bool _importing = false;
   bool _done = false;
   int _successCount = 0;
   int _skipCount = 0;
   String? _error;
+  int _currentPage = 0;
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final single = widget.paths.length == 1;
-    final previewPath = widget.paths.first;
+    final count = widget.paths.length;
+    final single = count == 1;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -76,28 +84,58 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
                 ? '导入完成'
                 : single
                     ? '导入图片'
-                    : '导入 ${widget.paths.length} 张图片',
+                    : '导入 $count 张图片',
             style: theme.textTheme.titleLarge,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
-          // 图片预览
+          // 图片预览（可滑动画廊）
           if (!_done) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: _ImagePreview(filePath: previewPath),
-            ),
-            if (!single)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  '共 ${widget.paths.length} 张图片',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.outline,
-                  ),
-                ),
+            SizedBox(
+              height: 180,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: count == 1
+                    ? _ImagePreview(filePath: widget.paths.first)
+                    : Stack(
+                        children: [
+                          PageView(
+                            controller: _pageCtrl,
+                            onPageChanged: (i) =>
+                                setState(() => _currentPage = i),
+                            children: widget.paths
+                                .map((p) => _ImagePreview(filePath: p))
+                                .toList(),
+                          ),
+                          // 翻页指示点
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 8,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(count, (i) {
+                                return AnimatedContainer(
+                                  duration: const Duration(milliseconds: 250),
+                                  margin:
+                                      const EdgeInsets.symmetric(horizontal: 3),
+                                  width: _currentPage == i ? 20 : 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: _currentPage == i
+                                        ? Colors.white
+                                        : Colors.white38,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                );
+                              }),
+                            ),
+                          ),
+                        ],
+                      ),
               ),
-            const SizedBox(height: 20),
+            ),
+            const SizedBox(height: 16),
 
             // 导入 / 取消 按钮
             Row(
@@ -185,7 +223,7 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
   }
 }
 
-/// 异步加载图片文件预览
+/// 填充父容器的图片预览（父 SizedBox height:180 控制高度）
 class _ImagePreview extends StatelessWidget {
   final String filePath;
   const _ImagePreview({required this.filePath});
@@ -197,7 +235,6 @@ class _ImagePreview extends StatelessWidget {
 
     if (!file.existsSync()) {
       return Container(
-        height: 200,
         color: theme.colorScheme.surfaceContainerHighest,
         child: Center(
           child: Column(
@@ -212,18 +249,14 @@ class _ImagePreview extends StatelessWidget {
       );
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Image.file(
-        file,
-        height: 260,
-        width: double.infinity,
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => Container(
-          height: 200,
-          color: theme.colorScheme.surfaceContainerHighest,
-          child: const Center(child: Icon(Icons.broken_image)),
-        ),
+    return Image.file(
+      file,
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) => Container(
+        color: theme.colorScheme.surfaceContainerHighest,
+        child: const Center(child: Icon(Icons.broken_image)),
       ),
     );
   }
