@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../services/import_service.dart';
+import '../../services/log_service.dart';
 import '../../services/shared_media_handler.dart';
 import '../gallery/gallery_provider.dart';
 
@@ -108,6 +109,7 @@ class _ImportReceiverScreenState extends ConsumerState<ImportReceiverScreen> {
   @override
   Widget build(BuildContext context) {
     debugPrint('[ImportReceiverScreen] build called, filePaths=${widget.filePaths?.length}');
+    ref.read(logServiceProvider).info('ImportReceiver', 'build called, filePaths=${widget.filePaths?.length}');
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
