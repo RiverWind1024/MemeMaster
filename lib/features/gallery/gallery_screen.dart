@@ -333,15 +333,58 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   ) {
     if (_tabController == null) return const SizedBox();
 
-    return TabBarView(
-      controller: _tabController,
+    return Column(
       children: [
-        _buildMemeGrid(memeListAsync),
-        ...albums.map((a) {
-          final albumMemes = ref.watch(memesByAlbumProvider(a.id));
-          return _buildMemeGrid(albumMemes);
-        }),
+        // 分析进度横幅
+        _buildAnalysisBanner(),
+        // 图库内容
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildMemeGrid(memeListAsync),
+              ...albums.map((a) {
+                final albumMemes = ref.watch(memesByAlbumProvider(a.id));
+                return _buildMemeGrid(albumMemes);
+              }),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildAnalysisBanner() {
+    final progressAsync = ref.watch(analysisProgressProvider);
+    final progress = progressAsync.valueOrNull;
+    if (progress == null || progress.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: theme.colorScheme.primaryContainer,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: theme.colorScheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '正在分析 ${progress.running > 0 ? '(${progress.running} 进行中)' : ''}'
+              '剩余 ${progress.total} 张…',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -789,6 +832,12 @@ class _MemeGridTile extends ConsumerWidget {
               },
             ),
           ),
+          // 分析状态角标（左下）
+          Positioned(
+            left: 4,
+            bottom: 4,
+            child: _AnalysisStatusBadge(status: meme.analysisStatus),
+          ),
           // 右上角复制按钮（始终显示）
           Positioned(
             top: 4,
@@ -857,6 +906,51 @@ class _MemeGridTile extends ConsumerWidget {
   Future<ImageProvider> _loadImage(FileStorageService storage) async {
     final file = await storage.getImage(meme.filePath);
     return FileImage(file);
+  }
+}
+
+/// 图片右下角的分析状态标记
+class _AnalysisStatusBadge extends StatelessWidget {
+  final String? status;
+  const _AnalysisStatusBadge({this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    if (status == null || status == 'done') return const SizedBox.shrink();
+
+    IconData icon;
+    Color color;
+    switch (status) {
+      case 'pending':
+        icon = Icons.schedule;
+        color = Colors.white70;
+      case 'processing':
+        icon = Icons.sync;
+        color = Colors.lightBlueAccent;
+      case 'failed':
+        icon = Icons.warning_amber;
+        color = Colors.orangeAccent;
+      default:
+        return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: const BoxDecoration(
+        color: Colors.black45,
+        shape: BoxShape.circle,
+      ),
+      child: SizedBox(
+        width: 14,
+        height: 14,
+        child: status == 'processing'
+            ? CircularProgressIndicator(
+                strokeWidth: 2,
+                color: color,
+              )
+            : Icon(icon, size: 14, color: color),
+      ),
+    );
   }
 }
 
