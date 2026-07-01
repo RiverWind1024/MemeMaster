@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'features/gallery/gallery_screen.dart';
 import 'features/gallery/meme_detail_screen.dart';
+import 'features/import/import_receiver_screen.dart';
 import 'features/import/import_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/settings/settings_screen.dart';
@@ -30,6 +31,17 @@ final router = GoRouter(
       path: '/import',
       name: 'import',
       builder: (context, state) => const ImportScreen(),
+    ),
+    GoRoute(
+      path: '/import/receive',
+      name: 'import-receive',
+      builder: (context, state) {
+        final extra = state.extra;
+        if (extra is List<String>) {
+          return ImportReceiverScreen(filePaths: extra);
+        }
+        return const ImportReceiverScreen();
+      },
     ),
     GoRoute(
       path: '/search',

@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/database/database.dart';
 import '../../services/clipboard_service.dart';
 import '../../services/file_storage_service.dart';
+import '../../services/import_service.dart';
 import 'gallery_provider.dart';
 
 class GalleryScreen extends ConsumerStatefulWidget {
@@ -19,6 +23,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   TabController? _tabController;
   int _selectedTab = 0;
   bool _selectionMode = false;
+  bool _dragOver = false;
   final Set<String> _selectedIds = {};
 
   @override
@@ -223,12 +228,44 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           _exitSelectionMode();
         }
       },
-      child: Scaffold(
-        appBar: _selectionMode ? _buildSelectionAppBar() : _buildNormalAppBar(tabCount),
-        body: _selectionMode
-            ? _buildSelectionGrid(memeListAsync)
-            : _buildTabbedBody(memeListAsync, albums),
-        floatingActionButton: _selectionMode ? null : _buildFab(),
+      child: DropTarget(
+        onDragDone: _onDrop,
+        onDragEntered: (_) => setState(() => _dragOver = true),
+        onDragExited: (_) => setState(() => _dragOver = false),
+        child: Stack(
+          children: [
+            Scaffold(
+              appBar: _selectionMode
+                  ? _buildSelectionAppBar()
+                  : _buildNormalAppBar(tabCount),
+              body: _selectionMode
+                  ? _buildSelectionGrid(memeListAsync)
+                  : _buildTabbedBody(memeListAsync, albums),
+              floatingActionButton: _selectionMode ? null : _buildFab(),
+            ),
+            if (_dragOver)
+              Container(
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.15),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.cloud_upload,
+                          size: 64,
+                          color: Theme.of(context).colorScheme.primary),
+                      const SizedBox(height: 16),
+                      Text('松开导入图片',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Theme.of(context).colorScheme.primary)),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -392,6 +429,104 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     );
   }
 
+  Future<void> _onDrop(DropDoneDetails details) async {
+    final imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+    final paths = details.files
+        .where((f) => imageExtensions.contains(f.name.split('.').last.toLowerCase()))
+        .map((f) => f.path)
+        .where((p) => p != null)
+        .cast<String>()
+        .toList();
+
+    if (paths.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('未发现图片文件')),
+        );
+      }
+      return;
+    }
+
+    final service = ref.read(importServiceProvider);
+    final result = await service.importImages(paths);
+
+    ref.invalidate(memeListProvider);
+    ref.invalidate(memeCountProvider);
+
+    if (mounted) {
+      _showImportResult(result);
+    }
+  }
+
+  Future<void> _importFromClipboard() async {
+    // 尝试读取剪贴板内容（可能为图片文件路径）
+    final clipboardData = await ClipboardService.readText();
+    if (clipboardData == null || clipboardData.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('剪贴板为空')),
+        );
+      }
+      return;
+    }
+
+    var path = clipboardData.trim();
+    // 移除可能的 file:// 前缀
+    if (path.startsWith('file://')) {
+      path = path.substring(7);
+    }
+
+    final file = File(path);
+    if (!await file.exists()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('剪贴板内容不是有效的文件路径')),
+        );
+      }
+      return;
+    }
+
+    final imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+    final ext = path.split('.').last.toLowerCase();
+    if (!imageExtensions.contains(ext)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('剪贴板文件不是图片格式')),
+        );
+      }
+      return;
+    }
+
+    final service = ref.read(importServiceProvider);
+    final result = await service.importImages([path]);
+
+    ref.invalidate(memeListProvider);
+    ref.invalidate(memeCountProvider);
+
+    if (mounted) {
+      _showImportResult(result);
+    }
+  }
+
+  void _showImportResult(ImportResult result) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(result.success > 0 ? '导入完成' : '导入结果'),
+        content: Text(
+          '成功: ${result.success}\n跳过（已存在）: ${result.skipped}'
+          '${result.errors.isNotEmpty ? '\n错误: ${result.errors.length}' : ''}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showActionSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -413,6 +548,14 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               onTap: () {
                 Navigator.pop(ctx);
                 _showNewAlbumDialog();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.content_paste),
+              title: const Text('从剪贴板导入'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _importFromClipboard();
               },
             ),
           ],
