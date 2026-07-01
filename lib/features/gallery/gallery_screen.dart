@@ -282,8 +282,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
   PreferredSizeWidget _buildNormalAppBar(int tabCount) {
     return AppBar(
-      title: const Text('MemeHelper'),
-      centerTitle: true,
+      toolbarHeight: 0,
       bottom: tabCount > 1
           ? TabBar(
               controller: _tabController,
@@ -291,6 +290,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               tabs: [
                 const Tab(text: '全部图片'),
                 ...ref.watch(albumsProvider).asData?.value
+                        .where((a) => a.isDefault != 1)
                         .map((a) => Tab(text: a.name)) ??
                     [],
               ],
@@ -341,9 +341,9 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         Expanded(
           child: TabBarView(
             controller: _tabController,
-            children: [
-              _buildMemeGrid(memeListAsync),
-              ...albums.map((a) {
+              children: [
+                _buildMemeGrid(memeListAsync),
+                ...albums.where((a) => a.isDefault != 1).map((a) {
                 final albumMemes = ref.watch(memesByAlbumProvider(a.id));
                 return _buildMemeGrid(albumMemes);
               }),
@@ -458,7 +458,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     return _buildMemeGrid(AsyncValue.data(memes));
   }
 
-  // ---- 径向菜单 FAB ----
+  // ---- 速度旋盘 FAB（MUI Speed Dial 风格）----
 
   void _toggleRadial() => setState(() => _radialOpen = !_radialOpen);
 
@@ -466,51 +466,46 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     if (_radialOpen) setState(() => _radialOpen = false);
   }
 
+  static const _fabActions = [
+    _SpeedDialAction(Icons.add_photo_alternate, '导入图片'),
+    _SpeedDialAction(Icons.content_paste, '从剪贴板导入'),
+    _SpeedDialAction(Icons.photo_library, '新建相册'),
+  ];
+
   Widget _buildFab() {
+    final theme = Theme.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        // 径向展开的菜单项
-        if (_radialOpen) ...[
-          _RadialAction(
-            icon: Icons.add_photo_alternate,
-            label: '导入图片',
-            delay: 0,
+        // 展开的动作项
+        for (int i = 0; i < _fabActions.length; i++) ...[
+          _SpeedDialItem(
+            icon: _fabActions[i].icon,
+            label: _fabActions[i].label,
+            visible: _radialOpen,
+            index: i,
             onTap: () {
               _closeRadial();
-              context.pushNamed('import');
-            },
-          ),
-          const SizedBox(height: 8),
-          _RadialAction(
-            icon: Icons.content_paste,
-            label: '从剪贴板导入',
-            delay: 50,
-            onTap: () {
-              _closeRadial();
-              _importFromClipboard();
-            },
-          ),
-          const SizedBox(height: 8),
-          _RadialAction(
-            icon: Icons.photo_library,
-            label: '新建相册',
-            delay: 100,
-            onTap: () {
-              _closeRadial();
-              _showNewAlbumDialog();
+              switch (i) {
+                case 0:
+                  context.pushNamed('import');
+                case 1:
+                  _importFromClipboard();
+                case 2:
+                  _showNewAlbumDialog();
+              }
             },
           ),
           const SizedBox(height: 12),
         ],
-        // 主 FAB
+        // 主 FAB（旋转动画）
         FloatingActionButton(
           onPressed: _toggleRadial,
-          child: AnimatedSwitcher(
-            duration: Duration(milliseconds: 200),
-            child: _radialOpen
-                ? const Icon(Icons.close, key: ValueKey('close'))
-                : const Icon(Icons.add, key: ValueKey('add')),
+          child: AnimatedRotation(
+            turns: _radialOpen ? 0.125 : 0.0, // 45°
+            duration: const Duration(milliseconds: 250),
+            child: const Icon(Icons.add),
           ),
         ),
       ],
@@ -954,50 +949,84 @@ class _AnalysisStatusBadge extends StatelessWidget {
   }
 }
 
-/// 径向菜单中的单个操作项（图标+标签，点击后执行回调）
-class _RadialAction extends StatelessWidget {
+/// 速度旋盘动作定义
+class _SpeedDialAction {
   final IconData icon;
   final String label;
-  final int delay;
+  const _SpeedDialAction(this.icon, this.label);
+}
+
+/// MUI Speed Dial 风格的动作项：左侧标签 + 右侧小圆按钮
+class _SpeedDialItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool visible;
+  final int index;
   final VoidCallback onTap;
 
-  const _RadialAction({
+  const _SpeedDialItem({
     required this.icon,
     required this.label,
-    required this.delay,
+    required this.visible,
+    required this.index,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: visible ? 1.0 : 0.0),
+      duration: const Duration(milliseconds: 250),
+      curve: Interval(
+        (index * 0.12).clamp(0.0, 0.7),
+        (0.25 + index * 0.12).clamp(0.25, 1.0),
+        curve: Curves.easeOut,
+      ),
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(20 * (1 - value), 0),
+            child: child,
+          ),
+        );
+      },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 文字标签（MUI 风格 tooltip，在左侧）
+          if (visible)
+            Container(
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-            ],
+              child: Text(label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: colorScheme.onSurface,
+                      )),
+            ),
+          // 小圆按钮（mini FAB）
+          FloatingActionButton.small(
+            heroTag: 'speed_dial_$index',
+            onPressed: visible ? onTap : null,
+            child: Icon(icon, color: colorScheme.onPrimaryContainer),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 20, color: colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(label, style: Theme.of(context).textTheme.bodyMedium),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }
