@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'features/gallery/meme_detail_screen.dart';
 import 'features/import/import_receiver_screen.dart';
 import 'features/import/import_screen.dart';
+import 'features/scan/scan_screen.dart';
 import 'features/settings/log_viewer_screen.dart';
 import 'features/settings/s3_sync_screen.dart';
 import 'main_screen.dart';
@@ -78,6 +79,11 @@ final router = GoRouter(
           path: 'settings/logs',
           name: 'logs',
           builder: (context, state) => const LogViewerScreen(),
+        ),
+        GoRoute(
+          path: 'scan',
+          name: 'scan',
+          builder: (context, state) => const ScanScreen(),
         ),
         GoRoute(
           path: 'settings/s3-sync',

@@ -467,6 +467,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   }
 
   static const _fabActions = [
+    _SpeedDialAction(Icons.search, '扫描文件夹'),
     _SpeedDialAction(Icons.add_photo_alternate, '导入图片'),
     _SpeedDialAction(Icons.content_paste, '从剪贴板导入'),
     _SpeedDialAction(Icons.photo_library, '新建相册'),
@@ -493,6 +494,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                 case 1:
                   _importFromClipboard();
                 case 2:
+                  context.pushNamed('scan');
+                case 3:
                   _showNewAlbumDialog();
               }
             },
