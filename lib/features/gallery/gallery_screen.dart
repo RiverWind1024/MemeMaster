@@ -9,6 +9,7 @@ import '../../core/database/database.dart';
 import '../../services/clipboard_service.dart';
 import '../../services/file_storage_service.dart';
 import '../../services/import_service.dart';
+import '../../services/shared_media_handler.dart';
 import 'gallery_provider.dart';
 
 class GalleryScreen extends ConsumerStatefulWidget {
@@ -459,9 +460,25 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   }
 
   Future<void> _importFromClipboard() async {
-    // 尝试读取剪贴板内容（可能为图片文件路径）
-    final clipboardData = await ClipboardService.readText();
-    if (clipboardData == null || clipboardData.trim().isEmpty) {
+    // 尝试从文本剪贴板读取（本地文件路径或 URL）
+    String? path;
+    String? clipboardData = await ClipboardService.readText();
+    if (clipboardData != null && clipboardData.trim().isNotEmpty) {
+      path = clipboardData.trim();
+    } else {
+      // 文本为空时，尝试原生剪贴板检测（content:// URI 或已缓存的路径）
+      final nativePath = await SharedMediaHandler().getClipboardImage();
+      if (nativePath != null) {
+        if (nativePath.startsWith('content://') || nativePath.startsWith('file://')) {
+          final copied = await SharedMediaHandler().copyContentUri(nativePath);
+          if (copied != null) path = copied;
+        } else {
+          path = nativePath;
+        }
+      }
+    }
+
+    if (path == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('剪贴板为空')),
@@ -470,10 +487,23 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       return;
     }
 
-    var path = clipboardData.trim();
     // 移除可能的 file:// 前缀
     if (path.startsWith('file://')) {
       path = path.substring(7);
+    }
+
+    // content:// URI：通过原生复制到缓存
+    if (path.startsWith('content://')) {
+      final copied = await SharedMediaHandler().copyContentUri(path);
+      if (copied == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('无法读取剪贴板 URI')),
+          );
+        }
+        return;
+      }
+      path = copied;
     }
 
     // HTTP/HTTPS URL：直接下载
@@ -495,28 +525,40 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       path = localFile;
     }
 
+    // http-url:// 前缀（来自原生 getClipboardImage 的 HTTP URL 检测）
+    if (path.startsWith('http-url://')) {
+      final url = path.substring(10);
+      final localFile = await _downloadToCache(url);
+      if (localFile == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('下载剪贴板图片失败')),
+          );
+        }
+        return;
+      }
+      path = localFile;
+    }
+
+    // 验证本地文件存在且为图片格式
     final imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
     final ext = path.split('.').last.toLowerCase();
-
-    if (path == clipboardData.trim()) {
-      // 非下载路径，检查本地文件是否存在
-      final file = File(path);
-      if (!await file.exists()) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('剪贴板内容不是有效的文件路径')),
-          );
-        }
-        return;
+    final file = File(path);
+    if (!await file.exists()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('剪贴板内容不是有效的文件路径')),
+        );
       }
-      if (!imageExtensions.contains(ext)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('剪贴板文件不是图片格式')),
-          );
-        }
-        return;
+      return;
+    }
+    if (!imageExtensions.contains(ext)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('剪贴板文件不是图片格式')),
+        );
       }
+      return;
     }
 
     final service = ref.read(importServiceProvider);

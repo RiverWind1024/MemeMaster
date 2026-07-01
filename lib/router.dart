@@ -15,6 +15,17 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final router = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/gallery',
+  // 拦截 Android intent deep link（content:// file:// 等），避免 GoException
+  redirect: (context, state) {
+    final location = state.uri.toString();
+    if (location.startsWith('content://') ||
+        location.startsWith('file://') ||
+        location.startsWith('http://') ||
+        location.startsWith('https://')) {
+      return '/gallery';
+    }
+    return null;
+  },
   routes: [
     GoRoute(
       path: '/gallery',

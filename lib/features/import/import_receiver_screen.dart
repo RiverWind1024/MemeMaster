@@ -53,16 +53,27 @@ class _ImportReceiverScreenState extends ConsumerState<ImportReceiverScreen> {
     int skipped = 0;
     final errors = <String>[];
 
-    for (final path in paths) {
+    for (final rawPath in paths) {
+      // 如果路径是 content:// 或 file:// URI，先用原生方法复制到缓存
+      String? localPath = rawPath;
+      if (rawPath.startsWith('content://') || rawPath.startsWith('file://')) {
+        localPath = await SharedMediaHandler().copyContentUri(rawPath);
+        if (localPath == null) {
+          errors.add('$rawPath: 无法读取 URI');
+          if (mounted) setState(() => _processed++);
+          continue;
+        }
+      }
+
       try {
-        final meme = await service.importImage(path);
+        final meme = await service.importImage(localPath);
         if (meme != null) {
           success++;
         } else {
           skipped++;
         }
       } catch (e) {
-        errors.add('$path: $e');
+        errors.add('$localPath: $e');
       }
       if (mounted) {
         setState(() => _processed++);
