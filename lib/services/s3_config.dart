@@ -6,6 +6,8 @@ class S3Config {
   final String accessKey;
   final String secretKey;
   final bool useSsl;
+  final bool pathStyle;
+  final int connectTimeout;
 
   Map<String, dynamic> toJson() => {
         'endpoint': endpoint,
@@ -14,6 +16,8 @@ class S3Config {
         'accessKey': accessKey,
         'secretKey': secretKey,
         'useSsl': useSsl,
+        'pathStyle': pathStyle,
+        'connectTimeout': connectTimeout,
       };
 
   factory S3Config.fromJson(Map<String, dynamic> json) => S3Config(
@@ -23,6 +27,8 @@ class S3Config {
         accessKey: json['accessKey'] as String? ?? '',
         secretKey: json['secretKey'] as String? ?? '',
         useSsl: json['useSsl'] as bool? ?? true,
+        pathStyle: json['pathStyle'] as bool? ?? true,
+        connectTimeout: json['connectTimeout'] as int? ?? 30,
       );
 
   const S3Config({
@@ -32,6 +38,8 @@ class S3Config {
     this.accessKey = '',
     this.secretKey = '',
     this.useSsl = true,
+    this.pathStyle = true,
+    this.connectTimeout = 30,
   });
 
   bool get isValid =>
@@ -47,6 +55,8 @@ class S3Config {
     String? accessKey,
     String? secretKey,
     bool? useSsl,
+    bool? pathStyle,
+    int? connectTimeout,
   }) {
     return S3Config(
       endpoint: endpoint ?? this.endpoint,
@@ -55,6 +65,8 @@ class S3Config {
       accessKey: accessKey ?? this.accessKey,
       secretKey: secretKey ?? this.secretKey,
       useSsl: useSsl ?? this.useSsl,
+      pathStyle: pathStyle ?? this.pathStyle,
+      connectTimeout: connectTimeout ?? this.connectTimeout,
     );
   }
 }

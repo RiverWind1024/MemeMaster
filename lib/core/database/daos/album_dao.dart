@@ -96,6 +96,11 @@ class AlbumDao {
     return result.data.values.first as int;
   }
 
+  /// 获取所有 meme-album 关联
+  Future<List<MemeAlbum>> getAllMemeAlbums() {
+    return _db.select(_db.memeAlbumsTable).get();
+  }
+
   /// 删除 meme 的所有相册关联
   Future<int> removeMemeFromAllAlbums(String memeId) async {
     return await (_db.delete(_db.memeAlbumsTable)

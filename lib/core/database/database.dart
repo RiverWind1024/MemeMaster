@@ -10,6 +10,7 @@ import 'daos/tag_dao.dart';
 import 'daos/color_dao.dart';
 import 'daos/album_dao.dart';
 import 'daos/analysis_queue_dao.dart';
+import 'daos/sync_state_dao.dart';
 import 'tables/tables.dart';
 
 part 'database.g.dart';
@@ -61,6 +62,7 @@ class AppDatabase extends _$AppDatabase {
   late final ColorDao colorDao = ColorDao(this);
   late final AlbumDao albumDao = AlbumDao(this);
   late final AnalysisQueueDao analysisQueueDao = AnalysisQueueDao(this);
+  late final SyncStateDao syncStateDao = SyncStateDao(this);
 }
 
 LazyDatabase _openConnection() {

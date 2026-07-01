@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/database/database.dart';
@@ -20,6 +21,7 @@ import '../../services/file_storage_service.dart';
 import '../../services/log_service.dart';
 import '../../services/s3_config.dart';
 import '../../services/s3_sync_service.dart';
+import '../../services/s3_sync_serializer.dart';
 import '../../services/import_service.dart';
 import '../../services/search_service.dart';
 
@@ -32,7 +34,10 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 // ---- Database ----
 
 final databaseProvider = Provider<AppDatabase>((ref) {
-  return AppDatabase();
+  final t0 = DateTime.now();
+  final db = AppDatabase();
+  debugPrint('[Startup] AppDatabase created: ${DateTime.now().difference(t0).inMilliseconds}ms');
+  return db;
 });
 
 // ---- DAOs ----
@@ -137,6 +142,7 @@ final colorExtractionConfigProvider =
 );
 
 final analysisSchedulerProvider = Provider<AnalysisQueueScheduler>((ref) {
+  final t0 = DateTime.now();
   final config = ref.watch(colorExtractionConfigProvider);
   final scheduler = AnalysisQueueScheduler(
     queueDao: ref.read(queueDaoProvider),
@@ -145,6 +151,8 @@ final analysisSchedulerProvider = Provider<AnalysisQueueScheduler>((ref) {
     storage: ref.read(fileStorageServiceProvider),
     log: ref.read(logServiceProvider),
   );
+
+  debugPrint('[Startup] Scheduler created: ${DateTime.now().difference(t0).inMilliseconds}ms');
 
   // 同步颜色提取配置到调度器（运行时修改会即时生效）
   scheduler.setColorExtractionConfig(config);
@@ -163,6 +171,7 @@ final analysisSchedulerProvider = Provider<AnalysisQueueScheduler>((ref) {
   scheduler.setLlmEnabled(ref.read(llmEnabledProvider));
 
   scheduler.start();
+  debugPrint('[Startup] Scheduler started: ${DateTime.now().difference(t0).inMilliseconds}ms');
 
   ref.onDispose(() {
     scheduler.stop();
@@ -269,38 +278,61 @@ final llmEnabledProvider =
 
 // ---- S3 同步 ----
 
-class S3ConfigNotifier extends Notifier<S3Config> {
+/// S3 配置持久化到 FlutterSecureStorage（密钥不会明文暴露）
+class S3ConfigNotifier extends AsyncNotifier<S3Config> {
   @override
-  S3Config build() {
+  Future<S3Config> build() async {
     try {
-      final prefs = ref.read(sharedPreferencesProvider);
-      final jsonStr = prefs.getString('s3_config');
-      if (jsonStr != null) {
-        return S3Config.fromJson(jsonDecode(jsonStr) as Map<String, dynamic>);
-      }
-    } catch (_) {}
-    return const S3Config();
+      const storage = FlutterSecureStorage();
+      return S3Config(
+        endpoint: await storage.read(key: 's3_endpoint') ?? '',
+        bucket: await storage.read(key: 's3_bucket') ?? '',
+        region: await storage.read(key: 's3_region') ?? 'us-east-1',
+        accessKey: await storage.read(key: 's3_access_key') ?? '',
+        secretKey: await storage.read(key: 's3_secret_key') ?? '',
+        useSsl: true,
+        pathStyle: true,
+        connectTimeout: 30,
+      );
+    } catch (_) {
+      return const S3Config();
+    }
   }
 
-  void update(S3Config config) {
-    state = config;
-    try {
-      ref
-          .read(sharedPreferencesProvider)
-          .setString('s3_config', jsonEncode(config.toJson()));
-    } catch (_) {}
+  Future<void> save(S3Config config) async {
+    state = AsyncData(config);
+    const storage = FlutterSecureStorage();
+    await Future.wait([
+      storage.write(key: 's3_endpoint', value: config.endpoint),
+      storage.write(key: 's3_bucket', value: config.bucket),
+      storage.write(key: 's3_region', value: config.region),
+      storage.write(key: 's3_access_key', value: config.accessKey),
+      storage.write(key: 's3_secret_key', value: config.secretKey),
+    ]);
   }
 }
 
 final s3ConfigProvider =
-    NotifierProvider<S3ConfigNotifier, S3Config>(S3ConfigNotifier.new);
+    AsyncNotifierProvider<S3ConfigNotifier, S3Config>(S3ConfigNotifier.new);
 
 final s3SyncServiceProvider = Provider<S3SyncService>((ref) {
+  final db = ref.read(databaseProvider);
   final service = S3SyncService(
     memeRepo: ref.read(memeRepositoryProvider),
+    albumRepo: ref.read(albumRepositoryProvider),
     storage: ref.read(fileStorageServiceProvider),
+    syncStateDao: db.syncStateDao,
+    serializer: S3SyncSerializer(
+      memeRepo: ref.read(memeRepositoryProvider),
+      albumRepo: ref.read(albumRepositoryProvider),
+      db: db,
+    ),
+    log: ref.read(logServiceProvider),
   );
-  service.updateConfig(ref.read(s3ConfigProvider));
+  final config = ref.read(s3ConfigProvider).valueOrNull;
+  if (config != null) {
+    service.updateConfig(config);
+  }
   return service;
 });
 
@@ -360,9 +392,84 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
 final themeModeProvider =
     NotifierProvider<ThemeModeNotifier, ThemeMode>(ThemeModeNotifier.new);
 
+// ---- 定时同步 ----
+
+class AutoSyncEnabledNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    try {
+      return ref.read(sharedPreferencesProvider).getBool('auto_sync_enabled') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void setEnabled(bool value) {
+    state = value;
+    try {
+      ref.read(sharedPreferencesProvider).setBool('auto_sync_enabled', value);
+    } catch (_) {}
+  }
+}
+
+final autoSyncEnabledProvider =
+    NotifierProvider<AutoSyncEnabledNotifier, bool>(AutoSyncEnabledNotifier.new);
+
+class AutoSyncIntervalNotifier extends Notifier<Duration> {
+  @override
+  Duration build() {
+    try {
+      final minutes = ref.read(sharedPreferencesProvider).getInt('auto_sync_interval_minutes');
+      if (minutes != null) return Duration(minutes: minutes);
+    } catch (_) {}
+    return const Duration(hours: 1);
+  }
+
+  void setInterval(Duration interval) {
+    state = interval;
+    try {
+      ref.read(sharedPreferencesProvider).setInt(
+        'auto_sync_interval_minutes',
+        interval.inMinutes,
+      );
+    } catch (_) {}
+  }
+}
+
+final autoSyncIntervalProvider =
+    NotifierProvider<AutoSyncIntervalNotifier, Duration>(
+  AutoSyncIntervalNotifier.new,
+);
+
+// ---- 分析进度 ----
+
+class AnalysisProgress {
+  final int queued;
+  final int running;
+  final int total;
+  const AnalysisProgress({
+    this.queued = 0,
+    this.running = 0,
+  }) : total = queued + running;
+  bool get isEmpty => total == 0;
+}
+
+final analysisProgressProvider = StreamProvider<AnalysisProgress>((ref) async* {
+  while (true) {
+    await Future.delayed(const Duration(seconds: 3));
+    final queueDao = ref.read(queueDaoProvider);
+    try {
+      final queued = await queueDao.countQueued();
+      final running = (await queueDao.getRunning()).length;
+      yield AnalysisProgress(queued: queued, running: running);
+    } catch (_) {
+      yield const AnalysisProgress();
+    }
+  }
+});
+
 final memesByAlbumProvider = FutureProvider.family<List<Meme>, String>((ref, albumId) async {
   final albumDao = ref.read(albumDaoProvider);
-  final memeRepo = ref.read(memeRepositoryProvider);
   final memeIds = await albumDao.getMemeIdsByAlbum(albumId);
   if (memeIds.isEmpty) return [];
   final allMemes = await ref.watch(memeListProvider.future);
