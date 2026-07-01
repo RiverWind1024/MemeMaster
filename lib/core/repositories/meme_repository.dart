@@ -104,6 +104,10 @@ class MemeRepository {
 
   Future<int> count() => _memeDao.countAll();
   Future<int> countByStatus(String status) => _memeDao.countByStatus(status);
+  Future<bool> hasChangesSince(int timestamp) =>
+      _memeDao.hasChangesSince(timestamp);
+  Future<List<Meme>> getUpdatedSince(int timestamp) =>
+      _memeDao.getUpdatedSince(timestamp);
 
   // ---- 关联数据 ----
 

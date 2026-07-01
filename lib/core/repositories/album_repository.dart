@@ -46,6 +46,8 @@ class AlbumRepository {
   Future<List<String>> getAlbumIdsByMeme(String memeId) =>
       _dao.getAlbumIdsByMeme(memeId);
 
+  Future<List<MemeAlbum>> getAllMemeAlbums() => _dao.getAllMemeAlbums();
+
   Future<int> countMemesInAlbum(String albumId) =>
       _dao.countMemesInAlbum(albumId);
 

@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/database/database.dart';
 import '../../services/clipboard_service.dart';
 import '../../services/file_storage_service.dart';
+import '../../services/import_service.dart';
+import '../../services/shared_media_handler.dart';
 import 'gallery_provider.dart';
 
 class GalleryScreen extends ConsumerStatefulWidget {
@@ -19,6 +24,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   TabController? _tabController;
   int _selectedTab = 0;
   bool _selectionMode = false;
+  bool _dragOver = false;
+  bool _radialOpen = false;
   final Set<String> _selectedIds = {};
 
   @override
@@ -223,12 +230,52 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           _exitSelectionMode();
         }
       },
-      child: Scaffold(
-        appBar: _selectionMode ? _buildSelectionAppBar() : _buildNormalAppBar(tabCount),
-        body: _selectionMode
-            ? _buildSelectionGrid(memeListAsync)
-            : _buildTabbedBody(memeListAsync, albums),
-        floatingActionButton: _selectionMode ? null : _buildFab(),
+      child: DropTarget(
+        onDragDone: _onDrop,
+        onDragEntered: (_) => setState(() => _dragOver = true),
+        onDragExited: (_) => setState(() => _dragOver = false),
+        child: Stack(
+          children: [
+            // 径向菜单打开时的半透明遮罩（点击关闭）
+            if (_radialOpen)
+              GestureDetector(
+                onTap: _closeRadial,
+                child: Container(color: Colors.black12),
+              ),
+            Scaffold(
+              appBar: _selectionMode
+                  ? _buildSelectionAppBar()
+                  : _buildNormalAppBar(tabCount),
+              body: _selectionMode
+                  ? _buildSelectionGrid(memeListAsync)
+                  : _buildTabbedBody(memeListAsync, albums),
+              floatingActionButton: _selectionMode ? null : _buildFab(),
+              // 点击页面内容也关闭径向菜单
+              onDrawerChanged: (_) => _closeRadial(),
+            ),
+            if (_dragOver)
+              Container(
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.15),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.cloud_upload,
+                          size: 64,
+                          color: Theme.of(context).colorScheme.primary),
+                      const SizedBox(height: 16),
+                      Text('松开导入图片',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Theme.of(context).colorScheme.primary)),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -249,23 +296,6 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               ],
             )
           : null,
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.add_photo_alternate),
-          onPressed: () => context.pushNamed('import'),
-          tooltip: '导入',
-        ),
-        IconButton(
-          icon: const Icon(Icons.search),
-          onPressed: () => context.pushNamed('search'),
-          tooltip: '颜色搜索',
-        ),
-        IconButton(
-          icon: const Icon(Icons.settings),
-          onPressed: () => context.pushNamed('settings'),
-          tooltip: '设置',
-        ),
-      ],
     );
   }
 
@@ -303,15 +333,58 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   ) {
     if (_tabController == null) return const SizedBox();
 
-    return TabBarView(
-      controller: _tabController,
+    return Column(
       children: [
-        _buildMemeGrid(memeListAsync),
-        ...albums.map((a) {
-          final albumMemes = ref.watch(memesByAlbumProvider(a.id));
-          return _buildMemeGrid(albumMemes);
-        }),
+        // 分析进度横幅
+        _buildAnalysisBanner(),
+        // 图库内容
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildMemeGrid(memeListAsync),
+              ...albums.map((a) {
+                final albumMemes = ref.watch(memesByAlbumProvider(a.id));
+                return _buildMemeGrid(albumMemes);
+              }),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildAnalysisBanner() {
+    final progressAsync = ref.watch(analysisProgressProvider);
+    final progress = progressAsync.valueOrNull;
+    if (progress == null || progress.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: theme.colorScheme.primaryContainer,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: theme.colorScheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '正在分析 ${progress.running > 0 ? '(${progress.running} 进行中)' : ''}'
+              '剩余 ${progress.total} 张…',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -385,10 +458,284 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     return _buildMemeGrid(AsyncValue.data(memes));
   }
 
+  // ---- 径向菜单 FAB ----
+
+  void _toggleRadial() => setState(() => _radialOpen = !_radialOpen);
+
+  void _closeRadial() {
+    if (_radialOpen) setState(() => _radialOpen = false);
+  }
+
   Widget _buildFab() {
-    return FloatingActionButton(
-      onPressed: () => _showActionSheet(context),
-      child: const Icon(Icons.add),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 径向展开的菜单项
+        if (_radialOpen) ...[
+          _RadialAction(
+            icon: Icons.add_photo_alternate,
+            label: '导入图片',
+            delay: 0,
+            onTap: () {
+              _closeRadial();
+              context.pushNamed('import');
+            },
+          ),
+          const SizedBox(height: 8),
+          _RadialAction(
+            icon: Icons.content_paste,
+            label: '从剪贴板导入',
+            delay: 50,
+            onTap: () {
+              _closeRadial();
+              _importFromClipboard();
+            },
+          ),
+          const SizedBox(height: 8),
+          _RadialAction(
+            icon: Icons.photo_library,
+            label: '新建相册',
+            delay: 100,
+            onTap: () {
+              _closeRadial();
+              _showNewAlbumDialog();
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
+        // 主 FAB
+        FloatingActionButton(
+          onPressed: _toggleRadial,
+          child: AnimatedSwitcher(
+            duration: Duration(milliseconds: 200),
+            child: _radialOpen
+                ? const Icon(Icons.close, key: ValueKey('close'))
+                : const Icon(Icons.add, key: ValueKey('add')),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---- 底部弹出菜单（保留作为备用，当前使用径向菜单）----
+
+  Future<void> _onDrop(DropDoneDetails details) async {
+    final imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+    final paths = details.files
+        .where((f) => imageExtensions.contains(f.name.split('.').last.toLowerCase()))
+        .map((f) => f.path)
+        .where((p) => p != null)
+        .cast<String>()
+        .toList();
+
+    if (paths.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('未发现图片文件')),
+        );
+      }
+      return;
+    }
+
+    final service = ref.read(importServiceProvider);
+    final result = await service.importImages(paths);
+
+    ref.invalidate(memeListProvider);
+    ref.invalidate(memeCountProvider);
+
+    if (mounted) {
+      _showImportResult(result);
+    }
+  }
+
+  Future<void> _importFromClipboard() async {
+    final log = ref.read(logServiceProvider);
+    log.info('Clipboard', '_importFromClipboard 开始');
+    String? path;
+    String? clipboardData = await ClipboardService.readText();
+    if (clipboardData != null && clipboardData.trim().isNotEmpty) {
+      path = clipboardData.trim();
+      log.info('Clipboard', '文本剪贴板内容: ${path.length > 100 ? path.substring(0, 100) : path}');
+    } else {
+      log.info('Clipboard', '文本剪贴板为空，尝试原生 getClipboardImage');
+      final nativePath = await SharedMediaHandler().getClipboardImage();
+      final clipPreview = nativePath != null && nativePath.length > 150 ? '${nativePath.substring(0, 150)}...' : nativePath;
+      log.info('Clipboard', '原生 getClipboardImage 返回: $clipPreview');
+      if (nativePath != null) {
+        if (nativePath.startsWith('content://') || nativePath.startsWith('file://')) {
+          final copied = await SharedMediaHandler().copyContentUri(nativePath);
+          if (copied != null) {
+            path = copied;
+            log.info('Clipboard', 'URI 复制到缓存: $copied');
+          } else {
+            log.error('Clipboard', 'copyContentUri 失败: $nativePath');
+          }
+        } else {
+          path = nativePath;
+        }
+      }
+    }
+
+    if (path == null) {
+      log.warning('Clipboard', '剪贴板为空，无可用路径');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('剪贴板为空')),
+        );
+      }
+      return;
+    }
+    log.info('Clipboard', '最终待导入路径: $path');
+
+    // 移除可能的 file:// 前缀
+    if (path.startsWith('file://')) {
+      path = path.substring(7);
+      log.info('Clipboard', '已移除 file:// 前缀: $path');
+    }
+
+    // content:// URI：通过原生复制到缓存
+    if (path.startsWith('content://')) {
+      log.info('Clipboard', '检测到 content:// URI，尝试 copyContentUri');
+      final copied = await SharedMediaHandler().copyContentUri(path);
+      if (copied == null) {
+        log.error('Clipboard', 'copyContentUri 失败，放弃导入');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('无法读取剪贴板 URI')),
+          );
+        }
+        return;
+      }
+      path = copied;
+      log.info('Clipboard', 'URI 已复制到缓存: $path');
+    }
+
+    // HTTP/HTTPS URL：直接下载
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      log.info('Clipboard', '检测到 HTTP URL，开始下载: ${path.length > 100 ? path.substring(0, 100) : path}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('正在从剪贴板 URL 下载图片...')),
+        );
+      }
+      final localFile = await _downloadToCache(path);
+      if (localFile == null) {
+        log.error('Clipboard', 'HTTP URL 下载失败');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('从 URL 下载图片失败')),
+          );
+        }
+        return;
+      }
+      path = localFile;
+      log.info('Clipboard', '下载完成: $path');
+    }
+
+    // http-url:// 前缀（来自原生 getClipboardImage 的 HTTP URL 检测）
+    if (path.startsWith('http-url://')) {
+      final url = path.substring(10);
+      log.info('Clipboard', '检测到 http-url:// 前缀，开始下载: $url');
+      final localFile = await _downloadToCache(url);
+      if (localFile == null) {
+        log.error('Clipboard', 'http-url:// 下载失败');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('下载剪贴板图片失败')),
+          );
+        }
+        return;
+      }
+      path = localFile;
+      log.info('Clipboard', '下载完成: $path');
+    }
+
+    // 验证本地文件存在且为图片格式
+    final imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+    final ext = path.split('.').last.toLowerCase();
+    final file = File(path);
+    if (!await file.exists()) {
+      log.error('Clipboard', '文件不存在: $path');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('剪贴板内容不是有效的文件路径')),
+        );
+      }
+      return;
+    }
+    if (!imageExtensions.contains(ext)) {
+      log.warning('Clipboard', '非图片格式: $path -> $ext');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('剪贴板文件不是图片格式')),
+        );
+      }
+      return;
+    }
+
+    log.info('Clipboard', '开始导入: $path');
+    final service = ref.read(importServiceProvider);
+    final result = await service.importImages([path]);
+    log.info('Clipboard', '导入结果: 成功=${result.success} 跳过=${result.skipped} 错误=${result.errors.length}');
+
+    ref.invalidate(memeListProvider);
+    ref.invalidate(memeCountProvider);
+
+    if (mounted) {
+      _showImportResult(result);
+    }
+  }
+
+  /// 从 URL 下载图片到缓存目录，返回本地路径
+  Future<String?> _downloadToCache(String url) async {
+    try {
+      final httpClient = HttpClient();
+      final request = await httpClient.getUrl(Uri.parse(url));
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        debugPrint('downloadToCache: HTTP ${response.statusCode}');
+        return null;
+      }
+      final ext = _extFromUrl(url);
+      final file = File(
+          '${Directory.systemTemp.path}/clipboard_dl_${DateTime.now().millisecondsSinceEpoch}$ext');
+      await response.pipe(file.openWrite());
+      debugPrint('downloadToCache: $url -> ${file.path}');
+      return file.path;
+    } catch (e) {
+      debugPrint('downloadToCache failed: $url -> $e');
+      return null;
+    }
+  }
+
+  String _extFromUrl(String url) {
+    final uriPath = Uri.parse(url).path;
+    final dot = uriPath.lastIndexOf('.');
+    if (dot >= 0) {
+      final ext = uriPath.substring(dot).toLowerCase();
+      if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].contains(ext)) {
+        return ext;
+      }
+    }
+    return '.jpg';
+  }
+
+  void _showImportResult(ImportResult result) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(result.success > 0 ? '导入完成' : '导入结果'),
+        content: Text(
+          '成功: ${result.success}\n跳过（已存在）: ${result.skipped}'
+          '${result.errors.isNotEmpty ? '\n错误: ${result.errors.length}' : ''}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -413,6 +760,14 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               onTap: () {
                 Navigator.pop(ctx);
                 _showNewAlbumDialog();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.content_paste),
+              title: const Text('从剪贴板导入'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _importFromClipboard();
               },
             ),
           ],
@@ -476,6 +831,12 @@ class _MemeGridTile extends ConsumerWidget {
                     child: CircularProgressIndicator(strokeWidth: 2));
               },
             ),
+          ),
+          // 分析状态角标（左下）
+          Positioned(
+            left: 4,
+            bottom: 4,
+            child: _AnalysisStatusBadge(status: meme.analysisStatus),
           ),
           // 右上角复制按钮（始终显示）
           Positioned(
@@ -545,5 +906,99 @@ class _MemeGridTile extends ConsumerWidget {
   Future<ImageProvider> _loadImage(FileStorageService storage) async {
     final file = await storage.getImage(meme.filePath);
     return FileImage(file);
+  }
+}
+
+/// 图片右下角的分析状态标记
+class _AnalysisStatusBadge extends StatelessWidget {
+  final String? status;
+  const _AnalysisStatusBadge({this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    if (status == null || status == 'done') return const SizedBox.shrink();
+
+    IconData icon;
+    Color color;
+    switch (status) {
+      case 'pending':
+        icon = Icons.schedule;
+        color = Colors.white70;
+      case 'processing':
+        icon = Icons.sync;
+        color = Colors.lightBlueAccent;
+      case 'failed':
+        icon = Icons.warning_amber;
+        color = Colors.orangeAccent;
+      default:
+        return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: const BoxDecoration(
+        color: Colors.black45,
+        shape: BoxShape.circle,
+      ),
+      child: SizedBox(
+        width: 14,
+        height: 14,
+        child: status == 'processing'
+            ? CircularProgressIndicator(
+                strokeWidth: 2,
+                color: color,
+              )
+            : Icon(icon, size: 14, color: color),
+      ),
+    );
+  }
+}
+
+/// 径向菜单中的单个操作项（图标+标签，点击后执行回调）
+class _RadialAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int delay;
+  final VoidCallback onTap;
+
+  const _RadialAction({
+    required this.icon,
+    required this.label,
+    required this.delay,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 20, color: colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(label, style: Theme.of(context).textTheme.bodyMedium),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
