@@ -281,21 +281,28 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   }
 
   PreferredSizeWidget _buildNormalAppBar(int tabCount) {
+    // 构建 TabBar（不含专辑时居中显示「全部图片」）
+    final tabBar = TabBar(
+      controller: _tabController,
+      isScrollable: tabCount > 1,
+      tabAlignment: tabCount > 1 ? null : TabAlignment.center,
+      tabs: [
+        const Tab(text: '全部图片'),
+        ...ref.watch(albumsProvider).asData?.value
+                .where((a) => a.isDefault != 1)
+                .map((a) => Tab(text: a.name)) ??
+            [],
+      ],
+    );
+
     return AppBar(
       toolbarHeight: 0,
       bottom: tabCount > 1
-          ? TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              tabs: [
-                const Tab(text: '全部图片'),
-                ...ref.watch(albumsProvider).asData?.value
-                        .where((a) => a.isDefault != 1)
-                        .map((a) => Tab(text: a.name)) ??
-                    [],
-              ],
-            )
-          : null,
+          ? tabBar
+          : PreferredSize(
+              preferredSize: tabBar.preferredSize,
+              child: tabBar,
+            ),
     );
   }
 
