@@ -12,6 +12,8 @@ import 'features/settings/log_viewer_screen.dart';
 import 'features/settings/s3_sync_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
+/// 分享给其他文件使用的 Navigator key，用于在 MaterialApp.router 内部显示对话框等
+GlobalKey<NavigatorState> get rootNavigatorKey => _rootNavigatorKey;
 
 /// [DIAG] 记录所有路由变化
 class _RouteLogger extends NavigatorObserver {

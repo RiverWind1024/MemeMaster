@@ -40,6 +40,8 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
   bool _clipboardCheckBusy = false;
 
   LogService get _log => ref.read(logServiceProvider);
+  /// MaterialApp.router 内部的 context（用于 showDialog / ScaffoldMessenger）
+  BuildContext? get _navCtx => rootNavigatorKey.currentContext;
 
   @override
   void initState() {
@@ -185,16 +187,16 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     if (rawPath.startsWith('http-url://')) {
       final url = rawPath.substring(10);
       _log.info('Clipboard', 'downloading HTTP URL: $url');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (_navCtx != null && mounted) {
+        ScaffoldMessenger.of(_navCtx!).showSnackBar(
           const SnackBar(content: Text('正在下载剪贴板中的图片...')),
         );
       }
       localPath = await _downloadToCache(url);
       _log.info('Clipboard', 'download result: $localPath');
       if (localPath == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+        if (_navCtx != null && mounted) {
+          ScaffoldMessenger.of(_navCtx!).showSnackBar(
             const SnackBar(content: Text('剪贴板图片下载失败')),
           );
         }
@@ -204,9 +206,14 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
       localPath = rawPath;
     }
 
+    if (_navCtx == null) {
+      _log.error('Clipboard', 'navCtx is null, cannot show dialog');
+      return;
+    }
+
     _log.info('Clipboard', 'showing import dialog for: $localPath');
     final confirmed = await showDialog<bool>(
-      context: context,
+      context: _navCtx!,
       builder: (ctx) => AlertDialog(
         title: const Text('检测到剪贴板图片'),
         content: Text('剪贴板中有一张图片，是否导入到 MemeHelper？'),
@@ -225,21 +232,19 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     _log.info('Clipboard', 'dialog result: $confirmed');
 
     final importPath = localPath;
-    if (confirmed == true && mounted) {
+    if (confirmed == true && mounted && _navCtx != null) {
       final service = ref.read(importServiceProvider);
       final meme = await service.importImage(importPath);
       _log.info('Clipboard', 'import result: ${meme != null ? "imported" : "skipped (duplicate)"}');
       ref.invalidate(memeListProvider);
       ref.invalidate(memeCountProvider);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              meme != null ? '导入成功' : '图片已存在，跳过导入',
-            ),
+      ScaffoldMessenger.of(_navCtx!).showSnackBar(
+        SnackBar(
+          content: Text(
+            meme != null ? '导入成功' : '图片已存在，跳过导入',
           ),
-        );
-      }
+        ),
+      );
     }
   }
 
