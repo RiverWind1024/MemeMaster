@@ -35,6 +35,8 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
   String? _lastClipboardPath;
   int _clipboardRetryCount = 0;
   static const _maxClipboardRetries = 3;
+  /// 防止重复 resume 导致并行检测
+  bool _clipboardCheckBusy = false;
 
   LogService get _log => ref.read(logServiceProvider);
 
@@ -62,43 +64,74 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
   Future<void> _checkOnStart() async {
     _log.info('Intent', 'checkOnStart: checking pending files...');
     final paths = await SharedMediaHandler().getPendingFiles();
-    _log.info('Intent', 'getPendingFiles returned ${paths.length} paths: ${paths.take(3)}');
+    final preview = paths.take(3).map((p) => p.length > 80 ? '${p.substring(0, 80)}...' : p).toList();
+    _log.info('Intent', 'getPendingFiles returned ${paths.length} paths: $preview');
     if (paths.isNotEmpty && mounted) {
       _log.info('Intent', 'pushing import-receive with ${paths.length} files');
       context.pushNamed('import-receive', extra: paths);
       return;
     }
     if (mounted) {
-      _checkClipboardImage();
+      _checkClipboardOnStart();
     }
   }
 
   Future<void> _checkOnResume() async {
     _log.info('Intent', 'checkOnResume: checking pending files...');
     final paths = await SharedMediaHandler().getPendingFiles();
-    _log.info('Intent', 'getPendingFiles returned ${paths.length} paths');
+    final preview = paths.take(3).map((p) => p.length > 80 ? '${p.substring(0, 80)}...' : p).toList();
+    _log.info('Intent', 'getPendingFiles returned ${paths.length} paths: $preview');
     if (paths.isNotEmpty && mounted) {
       _log.info('Intent', 'pushing import-receive with ${paths.length} files');
       context.pushNamed('import-receive', extra: paths);
       return;
     }
-    if (mounted) {
+    if (mounted && !_clipboardCheckBusy) {
       _clipboardRetryCount = 0;
-      _checkClipboardImage();
+      _scheduleClipboardCheck(delay: const Duration(seconds: 2));
     }
   }
 
-  Future<void> _checkClipboardImage() async {
+  /// app 启动时检查剪贴板（无需延迟）
+  Future<void> _checkClipboardOnStart() async {
+    if (_clipboardCheckBusy) return;
+    _clipboardCheckBusy = true;
+    try {
+      await _doClipboardCheck();
+    } finally {
+      _clipboardCheckBusy = false;
+    }
+  }
+
+  /// resume 后延迟执行剪贴板检测（避免 Android 剪贴板暂态）
+  Future<void> _scheduleClipboardCheck({Duration delay = const Duration(seconds: 2)}) async {
+    if (_clipboardCheckBusy) {
+      _log.info('Clipboard', 'scheduleClipboardCheck: already busy, skip');
+      return;
+    }
+    _clipboardCheckBusy = true;
+    try {
+      _log.info('Clipboard', 'scheduled clipboard check in ${delay.inSeconds}s');
+      await Future.delayed(delay);
+      if (!mounted) return;
+      await _doClipboardCheck();
+    } finally {
+      _clipboardCheckBusy = false;
+    }
+  }
+
+  Future<void> _doClipboardCheck() async {
     _log.info('Clipboard', 'getClipboardImage attempt ${_clipboardRetryCount + 1}/$_maxClipboardRetries');
     final rawPath = await SharedMediaHandler().getClipboardImage();
-    _log.info('Clipboard', 'getClipboardImage returned: ${rawPath != null ? (rawPath.length > 150 ? '${rawPath.substring(0, 150)}...' : rawPath) : 'null'}');
+    final preview = rawPath != null ? (rawPath.length > 120 ? '${rawPath.substring(0, 120)}...' : rawPath) : 'null';
+    _log.info('Clipboard', 'getClipboardImage returned: $preview');
 
     if (rawPath == null && _clipboardRetryCount < _maxClipboardRetries - 1) {
       _clipboardRetryCount++;
-      _log.info('Clipboard', 'retrying after 500ms delay...');
-      await Future.delayed(const Duration(milliseconds: 500));
+      _log.info('Clipboard', 'retrying after 1s delay...');
+      await Future.delayed(const Duration(seconds: 1));
       if (mounted) {
-        _checkClipboardImage();
+        await _doClipboardCheck();
       }
       return;
     }
@@ -106,7 +139,7 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     _clipboardRetryCount = 0;
 
     if (rawPath == null || rawPath == _lastClipboardPath || !mounted) {
-      _log.info('Clipboard', 'skip: rawPath=$rawPath lastPath=$_lastClipboardPath mounted=$mounted');
+      _log.info('Clipboard', 'skip: rawPath=$preview lastPath=$_lastClipboardPath mounted=$mounted');
       return;
     }
 
