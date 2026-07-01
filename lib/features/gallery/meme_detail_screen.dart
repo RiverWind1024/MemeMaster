@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -75,12 +77,15 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
                         child: Center(child: CircularProgressIndicator()),
                       );
                     }
-                    return Image.file(
-                      fileSnapshot.data!,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const AspectRatio(
-                        aspectRatio: 1,
-                        child: Icon(Icons.broken_image, size: 64),
+                    return GestureDetector(
+                      onTap: () => _showFullscreen(context, fileSnapshot.data!),
+                      child: Image.file(
+                        fileSnapshot.data!,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => const AspectRatio(
+                          aspectRatio: 1,
+                          child: Icon(Icons.broken_image, size: 64),
+                        ),
                       ),
                     );
                   },
@@ -92,14 +97,12 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 分析状态 + 操作按钮
-                      Row(
-                        children: [
-                          _StatusChip(status: meme.analysisStatus),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      _OcrAiStatus(memeId: widget.memeId),
+                      // 分析状态
+                      _StatusChip(status: meme.analysisStatus),
+                      const SizedBox(height: 6),
+                      _OcrChip(memeId: widget.memeId),
+                      const SizedBox(height: 6),
+                      _AiChip(memeId: widget.memeId),
                       const SizedBox(height: 16),
 
                       // 文件信息
@@ -204,6 +207,28 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
+
+  void _showFullscreen(BuildContext context, File file) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            title: const Text(''),
+          ),
+          body: InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 4.0,
+            child: Center(
+              child: Image.file(file, fit: BoxFit.contain),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _StatusChip extends StatelessWidget {
@@ -230,44 +255,35 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
-/// OCR + AI 识别状态指示
-class _OcrAiStatus extends ConsumerWidget {
+/// OCR 状态指示（单独一行）
+class _OcrChip extends ConsumerWidget {
   final String memeId;
-
-  const _OcrAiStatus({required this.memeId});
-
+  const _OcrChip({required this.memeId});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ocrEnabled = ref.watch(ocrEnabledProvider);
-    final llmEnabled = ref.watch(llmEnabledProvider);
+    final enabled = ref.watch(ocrEnabledProvider);
+    return Row(children: [
+      Icon(Icons.text_fields, size: 14, color: enabled ? Colors.blue : Colors.grey),
+      const SizedBox(width: 6),
+      Text(enabled ? 'OCR 已开启' : '未开启 OCR 识别',
+          style: TextStyle(fontSize: 13, color: enabled ? Colors.blue : Colors.grey)),
+    ]);
+  }
+}
 
-    return Row(
-      children: [
-        // OCR
-        Icon(Icons.text_fields, size: 14,
-            color: ocrEnabled ? Colors.blue : Colors.grey),
-        const SizedBox(width: 4),
-        Text(
-          ocrEnabled ? 'OCR 已开启' : '未开启 OCR 识别',
-          style: TextStyle(
-            fontSize: 12,
-            color: ocrEnabled ? Colors.blue : Colors.grey,
-          ),
-        ),
-        const SizedBox(width: 16),
-        // AI
-        Icon(Icons.auto_awesome, size: 14,
-            color: llmEnabled ? Colors.purple : Colors.grey),
-        const SizedBox(width: 4),
-        Text(
-          llmEnabled ? 'AI 已开启' : '未开启 AI 识别',
-          style: TextStyle(
-            fontSize: 12,
-            color: llmEnabled ? Colors.purple : Colors.grey,
-          ),
-        ),
-      ],
-    );
+/// AI 识别状态指示（单独一行）
+class _AiChip extends ConsumerWidget {
+  final String memeId;
+  const _AiChip({required this.memeId});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(llmEnabledProvider);
+    return Row(children: [
+      Icon(Icons.auto_awesome, size: 14, color: enabled ? Colors.purple : Colors.grey),
+      const SizedBox(width: 6),
+      Text(enabled ? 'AI 已开启' : '未开启 AI 识别',
+          style: TextStyle(fontSize: 13, color: enabled ? Colors.purple : Colors.grey)),
+    ]);
   }
 }
 
