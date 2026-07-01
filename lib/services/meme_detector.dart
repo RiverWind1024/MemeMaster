@@ -56,6 +56,9 @@ class MemeDetector {
     }
 
     final fileSize = await file.length();
+    if (fileSize < 1024 || fileSize > 2 * 1024 * 1024) {
+      return MemeDetectionResult(filePath: imagePath, score: 0);
+    }
     final dims = await _imageDimensions(imagePath);
     final imgW = dims.$1;
     final imgH = dims.$2;
@@ -175,7 +178,10 @@ class MemeDetector {
       for (final entity in dir.listSync(recursive: true)) {
         if (entity is File) {
           final name = entity.path.toLowerCase();
-          if (exts.any((e) => name.endsWith(e))) images.add(entity.path);
+          if (!exts.any((e) => name.endsWith(e))) continue;
+          final size = entity.statSync().size;
+          if (size < 1024 || size > 2 * 1024 * 1024) continue; // 硬过滤
+          images.add(entity.path);
         }
       }
     } catch (_) {}

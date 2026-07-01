@@ -249,11 +249,72 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
               title: Text('全部存储'),
             ),
           ),
+          const Divider(height: 1),
+          SimpleDialogOption(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showCustomPathInput();
+            },
+            child: const ListTile(
+              leading: Icon(Icons.edit),
+              title: Text('自定义路径…'),
+            ),
+          ),
         ],
       ),
     );
 
     if (dir != null && mounted) {
+      setState(() {
+        _scanDir = dir;
+        _allImages = [];
+        _memes = [];
+        _progress = null;
+      });
+      _startScan();
+    }
+  }
+
+  Future<void> _showCustomPathInput() async {
+    final ctl = TextEditingController();
+    final dir = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('输入目录路径'),
+        content: TextField(
+          controller: ctl,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: '/storage/emulated/0/…',
+            border: const OutlineInputBorder(),
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.paste),
+              onPressed: () async {
+                // 尝试从剪贴板读取路径
+              },
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctl.text.trim()),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+
+    if (dir != null && dir.isNotEmpty && mounted) {
+      if (!Directory(dir).existsSync()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('目录不存在: $dir')),
+        );
+        return;
+      }
       setState(() {
         _scanDir = dir;
         _allImages = [];
