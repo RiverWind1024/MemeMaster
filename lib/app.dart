@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'features/gallery/gallery_provider.dart';
-import 'features/import/import_receiver_screen.dart';
+import 'features/import/import_preview_sheet.dart';
 import 'router.dart';
 import 'services/log_service.dart';
 import 'services/shared_media_handler.dart';
@@ -115,19 +115,17 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     }
   }
 
-  /// 绕过 GoRouter（14.x null bug），直接用 Navigator 推 ImportReceiverScreen
+  /// 分享/剪贴板导入的统一入口：先回到首页，再弹出底部预览弹窗
   void _pushImportReceiver(List<String> paths) {
-    if (!mounted) return;
-    final navState = rootNavigatorKey.currentState;
-    if (navState == null) {
-      _log.error('Intent', 'rootNavigatorState is null, cannot push');
-      return;
-    }
-    navState.push(MaterialPageRoute(
-      builder: (_) => ImportReceiverScreen(filePaths: paths),
-      settings: const RouteSettings(name: 'import-receive'),
-    ));
-    _log.info('Intent', 'Navigator.push ImportReceiverScreen done');
+    if (!mounted || _navCtx == null) return;
+    _log.info('Intent', 'popToRoot + showImportPreviewSheet');
+    // 回到导航栈根（首页）
+    Navigator.of(_navCtx!).popUntil((route) => route.isFirst);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_navCtx != null && mounted) {
+        showImportPreviewSheet(_navCtx!, paths);
+      }
+    });
   }
 
   /// app 启动时检查剪贴板（无需延迟）
@@ -207,44 +205,15 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     }
 
     if (_navCtx == null) {
-      _log.error('Clipboard', 'navCtx is null, cannot show dialog');
+      _log.error('Clipboard', 'navCtx is null, cannot show bottom sheet');
       return;
     }
 
-    _log.info('Clipboard', 'showing import dialog for: $localPath');
-    final confirmed = await showDialog<bool>(
-      context: _navCtx!,
-      builder: (ctx) => AlertDialog(
-        title: const Text('检测到剪贴板图片'),
-        content: Text('剪贴板中有一张图片，是否导入到 MemeHelper？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('导入'),
-          ),
-        ],
-      ),
-    );
-    _log.info('Clipboard', 'dialog result: $confirmed');
-
-    final importPath = localPath;
-    if (confirmed == true && mounted && _navCtx != null) {
-      final service = ref.read(importServiceProvider);
-      final meme = await service.importImage(importPath);
-      _log.info('Clipboard', 'import result: ${meme != null ? "imported" : "skipped (duplicate)"}');
+    _log.info('Clipboard', 'showing import preview sheet for: $localPath');
+    if (mounted && _navCtx != null) {
+      await showImportPreviewSheet(_navCtx!, [localPath]);
       ref.invalidate(memeListProvider);
       ref.invalidate(memeCountProvider);
-      ScaffoldMessenger.of(_navCtx!).showSnackBar(
-        SnackBar(
-          content: Text(
-            meme != null ? '导入成功' : '图片已存在，跳过导入',
-          ),
-        ),
-      );
     }
   }
 
