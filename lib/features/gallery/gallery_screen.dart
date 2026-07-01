@@ -458,7 +458,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     return _buildMemeGrid(AsyncValue.data(memes));
   }
 
-  // ---- 径向菜单 FAB ----
+  // ---- 速度旋盘 FAB ----
 
   void _toggleRadial() => setState(() => _radialOpen = !_radialOpen);
 
@@ -466,48 +466,45 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     if (_radialOpen) setState(() => _radialOpen = false);
   }
 
+  static const _fabActions = [
+    _SpeedDialAction(Icons.add_photo_alternate, '导入图片'),
+    _SpeedDialAction(Icons.content_paste, '从剪贴板导入'),
+    _SpeedDialAction(Icons.photo_library, '新建相册'),
+  ];
+
   Widget _buildFab() {
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        // 径向展开的菜单项
-        if (_radialOpen) ...[
-          _RadialAction(
-            icon: Icons.add_photo_alternate,
-            label: '导入图片',
-            delay: 0,
+        // 展开的动作项
+        for (int i = 0; i < _fabActions.length; i++) ...[
+          _SpeedDialItem(
+            icon: _fabActions[i].icon,
+            label: _fabActions[i].label,
+            visible: _radialOpen,
+            index: i,
             onTap: () {
               _closeRadial();
-              context.pushNamed('import');
+              switch (i) {
+                case 0:
+                  context.pushNamed('import');
+                case 1:
+                  _importFromClipboard();
+                case 2:
+                  _showNewAlbumDialog();
+              }
             },
           ),
           const SizedBox(height: 8),
-          _RadialAction(
-            icon: Icons.content_paste,
-            label: '从剪贴板导入',
-            delay: 50,
-            onTap: () {
-              _closeRadial();
-              _importFromClipboard();
-            },
-          ),
-          const SizedBox(height: 8),
-          _RadialAction(
-            icon: Icons.photo_library,
-            label: '新建相册',
-            delay: 100,
-            onTap: () {
-              _closeRadial();
-              _showNewAlbumDialog();
-            },
-          ),
-          const SizedBox(height: 12),
         ],
         // 主 FAB
         FloatingActionButton(
           onPressed: _toggleRadial,
           child: AnimatedSwitcher(
-            duration: Duration(milliseconds: 200),
+            duration: const Duration(milliseconds: 250),
+            transitionBuilder: (child, anim) =>
+                ScaleTransition(scale: anim, child: child),
             child: _radialOpen
                 ? const Icon(Icons.close, key: ValueKey('close'))
                 : const Icon(Icons.add, key: ValueKey('add')),
@@ -954,48 +951,88 @@ class _AnalysisStatusBadge extends StatelessWidget {
   }
 }
 
-/// 径向菜单中的单个操作项（图标+标签，点击后执行回调）
-class _RadialAction extends StatelessWidget {
+/// 速度旋盘动作定义
+class _SpeedDialAction {
   final IconData icon;
   final String label;
-  final int delay;
+  const _SpeedDialAction(this.icon, this.label);
+}
+
+/// 速度旋盘中的单个动作项（带缩放+淡入动画）
+class _SpeedDialItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool visible;
+  final int index;
   final VoidCallback onTap;
 
-  const _RadialAction({
+  const _SpeedDialItem({
     required this.icon,
     required this.label,
-    required this.delay,
+    required this.visible,
+    required this.index,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: visible ? 1.0 : 0.0),
+      duration: const Duration(milliseconds: 300),
+      curve: Interval(
+        (index * 0.12).clamp(0.0, 0.7),
+        (0.25 + index * 0.12).clamp(0.25, 1.0),
+        curve: Curves.easeOutBack,
+      ),
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(30 * (1 - value), 0),
+            child: child,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 20, color: colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(label, style: Theme.of(context).textTheme.bodyMedium),
-            ],
+        );
+      },
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: visible ? onTap : null,
+          child: Container(
+            height: 40,
+            padding: const EdgeInsets.only(left: 14, right: 4),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        )),
+                const SizedBox(width: 8),
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 18, color: colorScheme.onPrimaryContainer),
+                ),
+              ],
+            ),
           ),
         ),
       ),
