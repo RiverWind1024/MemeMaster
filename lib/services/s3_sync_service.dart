@@ -241,8 +241,12 @@ class S3SyncService {
 
   // ---- 存储统计 ----
 
-  /// 遍历 S3 bucket 统计存储用量
+  /// 遍历 S3 bucket 统计存储用量。
+  /// 未配置 S3 时抛出异常（调用方应只在已配置时调用）。
   Future<SyncStats> getStorageStats() async {
+    if (!isConfigured) {
+      throw StateError('S3 未配置');
+    }
     int totalBytes = 0;
     int objectCount = 0;
     final results =

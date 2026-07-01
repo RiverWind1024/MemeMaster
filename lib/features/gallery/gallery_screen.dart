@@ -476,25 +476,47 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       path = path.substring(7);
     }
 
-    final file = File(path);
-    if (!await file.exists()) {
+    // HTTP/HTTPS URL：直接下载
+    if (path.startsWith('http://') || path.startsWith('https://')) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('剪贴板内容不是有效的文件路径')),
+          const SnackBar(content: Text('正在从剪贴板 URL 下载图片...')),
         );
       }
-      return;
+      final localFile = await _downloadToCache(path);
+      if (localFile == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('从 URL 下载图片失败')),
+          );
+        }
+        return;
+      }
+      path = localFile;
     }
 
     final imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
     final ext = path.split('.').last.toLowerCase();
-    if (!imageExtensions.contains(ext)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('剪贴板文件不是图片格式')),
-        );
+
+    if (path == clipboardData.trim()) {
+      // 非下载路径，检查本地文件是否存在
+      final file = File(path);
+      if (!await file.exists()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('剪贴板内容不是有效的文件路径')),
+          );
+        }
+        return;
       }
-      return;
+      if (!imageExtensions.contains(ext)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('剪贴板文件不是图片格式')),
+          );
+        }
+        return;
+      }
     }
 
     final service = ref.read(importServiceProvider);
@@ -506,6 +528,40 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     if (mounted) {
       _showImportResult(result);
     }
+  }
+
+  /// 从 URL 下载图片到缓存目录，返回本地路径
+  Future<String?> _downloadToCache(String url) async {
+    try {
+      final httpClient = HttpClient();
+      final request = await httpClient.getUrl(Uri.parse(url));
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        debugPrint('downloadToCache: HTTP ${response.statusCode}');
+        return null;
+      }
+      final ext = _extFromUrl(url);
+      final file = File(
+          '${Directory.systemTemp.path}/clipboard_dl_${DateTime.now().millisecondsSinceEpoch}$ext');
+      await response.pipe(file.openWrite());
+      debugPrint('downloadToCache: $url -> ${file.path}');
+      return file.path;
+    } catch (e) {
+      debugPrint('downloadToCache failed: $url -> $e');
+      return null;
+    }
+  }
+
+  String _extFromUrl(String url) {
+    final uriPath = Uri.parse(url).path;
+    final dot = uriPath.lastIndexOf('.');
+    if (dot >= 0) {
+      final ext = uriPath.substring(dot).toLowerCase();
+      if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].contains(ext)) {
+        return ext;
+      }
+    }
+    return '.jpg';
   }
 
   void _showImportResult(ImportResult result) {
