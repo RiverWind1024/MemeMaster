@@ -458,7 +458,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     return _buildMemeGrid(AsyncValue.data(memes));
   }
 
-  // ---- 速度旋盘 FAB ----
+  // ---- 速度旋盘 FAB（MUI Speed Dial 风格）----
 
   void _toggleRadial() => setState(() => _radialOpen = !_radialOpen);
 
@@ -473,6 +473,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   ];
 
   Widget _buildFab() {
+    final theme = Theme.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -496,18 +497,15 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               }
             },
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
         ],
-        // 主 FAB
+        // 主 FAB（旋转动画）
         FloatingActionButton(
           onPressed: _toggleRadial,
-          child: AnimatedSwitcher(
+          child: AnimatedRotation(
+            turns: _radialOpen ? 0.125 : 0.0, // 45°
             duration: const Duration(milliseconds: 250),
-            transitionBuilder: (child, anim) =>
-                ScaleTransition(scale: anim, child: child),
-            child: _radialOpen
-                ? const Icon(Icons.close, key: ValueKey('close'))
-                : const Icon(Icons.add, key: ValueKey('add')),
+            child: const Icon(Icons.add),
           ),
         ),
       ],
@@ -958,7 +956,7 @@ class _SpeedDialAction {
   const _SpeedDialAction(this.icon, this.label);
 }
 
-/// 速度旋盘中的单个动作项（带缩放+淡入动画）
+/// MUI Speed Dial 风格的动作项：左侧标签 + 右侧小圆按钮
 class _SpeedDialItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -980,61 +978,55 @@ class _SpeedDialItem extends StatelessWidget {
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: visible ? 1.0 : 0.0),
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
       curve: Interval(
         (index * 0.12).clamp(0.0, 0.7),
         (0.25 + index * 0.12).clamp(0.25, 1.0),
-        curve: Curves.easeOutBack,
+        curve: Curves.easeOut,
       ),
       builder: (context, value, child) {
         return Opacity(
           opacity: value,
           child: Transform.translate(
-            offset: Offset(30 * (1 - value), 0),
+            offset: Offset(20 * (1 - value), 0),
             child: child,
           ),
         );
       },
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: visible ? onTap : null,
-          child: Container(
-            height: 40,
-            padding: const EdgeInsets.only(left: 14, right: 4),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.12),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 文字标签（MUI 风格 tooltip，在左侧）
+          if (visible)
+            Container(
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
                 ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(label,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        )),
-                const SizedBox(width: 8),
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
-                  child: Icon(icon, size: 18, color: colorScheme.onPrimaryContainer),
-                ),
-              ],
+                ],
+              ),
+              child: Text(label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: colorScheme.onSurface,
+                      )),
             ),
+          // 小圆按钮（mini FAB）
+          FloatingActionButton.small(
+            heroTag: 'speed_dial_$index',
+            onPressed: visible ? onTap : null,
+            child: Icon(icon, color: colorScheme.onPrimaryContainer),
           ),
-        ),
+        ],
       ),
     );
   }
