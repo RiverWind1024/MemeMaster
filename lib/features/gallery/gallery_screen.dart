@@ -25,6 +25,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   int _selectedTab = 0;
   bool _selectionMode = false;
   bool _dragOver = false;
+  bool _radialOpen = false;
   final Set<String> _selectedIds = {};
 
   @override
@@ -235,6 +236,12 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         onDragExited: (_) => setState(() => _dragOver = false),
         child: Stack(
           children: [
+            // 径向菜单打开时的半透明遮罩（点击关闭）
+            if (_radialOpen)
+              GestureDetector(
+                onTap: _closeRadial,
+                child: Container(color: Colors.black12),
+              ),
             Scaffold(
               appBar: _selectionMode
                   ? _buildSelectionAppBar()
@@ -243,6 +250,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                   ? _buildSelectionGrid(memeListAsync)
                   : _buildTabbedBody(memeListAsync, albums),
               floatingActionButton: _selectionMode ? null : _buildFab(),
+              // 点击页面内容也关闭径向菜单
+              onDrawerChanged: (_) => _closeRadial(),
             ),
             if (_dragOver)
               Container(
@@ -287,23 +296,6 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               ],
             )
           : null,
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.add_photo_alternate),
-          onPressed: () => context.pushNamed('import'),
-          tooltip: '导入',
-        ),
-        IconButton(
-          icon: const Icon(Icons.search),
-          onPressed: () => context.pushNamed('search'),
-          tooltip: '颜色搜索',
-        ),
-        IconButton(
-          icon: const Icon(Icons.settings),
-          onPressed: () => context.pushNamed('settings'),
-          tooltip: '设置',
-        ),
-      ],
     );
   }
 
@@ -423,12 +415,66 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     return _buildMemeGrid(AsyncValue.data(memes));
   }
 
+  // ---- 径向菜单 FAB ----
+
+  void _toggleRadial() => setState(() => _radialOpen = !_radialOpen);
+
+  void _closeRadial() {
+    if (_radialOpen) setState(() => _radialOpen = false);
+  }
+
   Widget _buildFab() {
-    return FloatingActionButton(
-      onPressed: () => _showActionSheet(context),
-      child: const Icon(Icons.add),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 径向展开的菜单项
+        if (_radialOpen) ...[
+          _RadialAction(
+            icon: Icons.add_photo_alternate,
+            label: '导入图片',
+            delay: 0,
+            onTap: () {
+              _closeRadial();
+              context.pushNamed('import');
+            },
+          ),
+          const SizedBox(height: 8),
+          _RadialAction(
+            icon: Icons.content_paste,
+            label: '从剪贴板导入',
+            delay: 50,
+            onTap: () {
+              _closeRadial();
+              _importFromClipboard();
+            },
+          ),
+          const SizedBox(height: 8),
+          _RadialAction(
+            icon: Icons.photo_library,
+            label: '新建相册',
+            delay: 100,
+            onTap: () {
+              _closeRadial();
+              _showNewAlbumDialog();
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
+        // 主 FAB
+        FloatingActionButton(
+          onPressed: _toggleRadial,
+          child: AnimatedSwitcher(
+            duration: Duration(milliseconds: 200),
+            child: _radialOpen
+                ? const Icon(Icons.close, key: ValueKey('close'))
+                : const Icon(Icons.add, key: ValueKey('add')),
+          ),
+        ),
+      ],
     );
   }
+
+  // ---- 底部弹出菜单（保留作为备用，当前使用径向菜单）----
 
   Future<void> _onDrop(DropDoneDetails details) async {
     final imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
@@ -811,5 +857,54 @@ class _MemeGridTile extends ConsumerWidget {
   Future<ImageProvider> _loadImage(FileStorageService storage) async {
     final file = await storage.getImage(meme.filePath);
     return FileImage(file);
+  }
+}
+
+/// 径向菜单中的单个操作项（图标+标签，点击后执行回调）
+class _RadialAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int delay;
+  final VoidCallback onTap;
+
+  const _RadialAction({
+    required this.icon,
+    required this.label,
+    required this.delay,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 20, color: colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(label, style: Theme.of(context).textTheme.bodyMedium),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
