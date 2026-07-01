@@ -84,5 +84,8 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Android 11+：声明需要交互的应用包名，解析其 content provider -->
+        <package android:name="com.tencent.mm" />
+        <package android:name="com.tencent.mobileqq" />
     </queries>
 </manifest>

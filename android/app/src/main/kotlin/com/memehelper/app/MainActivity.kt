@@ -93,6 +93,13 @@ class MainActivity : FlutterActivity() {
         super.onNewIntent(intent)
         android.util.Log.d(tag, "onNewIntent called: action=${intent.action} data=${intent.data}")
         handleIntent(intent)
+        // 通知 Flutter 侧立即检查 pending 文件（即使 app 已在前台，不会触发 resume）
+        try {
+            val messenger = flutterEngine?.dartExecutor?.binaryMessenger
+            if (messenger != null) {
+                MethodChannel(messenger, CHANNEL_SHARE).invokeMethod("onNewIntent", null)
+            }
+        } catch (_: Exception) {}
     }
 
     private val tag = "ShareImport"

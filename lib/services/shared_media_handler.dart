@@ -1,12 +1,27 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+/// 原生侧通过 method channel 反向调用的回调
+typedef NativeEventHandler = void Function(String method);
+
 class SharedMediaHandler {
   static const _channel = MethodChannel('com.memehelper.app/share');
 
   static final SharedMediaHandler _instance = SharedMediaHandler._();
   factory SharedMediaHandler() => _instance;
   SharedMediaHandler._();
+
+  /// 注册原生→Dart 回调（由 app.dart 设置，用于 onNewIntent 通知）
+  static NativeEventHandler? onNativeEvent;
+
+  /// 初始化 method channel handler，接收原生侧发来的事件
+  static void init() {
+    _channel.setMethodCallHandler((call) async {
+      debugPrint('[SharedMediaHandler] native event: ${call.method} ${call.arguments}');
+      onNativeEvent?.call(call.method);
+      return null;
+    });
+  }
 
   static const _tag = '[SharedMediaHandler]';
 

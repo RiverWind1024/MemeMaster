@@ -43,12 +43,20 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
   @override
   void initState() {
     super.initState();
+    SharedMediaHandler.init();
+    SharedMediaHandler.onNativeEvent = (method) {
+      if (method == 'onNewIntent' && mounted) {
+        _log.info('Intent', 'native onNewIntent event → checking pending files');
+        _checkOnResume();
+      }
+    };
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkOnStart());
   }
 
   @override
   void dispose() {
+    SharedMediaHandler.onNativeEvent = null;
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
