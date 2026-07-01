@@ -51,7 +51,7 @@ dependencies:
 
   # 分享
   share_plus: ^10.1.4
-  desktop_drop: ^0.5.0
+  desktop_drop: ^0.7.1
 
 
   # 持久化
