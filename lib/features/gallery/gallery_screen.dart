@@ -1,0 +1,549 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../core/database/database.dart';
+import '../../services/clipboard_service.dart';
+import '../../services/file_storage_service.dart';
+import 'gallery_provider.dart';
+
+class GalleryScreen extends ConsumerStatefulWidget {
+  const GalleryScreen({super.key});
+
+  @override
+  ConsumerState<GalleryScreen> createState() => _GalleryScreenState();
+}
+
+class _GalleryScreenState extends ConsumerState<GalleryScreen>
+    with SingleTickerProviderStateMixin {
+  TabController? _tabController;
+  int _selectedTab = 0;
+  bool _selectionMode = false;
+  final Set<String> _selectedIds = {};
+
+  @override
+  void dispose() {
+    _tabController?.dispose();
+    super.dispose();
+  }
+
+  void _syncTabController(int tabCount) {
+    if (_tabController != null && _tabController!.length == tabCount) return;
+    final oldIndex = _tabController?.index ?? 0;
+    _tabController?.dispose();
+    _tabController = TabController(
+      length: tabCount,
+      vsync: this,
+      initialIndex: oldIndex.clamp(0, tabCount - 1),
+    );
+    _tabController!.addListener(() {
+      if (_tabController!.index != _selectedTab) {
+        setState(() => _selectedTab = _tabController!.index);
+      }
+    });
+    if (mounted) setState(() {});
+  }
+
+  void _enterSelectionMode(String memeId) {
+    setState(() {
+      _selectionMode = true;
+      _selectedIds.add(memeId);
+    });
+  }
+
+  void _toggleSelection(String memeId) {
+    setState(() {
+      if (_selectedIds.contains(memeId)) {
+        _selectedIds.remove(memeId);
+        if (_selectedIds.isEmpty) _selectionMode = false;
+      } else {
+        _selectedIds.add(memeId);
+      }
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  Future<void> _copySelected() async {
+    final storage = ref.read(fileStorageServiceProvider);
+    final memeRepo = ref.read(memeRepositoryProvider);
+    final paths = <String>[];
+
+    for (final id in _selectedIds) {
+      final meme = await memeRepo.getById(id);
+      if (meme != null) {
+        final file = await storage.getImage(meme.filePath);
+        paths.add(file.path);
+      }
+    }
+
+    if (paths.isEmpty) return;
+
+    if (paths.length == 1) {
+      await ClipboardService.copyImageToClipboard(paths.first);
+    } else {
+      await ClipboardService.shareMultipleImages(paths);
+    }
+
+    _exitSelectionMode();
+  }
+
+  Future<void> _deleteSelected() async {
+    final count = _selectedIds.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text('确定要删除选中的 $count 张图片吗？\n图片文件和所有分析数据都会被移除。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('删除',
+                style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final repo = ref.read(memeRepositoryProvider);
+    for (final id in _selectedIds) {
+      await repo.delete(id);
+    }
+
+    ref.invalidate(memeListProvider);
+    ref.invalidate(memeCountProvider);
+    _exitSelectionMode();
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已删除 $count 张图片')),
+      );
+    }
+  }
+
+  Future<void> _moveSelectedToAlbum() async {
+    final albumsAsync = ref.read(albumsProvider);
+    final albums = albumsAsync.valueOrNull ?? [];
+    if (albums.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('还没有相册，请先创建')),
+      );
+      return;
+    }
+
+    final album = await showDialog<Album>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('选择相册'),
+        children: albums
+            .map((a) => SimpleDialogOption(
+                  onPressed: () => Navigator.pop(ctx, a),
+                  child: Text(a.name),
+                ))
+            .toList(),
+      ),
+    );
+
+    if (album == null) return;
+
+    final albumRepo = ref.read(albumRepositoryProvider);
+    await albumRepo.addMemesToAlbum(_selectedIds.toList(), album.id);
+
+    // 刷新目标相册的 meme 列表
+    ref.invalidate(memesByAlbumProvider(album.id));
+    ref.invalidate(memeListProvider);
+
+    final count = _selectedIds.length;
+    _exitSelectionMode();
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已将 $count 张图片添加到「${album.name}」')),
+      );
+    }
+  }
+
+  Future<void> _showNewAlbumDialog() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('新建相册'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: '相册名称'),
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+    if (name != null && name.isNotEmpty) {
+      await ref.read(albumsProvider.notifier).addAlbum(name);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final albumsAsync = ref.watch(albumsProvider);
+    final albums = albumsAsync.asData?.value ?? [];
+    final tabCount = albums.length + 1;
+
+    _syncTabController(tabCount);
+
+    final memeListAsync = ref.watch(memeListProvider);
+
+    return PopScope(
+      canPop: !_selectionMode,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _selectionMode) {
+          _exitSelectionMode();
+        }
+      },
+      child: Scaffold(
+        appBar: _selectionMode ? _buildSelectionAppBar() : _buildNormalAppBar(tabCount),
+        body: _selectionMode
+            ? _buildSelectionGrid(memeListAsync)
+            : _buildTabbedBody(memeListAsync, albums),
+        floatingActionButton: _selectionMode ? null : _buildFab(),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildNormalAppBar(int tabCount) {
+    return AppBar(
+      title: const Text('MemeHelper'),
+      centerTitle: true,
+      bottom: tabCount > 1
+          ? TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabs: [
+                const Tab(text: '全部图片'),
+                ...ref.watch(albumsProvider).asData?.value
+                        .map((a) => Tab(text: a.name)) ??
+                    [],
+              ],
+            )
+          : null,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.add_photo_alternate),
+          onPressed: () => context.pushNamed('import'),
+          tooltip: '导入',
+        ),
+        IconButton(
+          icon: const Icon(Icons.search),
+          onPressed: () => context.pushNamed('search'),
+          tooltip: '颜色搜索',
+        ),
+        IconButton(
+          icon: const Icon(Icons.settings),
+          onPressed: () => context.pushNamed('settings'),
+          tooltip: '设置',
+        ),
+      ],
+    );
+  }
+
+  PreferredSizeWidget _buildSelectionAppBar() {
+    return AppBar(
+      title: Text('已选择 ${_selectedIds.length} 项'),
+      centerTitle: true,
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        onPressed: _exitSelectionMode,
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.copy),
+          onPressed: _copySelected,
+          tooltip: '复制',
+        ),
+        IconButton(
+          icon: const Icon(Icons.photo_album_outlined),
+          onPressed: _moveSelectedToAlbum,
+          tooltip: '添加到相册',
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline),
+          onPressed: _deleteSelected,
+          tooltip: '删除',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabbedBody(
+    AsyncValue<List<Meme>> memeListAsync,
+    List<Album> albums,
+  ) {
+    if (_tabController == null) return const SizedBox();
+
+    return TabBarView(
+      controller: _tabController,
+      children: [
+        _buildMemeGrid(memeListAsync),
+        ...albums.map((a) {
+          final albumMemes = ref.watch(memesByAlbumProvider(a.id));
+          return _buildMemeGrid(albumMemes);
+        }),
+      ],
+    );
+  }
+
+  Widget _buildMemeGrid(AsyncValue<List<Meme>> memeListAsync) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return memeListAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('加载失败: $e')),
+      data: (memes) {
+        if (memes.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.photo_library_outlined,
+                    size: 80, color: colorScheme.outline),
+                const SizedBox(height: 16),
+                Text('还没有任何 Meme',
+                    style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                Text('点击右下角按钮导入图片',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: colorScheme.outline)),
+              ],
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            ref.refresh(memeListProvider);
+            ref.refresh(memeCountProvider);
+            ref.refresh(albumsProvider);
+          },
+          child: GridView.builder(
+            padding: const EdgeInsets.all(4),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+            ),
+            itemCount: memes.length,
+            itemBuilder: (context, index) {
+              final meme = memes[index];
+              return _MemeGridTile(
+                meme: meme,
+                selectionMode: _selectionMode,
+                selected: _selectedIds.contains(meme.id),
+                onTap: () {
+                  if (_selectionMode) {
+                    _toggleSelection(meme.id);
+                  } else {
+                    context.pushNamed('meme-detail',
+                        pathParameters: {'id': meme.id});
+                  }
+                },
+                onLongPress: () => _enterSelectionMode(meme.id),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSelectionGrid(AsyncValue<List<Meme>> memeListAsync) {
+    final memes = memeListAsync.asData?.value ?? [];
+    return _buildMemeGrid(AsyncValue.data(memes));
+  }
+
+  Widget _buildFab() {
+    return FloatingActionButton(
+      onPressed: () => _showActionSheet(context),
+      child: const Icon(Icons.add),
+    );
+  }
+
+  void _showActionSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.add_photo_alternate),
+              title: const Text('导入图片'),
+              onTap: () {
+                Navigator.pop(ctx);
+                context.pushNamed('import');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('新建相册'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showNewAlbumDialog();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MemeGridTile extends ConsumerWidget {
+  final Meme meme;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const _MemeGridTile({
+    required this.meme,
+    required this.selectionMode,
+    required this.selected,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  Future<void> _copyMeme(WidgetRef ref) async {
+    final storage = ref.read(fileStorageServiceProvider);
+    final file = await storage.getImage(meme.filePath);
+    await ClipboardService.copyImageToClipboard(file.path);
+    if (ref.context.mounted) {
+      ScaffoldMessenger.of(ref.context).showSnackBar(
+        const SnackBar(content: Text('已复制到剪贴板')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final storage = ref.read(fileStorageServiceProvider);
+
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Card(
+            clipBehavior: Clip.antiAlias,
+            margin: EdgeInsets.zero,
+            child: FutureBuilder<ImageProvider>(
+              future: _loadImage(storage),
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  return Image(
+                    image: snapshot.data!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) =>
+                        const Icon(Icons.broken_image),
+                  );
+                }
+                return const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2));
+              },
+            ),
+          ),
+          // 右上角复制按钮（始终显示）
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Material(
+              color: Colors.black38,
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => _copyMeme(ref),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.copy, size: 16, color: Colors.white70),
+                ),
+              ),
+            ),
+          ),
+          if (selectionMode)
+            Positioned(
+              top: 4,
+              left: 4,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: selected
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.black38,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  selected ? Icons.check_circle : Icons.circle_outlined,
+                  color: selected
+                      ? Theme.of(context).colorScheme.onPrimary
+                      : Colors.white70,
+                  size: 22,
+                ),
+              ),
+            ),
+          if (selectionMode && selected)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.7),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                child: Text(
+                  meme.filename,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimary,
+                    fontSize: 10,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<ImageProvider> _loadImage(FileStorageService storage) async {
+    final file = await storage.getImage(meme.filePath);
+    return FileImage(file);
+  }
+}

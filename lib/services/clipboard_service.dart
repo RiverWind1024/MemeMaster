@@ -1,0 +1,57 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
+
+class ClipboardService {
+  static const _channel = MethodChannel('com.memehelper.app/clipboard');
+
+  static Future<bool> copyImageToClipboard(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        print('ClipboardService: 文件不存在 $filePath');
+        return false;
+      }
+
+      final bytes = await file.readAsBytes();
+      final mimeType = _mimeFromExtension(filePath);
+
+      await _channel.invokeMethod('copyImageToClipboard', {
+        'bytes': bytes,
+        'mimeType': mimeType,
+      });
+      return true;
+    } catch (e) {
+      print('复制到剪贴板失败: $e');
+      return false;
+    }
+  }
+
+  static Future<void> shareImage(String filePath) async {
+    final file = XFile(filePath);
+    await Share.shareXFiles([file], text: '分享表情包');
+  }
+
+  static Future<void> shareMultipleImages(List<String> filePaths) async {
+    final files = filePaths.map((p) => XFile(p)).toList();
+    await Share.shareXFiles(files, text: '分享表情包');
+  }
+
+  static String _mimeFromExtension(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      case 'bmp':
+        return 'image/bmp';
+      default:
+        return 'image/jpeg';
+    }
+  }
+}
