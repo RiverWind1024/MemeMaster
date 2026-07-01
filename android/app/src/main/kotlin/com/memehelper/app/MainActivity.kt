@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Environment
 import android.provider.OpenableColumns
@@ -221,6 +222,8 @@ class MainActivity : FlutterActivity() {
             mimeType?.contains("bmp") == true -> ".bmp"
             mimeType?.contains("jpeg") == true -> ".jpg"
             mimeType?.contains("jpg") == true -> ".jpg"
+            mimeType?.contains("heic") == true -> ".heic"
+            mimeType?.contains("heif") == true -> ".heif"
             else -> ".jpg"
         }
 
@@ -245,6 +248,27 @@ class MainActivity : FlutterActivity() {
         destFile.outputStream().use { output ->
             inputStream.copyTo(output)
         }
+
+        // HEIC/HEIF → JPEG 转换（Android BitmapFactory 原生支持 HEIC，但 Dart image 包不支持）
+        val lower = finalName.lowercase()
+        if (lower.endsWith(".heic") || lower.endsWith(".heif")) {
+            try {
+                val bmp = BitmapFactory.decodeFile(destFile.absolutePath)
+                if (bmp != null) {
+                    val jpgName = finalName.substringBeforeLast('.') + ".jpg"
+                    val jpgFile = File(cacheDir, "share_import/$jpgName")
+                    FileOutputStream(jpgFile).use { out ->
+                        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, out)
+                    }
+                    destFile.delete()
+                    android.util.Log.d(tag, "HEIC converted to JPEG: $jpgFile")
+                    return jpgFile.absolutePath
+                }
+            } catch (e: Exception) {
+                android.util.Log.w(tag, "HEIC conversion failed, keeping original: $finalName", e)
+            }
+        }
+
         return destFile.absolutePath
     }
 
