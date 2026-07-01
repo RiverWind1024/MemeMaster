@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -12,8 +13,27 @@ import 'features/settings/s3_sync_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
+/// [DIAG] 记录所有路由变化
+class _RouteLogger extends NavigatorObserver {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    debugPrint('[Router] didPush: ${route.settings.name} <- ${previousRoute?.settings.name}');
+  }
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    debugPrint('[Router] didPop: ${route.settings.name} -> ${previousRoute?.settings.name}');
+  }
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    debugPrint('[Router] didReplace: ${newRoute?.settings.name} <- ${oldRoute?.settings.name}');
+  }
+}
+
+final _routeLogger = _RouteLogger();
+
 final router = GoRouter(
   navigatorKey: _rootNavigatorKey,
+  observers: [_routeLogger],
   initialLocation: '/gallery',
   // 拦截 Android intent deep link（content:// file:// 等），避免 GoException
   redirect: (context, state) {
