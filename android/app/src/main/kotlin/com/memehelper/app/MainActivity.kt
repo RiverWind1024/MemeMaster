@@ -224,6 +224,7 @@ class MainActivity : FlutterActivity() {
             mimeType?.contains("jpg") == true -> ".jpg"
             mimeType?.contains("heic") == true -> ".heic"
             mimeType?.contains("heif") == true -> ".heif"
+            mimeType?.contains("avif") == true -> ".avif"
             else -> ".jpg"
         }
 
@@ -249,9 +250,11 @@ class MainActivity : FlutterActivity() {
             inputStream.copyTo(output)
         }
 
-        // HEIC/HEIF → JPEG 转换（Android BitmapFactory 原生支持 HEIC，但 Dart image 包不支持）
+        // HEIC / HEIF / AVIF → JPEG 转换
+        // 这些格式 Android BitmapFactory 原生支持，但 Dart image 包不支持解码
+        val unsupportedFormats = listOf(".heic", ".heif", ".avif", ".avifs")
         val lower = finalName.lowercase()
-        if (lower.endsWith(".heic") || lower.endsWith(".heif")) {
+        if (unsupportedFormats.any { lower.endsWith(it) }) {
             try {
                 val bmp = BitmapFactory.decodeFile(destFile.absolutePath)
                 if (bmp != null) {
@@ -261,11 +264,11 @@ class MainActivity : FlutterActivity() {
                         bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, out)
                     }
                     destFile.delete()
-                    android.util.Log.d(tag, "HEIC converted to JPEG: $jpgFile")
+                    android.util.Log.d(tag, "$finalName converted to JPEG: $jpgFile")
                     return jpgFile.absolutePath
                 }
             } catch (e: Exception) {
-                android.util.Log.w(tag, "HEIC conversion failed, keeping original: $finalName", e)
+                android.util.Log.w(tag, "Format conversion failed, keeping original: $finalName", e)
             }
         }
 
