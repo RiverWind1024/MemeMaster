@@ -4,6 +4,8 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../services/log_service.dart';
+
 import '../../services/import_service.dart';
 import '../../services/meme_detector.dart';
 import '../gallery/gallery_provider.dart';
@@ -330,6 +332,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     });
 
     // 1. 扫描目录
+    final log = ref.read(logServiceProvider);
+    log.info('Scan', 'scanDirectory: $_scanDir');
     final images = MemeDetector.scanDirectory(_scanDir!);
     _allImages = images;
     debugPrint('[Scan] scanDirectory found ${images.length} images');
@@ -354,8 +358,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       final batch = images.skip(i).take(5).toList();
       debugPrint('[Scan] batch ${i ~/ 5 + 1}/${(total + 4) ~/ 5}');
 
+      final detector = MemeDetector(logger: (tag, msg) => log.info(tag, msg));
       final results = await Future.wait(
-          batch.map((p) => MemeDetector().detect(p)));
+          batch.map((p) => detector.detect(p)));
 
       for (final r in results) {
         completed++;
