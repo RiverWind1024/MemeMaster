@@ -291,6 +291,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               tabs: [
                 const Tab(text: '全部图片'),
                 ...ref.watch(albumsProvider).asData?.value
+                        .where((a) => a.isDefault != 1)
                         .map((a) => Tab(text: a.name)) ??
                     [],
               ],
@@ -341,9 +342,9 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         Expanded(
           child: TabBarView(
             controller: _tabController,
-            children: [
-              _buildMemeGrid(memeListAsync),
-              ...albums.map((a) {
+              children: [
+                _buildMemeGrid(memeListAsync),
+                ...albums.where((a) => a.isDefault != 1).map((a) {
                 final albumMemes = ref.watch(memesByAlbumProvider(a.id));
                 return _buildMemeGrid(albumMemes);
               }),
