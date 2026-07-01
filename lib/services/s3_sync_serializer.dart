@@ -204,6 +204,13 @@ class S3SyncSerializer {
     return MemeSyncData(meme: meme, tags: tags, colors: colors);
   }
 
+  /// 导出单条 meme 的同步数据
+  Future<MemeSyncData?> exportSingleMeme(String memeId) async {
+    final meme = await _memeRepo.getById(memeId);
+    if (meme == null) return null;
+    return _exportMeme(meme);
+  }
+
   /// 全量导入（在事务中清空旧数据 → 写入新数据）
   Future<void> importFull(FullSyncData data) async {
     await _db.transaction(() async {
