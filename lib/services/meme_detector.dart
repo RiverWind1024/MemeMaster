@@ -101,8 +101,8 @@ class MemeDetector {
       if (bpp < 0.5) isLowQuality = true;
     }
 
-    bool isTooSmall = fileSize < 20 * 1024;       // < 20KB：图标/缩略图
-    bool isTooLarge = fileSize > 5 * 1024 * 1024;  // > 5MB：高清照片
+    bool isTooSmall = fileSize < 1 * 1024;            // < 1KB：图标/缩略图
+    bool isTooLarge = fileSize > 2 * 1024 * 1024;       // > 2MB：高清照片
 
     // ---- 打分 ----
     double score = 0;
