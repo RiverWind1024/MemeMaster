@@ -282,8 +282,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
   PreferredSizeWidget _buildNormalAppBar(int tabCount) {
     return AppBar(
-      title: const Text('MemeHelper'),
-      centerTitle: true,
+      toolbarHeight: 0,
       bottom: tabCount > 1
           ? TabBar(
               controller: _tabController,
