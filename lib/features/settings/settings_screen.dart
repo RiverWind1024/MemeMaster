@@ -167,7 +167,7 @@ class SettingsScreen extends ConsumerWidget {
 class _S3ConfigCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(s3ConfigProvider);
+    final config = ref.watch(s3ConfigProvider).valueOrNull ?? const S3Config();
     final isConfigured = config.isValid;
     final theme = Theme.of(context);
 
@@ -280,7 +280,7 @@ class _S3ConfigCard extends ConsumerWidget {
                   secretKey: secretKeyCtl.text.trim(),
                   useSsl: true,
                 );
-                ref.read(s3ConfigProvider.notifier).update(newConfig);
+                ref.read(s3ConfigProvider.notifier).save(newConfig);
                 ref.read(s3SyncServiceProvider).updateConfig(newConfig);
                 navigator.pop();
               },
