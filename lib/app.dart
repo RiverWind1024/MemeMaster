@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'features/gallery/gallery_provider.dart';
 import 'router.dart';
+import 'services/log_service.dart';
 import 'services/shared_media_handler.dart';
 
 class MemeHelperApp extends StatelessWidget {
@@ -32,6 +33,10 @@ class _AppBody extends ConsumerStatefulWidget {
 
 class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver {
   String? _lastClipboardPath;
+  int _clipboardRetryCount = 0;
+  static const _maxClipboardRetries = 3;
+
+  LogService get _log => ref.read(logServiceProvider);
 
   @override
   void initState() {
@@ -49,13 +54,17 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _log.info('AppLifecycle', 'resumed → _checkOnResume');
       _checkOnResume();
     }
   }
 
   Future<void> _checkOnStart() async {
+    _log.info('Intent', 'checkOnStart: checking pending files...');
     final paths = await SharedMediaHandler().getPendingFiles();
+    _log.info('Intent', 'getPendingFiles returned ${paths.length} paths: ${paths.take(3)}');
     if (paths.isNotEmpty && mounted) {
+      _log.info('Intent', 'pushing import-receive with ${paths.length} files');
       context.pushNamed('import-receive', extra: paths);
       return;
     }
@@ -65,32 +74,55 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
   }
 
   Future<void> _checkOnResume() async {
+    _log.info('Intent', 'checkOnResume: checking pending files...');
     final paths = await SharedMediaHandler().getPendingFiles();
+    _log.info('Intent', 'getPendingFiles returned ${paths.length} paths');
     if (paths.isNotEmpty && mounted) {
+      _log.info('Intent', 'pushing import-receive with ${paths.length} files');
       context.pushNamed('import-receive', extra: paths);
       return;
     }
     if (mounted) {
+      _clipboardRetryCount = 0;
       _checkClipboardImage();
     }
   }
 
   Future<void> _checkClipboardImage() async {
+    _log.info('Clipboard', 'getClipboardImage attempt ${_clipboardRetryCount + 1}/$_maxClipboardRetries');
     final rawPath = await SharedMediaHandler().getClipboardImage();
-    if (rawPath == null || rawPath == _lastClipboardPath || !mounted) return;
+    _log.info('Clipboard', 'getClipboardImage returned: ${rawPath != null ? (rawPath.length > 150 ? '${rawPath.substring(0, 150)}...' : rawPath) : 'null'}');
+
+    if (rawPath == null && _clipboardRetryCount < _maxClipboardRetries - 1) {
+      _clipboardRetryCount++;
+      _log.info('Clipboard', 'retrying after 500ms delay...');
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        _checkClipboardImage();
+      }
+      return;
+    }
+
+    _clipboardRetryCount = 0;
+
+    if (rawPath == null || rawPath == _lastClipboardPath || !mounted) {
+      _log.info('Clipboard', 'skip: rawPath=$rawPath lastPath=$_lastClipboardPath mounted=$mounted');
+      return;
+    }
 
     _lastClipboardPath = rawPath;
 
-    // HTTP URL：先下载到缓存再导入
     String? localPath;
     if (rawPath.startsWith('http-url://')) {
       final url = rawPath.substring(10);
+      _log.info('Clipboard', 'downloading HTTP URL: $url');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('正在下载剪贴板中的图片...')),
         );
       }
       localPath = await _downloadToCache(url);
+      _log.info('Clipboard', 'download result: $localPath');
       if (localPath == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -103,6 +135,7 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
       localPath = rawPath;
     }
 
+    _log.info('Clipboard', 'showing import dialog for: $localPath');
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -120,11 +153,13 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
         ],
       ),
     );
+    _log.info('Clipboard', 'dialog result: $confirmed');
 
     final importPath = localPath;
     if (confirmed == true && mounted) {
       final service = ref.read(importServiceProvider);
       final meme = await service.importImage(importPath);
+      _log.info('Clipboard', 'import result: ${meme != null ? "imported" : "skipped (duplicate)"}');
       ref.invalidate(memeListProvider);
       ref.invalidate(memeCountProvider);
       if (context.mounted) {

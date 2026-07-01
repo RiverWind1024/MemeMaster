@@ -460,18 +460,27 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   }
 
   Future<void> _importFromClipboard() async {
-    // 尝试从文本剪贴板读取（本地文件路径或 URL）
+    final log = ref.read(logServiceProvider);
+    log.info('Clipboard', '_importFromClipboard 开始');
     String? path;
     String? clipboardData = await ClipboardService.readText();
     if (clipboardData != null && clipboardData.trim().isNotEmpty) {
       path = clipboardData.trim();
+      log.info('Clipboard', '文本剪贴板内容: ${path.length > 100 ? path.substring(0, 100) : path}');
     } else {
-      // 文本为空时，尝试原生剪贴板检测（content:// URI 或已缓存的路径）
+      log.info('Clipboard', '文本剪贴板为空，尝试原生 getClipboardImage');
       final nativePath = await SharedMediaHandler().getClipboardImage();
+      final clipPreview = nativePath != null && nativePath.length > 150 ? '${nativePath.substring(0, 150)}...' : nativePath;
+      log.info('Clipboard', '原生 getClipboardImage 返回: $clipPreview');
       if (nativePath != null) {
         if (nativePath.startsWith('content://') || nativePath.startsWith('file://')) {
           final copied = await SharedMediaHandler().copyContentUri(nativePath);
-          if (copied != null) path = copied;
+          if (copied != null) {
+            path = copied;
+            log.info('Clipboard', 'URI 复制到缓存: $copied');
+          } else {
+            log.error('Clipboard', 'copyContentUri 失败: $nativePath');
+          }
         } else {
           path = nativePath;
         }
@@ -479,6 +488,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     }
 
     if (path == null) {
+      log.warning('Clipboard', '剪贴板为空，无可用路径');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('剪贴板为空')),
@@ -486,16 +496,20 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       }
       return;
     }
+    log.info('Clipboard', '最终待导入路径: $path');
 
     // 移除可能的 file:// 前缀
     if (path.startsWith('file://')) {
       path = path.substring(7);
+      log.info('Clipboard', '已移除 file:// 前缀: $path');
     }
 
     // content:// URI：通过原生复制到缓存
     if (path.startsWith('content://')) {
+      log.info('Clipboard', '检测到 content:// URI，尝试 copyContentUri');
       final copied = await SharedMediaHandler().copyContentUri(path);
       if (copied == null) {
+        log.error('Clipboard', 'copyContentUri 失败，放弃导入');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('无法读取剪贴板 URI')),
@@ -504,10 +518,12 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         return;
       }
       path = copied;
+      log.info('Clipboard', 'URI 已复制到缓存: $path');
     }
 
     // HTTP/HTTPS URL：直接下载
     if (path.startsWith('http://') || path.startsWith('https://')) {
+      log.info('Clipboard', '检测到 HTTP URL，开始下载: ${path.length > 100 ? path.substring(0, 100) : path}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('正在从剪贴板 URL 下载图片...')),
@@ -515,6 +531,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       }
       final localFile = await _downloadToCache(path);
       if (localFile == null) {
+        log.error('Clipboard', 'HTTP URL 下载失败');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('从 URL 下载图片失败')),
@@ -523,13 +540,16 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         return;
       }
       path = localFile;
+      log.info('Clipboard', '下载完成: $path');
     }
 
     // http-url:// 前缀（来自原生 getClipboardImage 的 HTTP URL 检测）
     if (path.startsWith('http-url://')) {
       final url = path.substring(10);
+      log.info('Clipboard', '检测到 http-url:// 前缀，开始下载: $url');
       final localFile = await _downloadToCache(url);
       if (localFile == null) {
+        log.error('Clipboard', 'http-url:// 下载失败');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('下载剪贴板图片失败')),
@@ -538,6 +558,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         return;
       }
       path = localFile;
+      log.info('Clipboard', '下载完成: $path');
     }
 
     // 验证本地文件存在且为图片格式
@@ -545,6 +566,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final ext = path.split('.').last.toLowerCase();
     final file = File(path);
     if (!await file.exists()) {
+      log.error('Clipboard', '文件不存在: $path');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('剪贴板内容不是有效的文件路径')),
@@ -553,6 +575,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       return;
     }
     if (!imageExtensions.contains(ext)) {
+      log.warning('Clipboard', '非图片格式: $path -> $ext');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('剪贴板文件不是图片格式')),
@@ -561,8 +584,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       return;
     }
 
+    log.info('Clipboard', '开始导入: $path');
     final service = ref.read(importServiceProvider);
     final result = await service.importImages([path]);
+    log.info('Clipboard', '导入结果: 成功=${result.success} 跳过=${result.skipped} 错误=${result.errors.length}');
 
     ref.invalidate(memeListProvider);
     ref.invalidate(memeCountProvider);
