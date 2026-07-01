@@ -155,19 +155,34 @@ class MainActivity : FlutterActivity() {
     /// 将 URI 立即复制到缓存并记录路径。
     /// 必须在 intent 回调内调用，以利用 intent 授予的临时 URI 权限。
     private fun addPendingUri(uri: Uri) {
-        val path = try {
+        // 尝试1: 标准 contentResolver 读取
+        var path: String? = try {
             copyContentUriToCache(uri)
         } catch (e: Exception) {
             android.util.Log.e(tag, "addPendingUri: copyContentUriToCache failed for $uri", e)
             null
         }
+
+        // 尝试2: openInputStream 返回 null 时尝试 takePersistableUriPermission
+        if (path == null) {
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                android.util.Log.d(tag, "addPendingUri: takePersistableUriPermission OK, retrying")
+                path = copyContentUriToCache(uri)
+            } catch (e: SecurityException) {
+                android.util.Log.w(tag, "addPendingUri: takePersistableUriPermission failed (no persistable flag)", e)
+            }
+        }
+
         if (path != null) {
             android.util.Log.d(tag, "addPendingUri: cached $uri -> $path")
             if (pendingCachedPaths == null) pendingCachedPaths = mutableListOf()
             pendingCachedPaths!!.add(path)
         } else {
-            android.util.Log.w(tag, "addPendingUri: failed to cache $uri, falling back to URI string")
-            // fallback: 存 URI 字符串，Flutter 侧会尝试 copyContentUri
+            android.util.Log.w(tag, "addPendingUri: all attempts failed for $uri, storing as fallback string")
+            // fallback: 存 URI 字符串，Flutter 侧导入时会尝试 copyContentUri
             if (pendingCachedPaths == null) pendingCachedPaths = mutableListOf()
             pendingCachedPaths!!.add(uri.toString())
         }
