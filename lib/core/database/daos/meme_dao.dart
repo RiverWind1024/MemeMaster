@@ -165,4 +165,21 @@ class MemeDao {
     ).getSingle();
     return result.data.values.first as int;
   }
+
+  /// 检查是否存在指定时间戳之后更新的 meme
+  Future<bool> hasChangesSince(int timestamp) async {
+    final count = await _db.customSelect(
+      'SELECT COUNT(*) as c FROM memes_table WHERE updated_at > ?',
+      variables: [Variable.withInt(timestamp)],
+    ).getSingle();
+    return (count.data['c'] as int) > 0;
+  }
+
+  /// 获取指定时间戳之后更新的 meme
+  Future<List<Meme>> getUpdatedSince(int timestamp) async {
+    return (_db.select(_db.memesTable)
+          ..where((t) => t.updatedAt.isBiggerThanValue(timestamp))
+          ..orderBy([(t) => OrderingTerm.asc(t.updatedAt)]))
+        .get();
+  }
 }
