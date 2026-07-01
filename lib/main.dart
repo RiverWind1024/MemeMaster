@@ -28,5 +28,5 @@ void main() async {
   ]);
 
   debugPrint('[Startup] runApp: ${DateTime.now().difference(t0).inMilliseconds}ms');
-  runApp(MemeHelperApp(prefs: prefs));
+  runApp(MemeManagerApp(prefs: prefs));
 }
