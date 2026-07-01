@@ -83,16 +83,16 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     final preview = paths.take(3).map((p) => p.length > 80 ? '${p.substring(0, 80)}...' : p).toList();
     _log.info('Intent', 'getPendingFiles returned ${paths.length} paths: $preview');
     if (paths.isNotEmpty && mounted) {
-      _log.info('Intent', 'goNamed import-receive');
+      _log.info('Intent', 'push /import/receive');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           try {
-            GoRouter.of(context).goNamed('import-receive', extra: paths);
+            GoRouter.of(context).push('/import/receive', extra: paths);
           } catch (e) {
-            _log.error('Intent', 'goNamed import-receive failed: $e');
+            _log.error('Intent', 'push /import/receive failed: $e');
           }
         } else {
-          _log.warning('Intent', 'goNamed skipped: not mounted');
+          _log.warning('Intent', 'push skipped: not mounted');
         }
       });
       return;
@@ -108,16 +108,16 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     final preview = paths.take(3).map((p) => p.length > 80 ? '${p.substring(0, 80)}...' : p).toList();
     _log.info('Intent', 'getPendingFiles returned ${paths.length} paths: $preview');
     if (paths.isNotEmpty && mounted) {
-      _log.info('Intent', 'goNamed import-receive (scheduled post-frame)');
+      _log.info('Intent', 'push /import/receive (scheduled post-frame)');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           try {
-            GoRouter.of(context).goNamed('import-receive', extra: paths);
+            GoRouter.of(context).push('/import/receive', extra: paths);
           } catch (e) {
-            _log.error('Intent', 'goNamed import-receive failed: $e');
+            _log.error('Intent', 'push /import/receive failed: $e');
           }
         } else {
-          _log.warning('Intent', 'goNamed skipped: not mounted');
+          _log.warning('Intent', 'push skipped: not mounted');
         }
       });
       return;

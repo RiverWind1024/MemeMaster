@@ -62,8 +62,16 @@ class MainActivity : FlutterActivity() {
                     result.success(paths)
                 }
                 "getClipboardImage" -> {
-                    val path = getClipboardImage()
-                    result.success(path)
+                    // 在后台线程复制文件，避免大图片阻塞 UI 主线程
+                    Thread {
+                        try {
+                            val path = getClipboardImage()
+                            result.success(path)
+                        } catch (e: Exception) {
+                            android.util.Log.e(tag, "getClipboardImage background failed", e)
+                            result.success(null)
+                        }
+                    }.start()
                 }
                 "copyContentUri" -> {
                     val uriStr = call.argument<String>("uri")
