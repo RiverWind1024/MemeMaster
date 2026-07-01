@@ -11,10 +11,10 @@ import 'router.dart';
 import 'services/log_service.dart';
 import 'services/shared_media_handler.dart';
 
-class MemeHelperApp extends StatelessWidget {
+class MemeManagerApp extends StatelessWidget {
   final SharedPreferences prefs;
 
-  const MemeHelperApp({super.key, required this.prefs});
+  const MemeManagerApp({super.key, required this.prefs});
 
   @override
   Widget build(BuildContext context) {
@@ -248,7 +248,7 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
-      title: 'MemeHelper',
+      title: 'MemeManager',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.deepPurple,

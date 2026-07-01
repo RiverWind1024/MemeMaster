@@ -135,7 +135,7 @@ class SettingsScreen extends ConsumerWidget {
               children: [
                 const ListTile(
                   leading: Icon(Icons.info_outline),
-                  title: Text('MemeHelper'),
+                  title: Text('MemeManager'),
                   subtitle: Text('v1.0.0'),
                 ),
                 ListTile(

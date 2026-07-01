@@ -1,5 +1,5 @@
-name: meme_helper
-description: "Meme表情包管理工具 - 智能搜索、颜色识别、语义分析"
+name: mememanager
+description: "MemeManager - 表情包管理工具"
 publish_to: 'none'
 version: 1.0.0+1
 
