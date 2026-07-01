@@ -171,145 +171,20 @@ class _S3ConfigCard extends ConsumerWidget {
     final isConfigured = config.isValid;
     final theme = Theme.of(context);
 
-    return Column(
-      children: [
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.cloud_sync),
-            title: const Text('S3 云同步'),
-            subtitle: Text(
-              isConfigured
-                  ? '${config.endpoint}/${config.bucket}'
-                  : '未配置',
-              style: theme.textTheme.bodySmall,
-            ),
-            trailing: const Icon(Icons.edit),
-            onTap: () => _showConfigDialog(context, ref, config),
-          ),
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.cloud_sync),
+        title: const Text('S3 云同步'),
+        subtitle: Text(
+          isConfigured
+              ? '${config.endpoint}/${config.bucket}'
+              : '未配置',
+          style: theme.textTheme.bodySmall,
         ),
-        if (isConfigured)
-          Padding(
-            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.cloud_upload),
-                label: const Text('同步到云'),
-                onPressed: () => _startSync(context, ref),
-              ),
-            ),
-          ),
-      ],
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => context.pushNamed('s3-sync'),
+      ),
     );
-  }
-
-  void _showConfigDialog(BuildContext context, WidgetRef ref, S3Config config) {
-    final endpointCtl = TextEditingController(text: config.endpoint);
-    final bucketCtl = TextEditingController(text: config.bucket);
-    final regionCtl = TextEditingController(text: config.region);
-    final accessKeyCtl = TextEditingController(text: config.accessKey);
-    final secretKeyCtl = TextEditingController(text: config.secretKey);
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        final navigator = Navigator.of(ctx);
-        return AlertDialog(
-          title: const Text('S3 配置'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: endpointCtl,
-                  decoration: const InputDecoration(
-                    labelText: 'Endpoint',
-                    hintText: 's3.amazonaws.com',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: bucketCtl,
-                  decoration: const InputDecoration(
-                    labelText: 'Bucket',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: regionCtl,
-                  decoration: const InputDecoration(
-                    labelText: 'Region',
-                    hintText: 'us-east-1',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: accessKeyCtl,
-                  decoration: const InputDecoration(
-                    labelText: 'Access Key',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: secretKeyCtl,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Secret Key',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => navigator.pop(),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final newConfig = S3Config(
-                  endpoint: endpointCtl.text.trim(),
-                  bucket: bucketCtl.text.trim(),
-                  region: regionCtl.text.trim(),
-                  accessKey: accessKeyCtl.text.trim(),
-                  secretKey: secretKeyCtl.text.trim(),
-                  useSsl: true,
-                );
-                ref.read(s3ConfigProvider.notifier).save(newConfig);
-                ref.read(s3SyncServiceProvider).updateConfig(newConfig);
-                navigator.pop();
-              },
-              child: const Text('保存'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _startSync(BuildContext context, WidgetRef ref) {
-    final service = ref.read(s3SyncServiceProvider);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('开始同步...')),
-    );
-    service.uploadAll().listen((progress) {
-      if (progress.status == S3SyncStatus.error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('同步失败: ${progress.errorMessage}')),
-        );
-      } else if (progress.status == S3SyncStatus.idle) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('同步完成: ${progress.completed}/${progress.total}'),
-          ),
-        );
-      }
-    });
   }
 }
 
