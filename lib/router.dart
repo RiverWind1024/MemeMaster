@@ -7,6 +7,7 @@ import 'features/import/import_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settings/log_viewer_screen.dart';
+import 'features/settings/s3_sync_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -45,6 +46,11 @@ final router = GoRouter(
       path: '/settings/logs',
       name: 'logs',
       builder: (context, state) => const LogViewerScreen(),
+    ),
+    GoRoute(
+      path: '/settings/s3-sync',
+      name: 's3-sync',
+      builder: (context, state) => const S3SyncScreen(),
     ),
   ],
 );

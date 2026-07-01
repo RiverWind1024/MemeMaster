@@ -21,6 +21,7 @@ import '../../services/file_storage_service.dart';
 import '../../services/log_service.dart';
 import '../../services/s3_config.dart';
 import '../../services/s3_sync_service.dart';
+import '../../services/s3_sync_serializer.dart';
 import '../../services/import_service.dart';
 import '../../services/search_service.dart';
 
@@ -308,9 +309,18 @@ final s3ConfigProvider =
     AsyncNotifierProvider<S3ConfigNotifier, S3Config>(S3ConfigNotifier.new);
 
 final s3SyncServiceProvider = Provider<S3SyncService>((ref) {
+  final db = ref.read(databaseProvider);
   final service = S3SyncService(
     memeRepo: ref.read(memeRepositoryProvider),
+    albumRepo: ref.read(albumRepositoryProvider),
     storage: ref.read(fileStorageServiceProvider),
+    syncStateDao: db.syncStateDao,
+    serializer: S3SyncSerializer(
+      memeRepo: ref.read(memeRepositoryProvider),
+      albumRepo: ref.read(albumRepositoryProvider),
+      db: db,
+    ),
+    log: ref.read(logServiceProvider),
   );
   final config = ref.read(s3ConfigProvider).valueOrNull;
   if (config != null) {
@@ -374,6 +384,55 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
 
 final themeModeProvider =
     NotifierProvider<ThemeModeNotifier, ThemeMode>(ThemeModeNotifier.new);
+
+// ---- 定时同步 ----
+
+class AutoSyncEnabledNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    try {
+      return ref.read(sharedPreferencesProvider).getBool('auto_sync_enabled') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void setEnabled(bool value) {
+    state = value;
+    try {
+      ref.read(sharedPreferencesProvider).setBool('auto_sync_enabled', value);
+    } catch (_) {}
+  }
+}
+
+final autoSyncEnabledProvider =
+    NotifierProvider<AutoSyncEnabledNotifier, bool>(AutoSyncEnabledNotifier.new);
+
+class AutoSyncIntervalNotifier extends Notifier<Duration> {
+  @override
+  Duration build() {
+    try {
+      final minutes = ref.read(sharedPreferencesProvider).getInt('auto_sync_interval_minutes');
+      if (minutes != null) return Duration(minutes: minutes);
+    } catch (_) {}
+    return const Duration(hours: 1);
+  }
+
+  void setInterval(Duration interval) {
+    state = interval;
+    try {
+      ref.read(sharedPreferencesProvider).setInt(
+        'auto_sync_interval_minutes',
+        interval.inMinutes,
+      );
+    } catch (_) {}
+  }
+}
+
+final autoSyncIntervalProvider =
+    NotifierProvider<AutoSyncIntervalNotifier, Duration>(
+  AutoSyncIntervalNotifier.new,
+);
 
 final memesByAlbumProvider = FutureProvider.family<List<Meme>, String>((ref, albumId) async {
   final albumDao = ref.read(albumDaoProvider);
