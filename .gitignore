@@ -46,3 +46,6 @@ app.*.map.json
 
 # Git worktrees
 .worktrees/
+
+# Superpowers temp files
+.superpowers/
