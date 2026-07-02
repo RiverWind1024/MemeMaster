@@ -6,6 +6,7 @@ import '../core/database/database.dart';
 import '../core/image/color_extraction_config.dart';
 import '../core/image/color_extractor.dart';
 import '../core/llm/enricher.dart';
+import '../core/llm/vision_enricher.dart';
 import '../core/ocr/ocr_service.dart';
 import '../core/repositories/meme_repository.dart';
 import 'file_storage_service.dart';
@@ -26,6 +27,7 @@ class AnalysisQueueScheduler {
   bool _ocrEnabled = false;
   bool _llmEnabled = false;
   LlmEnricher? _llmEnricher;
+  VisionLlmEnricher? _visionEnricher;
   ColorExtractionConfig _colorConfig = const ColorExtractionConfig();
 
   AnalysisQueueScheduler({
@@ -57,6 +59,10 @@ class AnalysisQueueScheduler {
 
   void setLlmEnricher(LlmEnricher enricher) {
     _llmEnricher = enricher;
+  }
+
+  void setVisionEnricher(VisionLlmEnricher enricher) {
+    _visionEnricher = enricher;
   }
 
   void setLlmEnabled(bool enabled) {
@@ -110,6 +116,9 @@ class AnalysisQueueScheduler {
       } else {
         _log.info('Scheduler', 'OCR 未识别到文字 (_ocrEnabled=$_ocrEnabled)');
       }
+
+      // ---- 步骤 3: 多模态视觉分析（独立于 OCR） ----
+      await _runVisionLlm(job.memeId, imagePath);
 
       await _memeRepo.updateAnalysisStatus(meme.id, 'done');
       await _queueDao.markDone(job.id);
@@ -196,5 +205,14 @@ class AnalysisQueueScheduler {
     if (enricher == null) return;
     // TODO(Phase 2): 传入图片路径，让 LLM 多模态模型直接分析图像内容
     await enricher.enrich(memeId, ocrText);
+  }
+
+  Future<void> _runVisionLlm(String memeId, String imagePath) async {
+    final enricher = _visionEnricher;
+    if (enricher == null) {
+      _log.info('VisionLLM', '未设置 VisionEnricher，跳过');
+      return;
+    }
+    await enricher.enrich(memeId, imagePath);
   }
 }
