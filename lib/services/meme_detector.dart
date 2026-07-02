@@ -68,6 +68,13 @@ class MemeDetector {
       return MemeDetectionResult(filePath: imagePath, score: 0);
     }
 
+    // GIF 直接放行，不参与 OCR/模糊检测
+    if (imagePath.toLowerCase().endsWith('.gif')) {
+      _log('detect: GIF $imagePath → auto pass');
+      return MemeDetectionResult(filePath: imagePath, score: 0.85,
+          hasWideText: true);
+    }
+
     final fileSize = await file.length();
     if (fileSize < 1024 || fileSize > 2 * 1024 * 1024) {
       _log('detect: size filter $imagePath size=$fileSize');
