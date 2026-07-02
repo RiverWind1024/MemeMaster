@@ -24,7 +24,14 @@ class LlmMessage {
   final String role; // 'system' | 'user' | 'assistant'
   final String content;
 
-  const LlmMessage({required this.role, required this.content});
+  /// 可选的 base64 编码图片（多模态 vision 使用）
+  final String? imageBase64;
+
+  const LlmMessage({
+    required this.role,
+    required this.content,
+    this.imageBase64,
+  });
 
   Map<String, String> toJson() => {'role': role, 'content': content};
 }
