@@ -275,6 +275,14 @@ class SEn extends S {
   String get modelFileLoaded => 'Model file loaded';
 
   @override
+  String get invalidGgufFile => 'Please select a .gguf model file';
+
+  @override
+  String invalidGgufFileDetail(String filename) {
+    return 'The selected file \"$filename\" is not in GGUF format and cannot be used for local inference.';
+  }
+
+  @override
   String get settings => 'Settings';
 
   @override
@@ -1087,4 +1095,25 @@ class SEn extends S {
 
   @override
   String get languageEnglish => 'English';
+
+  @override
+  String get aiRecognition => 'AI Recognition';
+
+  @override
+  String get noAiTags => 'No AI tags';
+
+  @override
+  String llmTagCount(int count) {
+    return '$count';
+  }
+
+  @override
+  String get descriptionLabel => 'Description';
+
+  @override
+  String get mmprojHint =>
+      'If your model supports image input (multimodal), it\'s recommended to also select the mmproj projection file.\n\nSkip if not needed';
+
+  @override
+  String get uriReadFailed => 'Cannot read URI';
 }

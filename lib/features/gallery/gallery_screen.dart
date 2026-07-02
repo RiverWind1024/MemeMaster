@@ -111,11 +111,11 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(S.of(context).cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('删除',
+            child: Text(S.of(context).delete,
                 style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
           ),
         ],
@@ -198,7 +198,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(S.of(context).cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, controller.text),

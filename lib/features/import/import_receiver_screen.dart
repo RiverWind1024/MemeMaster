@@ -70,7 +70,7 @@ class _ImportReceiverScreenState extends ConsumerState<ImportReceiverScreen> {
         localPath = await SharedMediaHandler().copyContentUri(rawPath);
         if (localPath == null) {
           log.error('ImportReceiver', 'copyContentUri 失败: $rawPath');
-          errors.add('$rawPath: 无法读取 URI');
+          errors.add('$rawPath: ${S.of(context).uriReadFailed}');
           if (mounted) setState(() => _processed++);
           continue;
         }

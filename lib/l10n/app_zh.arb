@@ -96,6 +96,9 @@
   "selectProjectionFile": "选择投影文件",
   "ggufProjectionFile": "GGUF 投影文件",
   "modelFileLoaded": "模型文件已加载",
+  "invalidGgufFile": "请选择 .gguf 格式的模型文件",
+  "invalidGgufFileDetail": "所选文件「{filename}」不是 GGUF 格式，无法用于本地推理。",
+  "@invalidGgufFileDetail": { "placeholders": { "filename": { "type": "String" } } },
 
   "settings": "设置",
   "appearance": "外观",
@@ -393,5 +396,14 @@
   "language": "语言",
   "languageSystem": "跟随系统",
   "languageChinese": "中文",
-  "languageEnglish": "English"
+  "languageEnglish": "English",
+
+  "aiRecognition": "AI 识别",
+  "noAiTags": "暂无 AI 标签",
+  "llmTagCount": "{count} 个",
+  "@llmTagCount": { "placeholders": { "count": { "type": "int" } } },
+  "descriptionLabel": "描述",
+
+  "mmprojHint": "如果你的模型支持图片输入（多模态），建议同时选择 mmproj 投影文件。\n\n不需要请点「跳过」",
+  "uriReadFailed": "无法读取 URI"
 }

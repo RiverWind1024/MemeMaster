@@ -525,8 +525,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       ref.invalidate(memeCountProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(
-          '成功导入 ${result.success} 张 Meme'
-          '${result.skipped > 0 ? '，跳过 ${result.skipped} 张' : ''}')),
+          S.of(context).importSuccessWithSkip(result.success, result.skipped > 0 ? S.of(context).skippedCount(result.skipped) : ''))),
       );
     }
   }

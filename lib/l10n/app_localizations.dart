@@ -559,6 +559,18 @@ abstract class S {
   /// **'模型文件已加载'**
   String get modelFileLoaded;
 
+  /// No description provided for @invalidGgufFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择 .gguf 格式的模型文件'**
+  String get invalidGgufFile;
+
+  /// No description provided for @invalidGgufFileDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'所选文件「{filename}」不是 GGUF 格式，无法用于本地推理。'**
+  String invalidGgufFileDetail(String filename);
+
   /// No description provided for @settings.
   ///
   /// In zh, this message translates to:
@@ -2016,6 +2028,42 @@ abstract class S {
   /// In zh, this message translates to:
   /// **'English'**
   String get languageEnglish;
+
+  /// No description provided for @aiRecognition.
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 识别'**
+  String get aiRecognition;
+
+  /// No description provided for @noAiTags.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无 AI 标签'**
+  String get noAiTags;
+
+  /// No description provided for @llmTagCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个'**
+  String llmTagCount(int count);
+
+  /// No description provided for @descriptionLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'描述'**
+  String get descriptionLabel;
+
+  /// No description provided for @mmprojHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'如果你的模型支持图片输入（多模态），建议同时选择 mmproj 投影文件。\n\n不需要请点「跳过」'**
+  String get mmprojHint;
+
+  /// No description provided for @uriReadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法读取 URI'**
+  String get uriReadFailed;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

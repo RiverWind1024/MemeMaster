@@ -74,7 +74,7 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(S.of(context).cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -559,7 +559,7 @@ class _CustomTagsState extends ConsumerState<_CustomTags> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(S.of(context).cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -802,11 +802,11 @@ class _LlmTags extends ConsumerWidget {
               children: [
                 Icon(Icons.auto_awesome, size: 16, color: Colors.purple),
                 const SizedBox(width: 6),
-                Text('AI 识别', style: theme.textTheme.titleSmall),
+                Text(S.of(context).aiRecognition, style: theme.textTheme.titleSmall),
                 if (hasLlm) ...[
                   const SizedBox(width: 6),
                   Text(
-                    '${llmTags.length} 个',
+                    S.of(context).llmTagCount(llmTags.length),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.outline,
                     ),
@@ -840,7 +840,7 @@ class _LlmTags extends ConsumerWidget {
               )
             else
               Text(
-                '暂无 AI 标签',
+                S.of(context).noAiTags,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.outline,
                 ),
@@ -872,7 +872,7 @@ class _Description extends StatelessWidget {
           children: [
             Icon(Icons.short_text, size: 16, color: Colors.orange),
             const SizedBox(width: 6),
-            Text('描述', style: theme.textTheme.titleSmall),
+            Text(S.of(context).descriptionLabel, style: theme.textTheme.titleSmall),
           ],
         ),
         const SizedBox(height: 8),

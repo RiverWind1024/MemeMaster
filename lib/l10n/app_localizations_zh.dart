@@ -268,6 +268,14 @@ class SZh extends S {
   String get modelFileLoaded => '模型文件已加载';
 
   @override
+  String get invalidGgufFile => '请选择 .gguf 格式的模型文件';
+
+  @override
+  String invalidGgufFileDetail(String filename) {
+    return '所选文件「$filename」不是 GGUF 格式，无法用于本地推理。';
+  }
+
+  @override
   String get settings => '设置';
 
   @override
@@ -1073,4 +1081,24 @@ class SZh extends S {
 
   @override
   String get languageEnglish => 'English';
+
+  @override
+  String get aiRecognition => 'AI 识别';
+
+  @override
+  String get noAiTags => '暂无 AI 标签';
+
+  @override
+  String llmTagCount(int count) {
+    return '$count 个';
+  }
+
+  @override
+  String get descriptionLabel => '描述';
+
+  @override
+  String get mmprojHint => '如果你的模型支持图片输入（多模态），建议同时选择 mmproj 投影文件。\n\n不需要请点「跳过」';
+
+  @override
+  String get uriReadFailed => '无法读取 URI';
 }
