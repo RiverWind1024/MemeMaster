@@ -296,20 +296,42 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   Future<String?> _pickDirectoryWithFileSelector() async {
     try {
       final uriStr = await getDirectoryPath();
+      final log = ref.read(logServiceProvider);
+      log.info('Scan', 'SAF returned: $uriStr');
       if (uriStr == null) return null;
 
       // content://com.android.externalstorage.documents/tree/primary%3ADownload
       // → /storage/emulated/0/Download
       final uri = Uri.tryParse(uriStr);
-      if (uri == null) return null;
+      if (uri == null) {
+        log.warning('Scan', 'cannot parse URI: $uriStr');
+        return null;
+      }
 
-      final pathSegment = uri.pathSegments.last; // "primary%3ADownload"
-      final decoded = Uri.decodeComponent(pathSegment); // "primary:Download"
+      final pathSegments = uri.pathSegments;
+      final pathSegment = pathSegments.last;
+      final decoded = Uri.decodeComponent(pathSegment);
+      log.info('Scan', 'pathSegments=$pathSegments decoded="$decoded"');
 
       if (decoded.startsWith('primary:')) {
-        return '/storage/emulated/0/${decoded.substring(8)}';
+        final result = '/storage/emulated/0/${decoded.substring(8)}';
+        log.info('Scan', 'primary storage path: $result');
+        return result;
       }
-      // 外置 SD 卡：XXXX-XXXX:path
+
+      // 尝试 SD 卡路径: /storage/XXXX-XXXX/path
+      // 如果 decoded 形如 XXXX-XXXX:path
+      final colon = decoded.indexOf(':');
+      if (colon > 0) {
+        final volume = decoded.substring(0, colon);
+        final subPath = decoded.substring(colon + 1);
+        final result = '/storage/$volume/$subPath';
+        log.info('Scan', 'SD card path: $result');
+        return result;
+      }
+
+      // 兜底
+      log.warning('Scan', 'unexpected URI format, trying direct: /storage/$decoded');
       return '/storage/$decoded';
     } catch (e) {
       if (mounted) {
