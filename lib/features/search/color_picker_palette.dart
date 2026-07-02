@@ -16,29 +16,32 @@ class PresetColor {
   });
 }
 
-/// 预设色板
-const kPresetColors(context) = [
-  PresetColor(label: '红', value: 0xFFE53935, rgb: ColorRgb(229, 57, 53)),
-  PresetColor(label: '深橙', value: 0xFFFF7043, rgb: ColorRgb(255, 112, 67)),
-  PresetColor(label: '橙', value: 0xFFFF9800, rgb: ColorRgb(255, 152, 0)),
-  PresetColor(label: '琥珀', value: 0xFFFFC107, rgb: ColorRgb(255, 193, 7)),
-  PresetColor(label: '黄', value: 0xFFFFEB3B, rgb: ColorRgb(255, 235, 59)),
-  PresetColor(label: '柠绿', value: 0xFFCDDC39, rgb: ColorRgb(205, 220, 57)),
-  PresetColor(label: '浅绿', value: 0xFF8BC34A, rgb: ColorRgb(139, 195, 74)),
-  PresetColor(label: '绿', value: 0xFF4CAF50, rgb: ColorRgb(76, 175, 80)),
-  PresetColor(label: '青', value: 0xFF26C6DA, rgb: ColorRgb(38, 198, 218)),
-  PresetColor(label: '浅蓝', value: 0xFF03A9F4, rgb: ColorRgb(3, 169, 244)),
-  PresetColor(label: '蓝', value: 0xFF2196F3, rgb: ColorRgb(33, 150, 243)),
-  PresetColor(label: '靛蓝', value: 0xFF3F51B5, rgb: ColorRgb(63, 81, 181)),
-  PresetColor(label: '深紫', value: 0xFF673AB7, rgb: ColorRgb(103, 58, 183)),
-  PresetColor(label: '紫', value: 0xFF9C27B0, rgb: ColorRgb(156, 39, 176)),
-  PresetColor(label: '粉', value: 0xFFE91E63, rgb: ColorRgb(233, 30, 99)),
-  PresetColor(label: '棕', value: 0xFF795548, rgb: ColorRgb(121, 85, 72)),
-  PresetColor(label: '灰', value: 0xFF9E9E9E, rgb: ColorRgb(158, 158, 158)),
-  PresetColor(label: '蓝灰', value: 0xFF607D8B, rgb: ColorRgb(96, 125, 139)),
-  PresetColor(label: '黑', value: 0xFF212121, rgb: ColorRgb(33, 33, 33)),
-  PresetColor(label: '白', value: 0xFFFFFFFF, rgb: ColorRgb(255, 255, 255)),
-];
+/// 预设色板（需要 BuildContext 获取本地化标签）
+List<PresetColor> kPresetColors(BuildContext context) {
+  final s = S.of(context);
+  return [
+    PresetColor(label: s.colorRed, value: 0xFFE53935, rgb: ColorRgb(229, 57, 53)),
+    PresetColor(label: s.colorDeepOrange, value: 0xFFFF7043, rgb: ColorRgb(255, 112, 67)),
+    PresetColor(label: s.colorOrange, value: 0xFFFF9800, rgb: ColorRgb(255, 152, 0)),
+    PresetColor(label: s.colorAmber, value: 0xFFFFC107, rgb: ColorRgb(255, 193, 7)),
+    PresetColor(label: s.colorYellow, value: 0xFFFFEB3B, rgb: ColorRgb(255, 235, 59)),
+    PresetColor(label: s.colorLime, value: 0xFFCDDC39, rgb: ColorRgb(205, 220, 57)),
+    PresetColor(label: s.colorLightGreen, value: 0xFF8BC34A, rgb: ColorRgb(139, 195, 74)),
+    PresetColor(label: s.colorGreen, value: 0xFF4CAF50, rgb: ColorRgb(76, 175, 80)),
+    PresetColor(label: s.colorCyan, value: 0xFF26C6DA, rgb: ColorRgb(38, 198, 218)),
+    PresetColor(label: s.colorLightBlue, value: 0xFF03A9F4, rgb: ColorRgb(3, 169, 244)),
+    PresetColor(label: s.colorBlue, value: 0xFF2196F3, rgb: ColorRgb(33, 150, 243)),
+    PresetColor(label: s.colorIndigo, value: 0xFF3F51B5, rgb: ColorRgb(63, 81, 181)),
+    PresetColor(label: s.colorDeepPurple, value: 0xFF673AB7, rgb: ColorRgb(103, 58, 183)),
+    PresetColor(label: s.colorPurple, value: 0xFF9C27B0, rgb: ColorRgb(156, 39, 176)),
+    PresetColor(label: s.colorPink, value: 0xFFE91E63, rgb: ColorRgb(233, 30, 99)),
+    PresetColor(label: s.colorBrown, value: 0xFF795548, rgb: ColorRgb(121, 85, 72)),
+    PresetColor(label: s.colorGrey, value: 0xFF9E9E9E, rgb: ColorRgb(158, 158, 158)),
+    PresetColor(label: s.colorBlueGrey, value: 0xFF607D8B, rgb: ColorRgb(96, 125, 139)),
+    PresetColor(label: s.colorBlack, value: 0xFF212121, rgb: ColorRgb(33, 33, 33)),
+    PresetColor(label: s.colorWhite, value: 0xFFFFFFFF, rgb: ColorRgb(255, 255, 255)),
+  ];
+}
 
 /// 颜色选择面板 — 预设色板 + 自定义入口
 class ColorPickerPalette extends StatelessWidget {

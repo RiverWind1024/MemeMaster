@@ -157,8 +157,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           subtitle: Text(
-                            S.of(context).matchScore((m.score * 100).toInt())
-                            '${m.text != null ? ' · ${m.text!.length}字' : ''}',
+                            '${S.of(context).matchScore((m.score * 100).toInt())}${m.text != null ? ' · ${S.of(context).charCount(m.text!.length)}' : ''}',
                             style: theme.textTheme.bodySmall,
                           ),
                           trailing: Row(
@@ -240,35 +239,35 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/Download'),
-            child: const ListTile(
+            child: ListTile(
               leading: Icon(Icons.download),
               title: Text(S.of(context).directoryDownloads),
             ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/Pictures'),
-            child: const ListTile(
+            child: ListTile(
               leading: Icon(Icons.photo_library),
               title: Text(S.of(context).directoryPictures),
             ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/DCIM'),
-            child: const ListTile(
+            child: ListTile(
               leading: Icon(Icons.camera_alt),
               title: Text(S.of(context).directoryCamera),
             ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/tencent/MicroMsg/Download'),
-            child: const ListTile(
+            child: ListTile(
               leading: Icon(Icons.wechat),
               title: Text(S.of(context).directoryWechat),
             ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, '/storage/emulated/0'),
-            child: const ListTile(
+            child: ListTile(
               leading: Icon(Icons.storage),
               title: Text(S.of(context).directoryStorage),
             ),
@@ -279,7 +278,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
               Navigator.pop(ctx);
               _showCustomPathInput();
             },
-            child: const ListTile(
+            child: ListTile(
               leading: Icon(Icons.edit),
               title: Text(S.of(context).selectDirectoryEllipsis),
             ),

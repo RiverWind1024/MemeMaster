@@ -151,7 +151,7 @@ class _ImportReceiverScreenState extends ConsumerState<ImportReceiverScreen> {
                 Text(S.of(context).importSkipped(_result!.skipped)),
                 if (_result!.errors.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text(S.of(context).importErrors(_result!.errors.length)),
+                  Text(S.of(context).importErrors(_result!.errors.length),
                       style: TextStyle(color: colorScheme.error)),
                 ],
                 const SizedBox(height: 24),

@@ -261,7 +261,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  S.of(context).connectionOk : S.of(context).connectionFailed,
+                                  _connectionOk! ? S.of(context).connectionOk : S.of(context).connectionFailed,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: _connectionOk!
                                         ? Colors.green
@@ -443,7 +443,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                       trailing: DropdownButton<Duration>(
                         value: ref.watch(autoSyncIntervalProvider),
                         underline: const SizedBox(),
-                        items: const [
+                        items: [
                           DropdownMenuItem(
                             value: Duration(minutes: 5),
                             child: Text(S.of(context).fiveMinutes),
