@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../gallery/gallery_provider.dart';
 import '../../services/s3_config.dart';
 import '../../services/s3_sync_service.dart';
+import '../../l10n/app_localizations.dart';
 
 /// S3 云同步管理页面
 class S3SyncScreen extends ConsumerStatefulWidget {
@@ -68,7 +69,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('获取 S3 存储统计失败，请检查配置')),
+          SnackBar(content: Text(S.of(context).s3StorageStatsFailed)),
         );
       }
     } finally {
@@ -89,17 +90,17 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
         if (!hasPw) {
           // 首次设置密码
           return AlertDialog(
-            title: const Text('设置清空密码'),
+            title: Text(S.of(context).setClearPassword),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('清空 S3 数据需要密码确认，请设置一个密码。'),
+                Text(S.of(context).clearPasswordHint),
                 const SizedBox(height: 12),
                 TextField(
                   controller: passwordCtl,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: '密码',
+                  decoration: InputDecoration(
+                    labelText: S.of(context).password,
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -107,8 +108,8 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                 TextField(
                   controller: confirmCtl,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: '确认密码',
+                  decoration: InputDecoration(
+                    labelText: S.of(context).confirmPassword,
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -117,38 +118,38 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(),
-                child: const Text('取消'),
+                child: Text(S.of(context).cancel),
               ),
               FilledButton(
                 onPressed: () {
                   if (passwordCtl.text.isEmpty) return;
                   if (passwordCtl.text != confirmCtl.text) {
                     ScaffoldMessenger.of(ctx).showSnackBar(
-                      const SnackBar(content: Text('两次输入的密码不一致')),
+                      SnackBar(content: Text(S.of(context).passwordMismatch)),
                     );
                     return;
                   }
                   Navigator.of(ctx, rootNavigator: true).pop(passwordCtl.text);
                 },
-                child: const Text('设置'),
+                child: Text(S.of(context).setPassword),
               ),
             ],
           );
         }
         // 已有密码，输入密码确认清空
         return AlertDialog(
-          title: const Text('清空 S3 数据'),
+          title: Text(S.of(context).clearS3Data),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('此操作将删除 S3 bucket 中的所有文件，且不可恢复！'),
+              Text(S.of(context).clearS3Warning),
               const SizedBox(height: 12),
               TextField(
                 controller: passwordCtl,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: '输入密码确认',
+                decoration: InputDecoration(
+                  labelText: S.of(context).enterPasswordToConfirm,
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -157,7 +158,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(),
-              child: const Text('取消'),
+              child: Text(S.of(context).cancel),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
@@ -166,7 +167,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
               onPressed: () {
                 Navigator.of(ctx, rootNavigator: true).pop(passwordCtl.text);
               },
-              child: const Text('确认清空'),
+              child: Text(S.of(context).confirmClear),
             ),
           ],
         );
@@ -190,12 +191,12 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
       await service.clearAllData(password: password);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('S3 数据已清空')),
+        SnackBar(content: Text(S.of(context).s3DataCleared)),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('清空失败: $e')),
+        SnackBar(content: Text(S.of(context).clearFailed(e.toString()))),
       );
     }
   }
@@ -210,21 +211,21 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
         progress.status == S3SyncStatus.downloading;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('S3 云同步')),
+      appBar: AppBar(title: Text(S.of(context).s3Sync)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // ---- 配置摘要 ----
-          Text('配置', style: theme.textTheme.titleSmall),
+          Text(S.of(context).config, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Card(
             child: ListTile(
               leading: const Icon(Icons.cloud_sync),
-              title: const Text('S3 连接'),
+              title: Text(S.of(context).s3Connection),
               subtitle: Text(
                 isConfigured
                     ? '${config.endpoint}/${config.bucket}'
-                    : '未配置',
+                    : S.of(context).notConfigured,
                 style: theme.textTheme.bodySmall,
               ),
               trailing: const Icon(Icons.edit),
@@ -243,7 +244,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('连接测试'),
+                        Text(S.of(context).connectionTest),
                         if (_connectionOk != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
@@ -260,7 +261,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  _connectionOk! ? '连接正常' : '连接失败',
+                                  S.of(context).connectionOk : S.of(context).connectionFailed,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: _connectionOk!
                                         ? Colors.green
@@ -281,7 +282,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('测试'),
+                        : Text(S.of(context).test),
                   ),
                 ],
               ),
@@ -290,7 +291,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
           const SizedBox(height: 16),
 
           // ---- 同步操作 ----
-          Text('同步操作', style: theme.textTheme.titleSmall),
+          Text(S.of(context).syncOperations, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Card(
             child: Padding(
@@ -301,7 +302,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                     children: [
                       Expanded(
                         child: _syncButton(
-                          label: '全量上传',
+                          label: S.of(context).fullUpload,
                           icon: Icons.cloud_upload,
                           enabled: isConfigured && !inProgress,
                           onPressed: () => _startSync(
@@ -311,7 +312,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: _syncButton(
-                          label: '全量下载',
+                          label: S.of(context).fullDownload,
                           icon: Icons.cloud_download,
                           enabled: isConfigured && !inProgress,
                           onPressed: () => _startSync(() =>
@@ -321,7 +322,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: _syncButton(
-                          label: '增量同步',
+                          label: S.of(context).incrementalSync,
                           icon: Icons.sync,
                           enabled: isConfigured && !inProgress,
                           onPressed: () => _startSync(() =>
@@ -337,7 +338,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                         width: double.infinity,
                         child: OutlinedButton.icon(
                           icon: const Icon(Icons.cancel, size: 18),
-                          label: const Text('取消'),
+                          label: Text(S.of(context).cancel),
                           onPressed: () {
                             ref.read(s3SyncServiceProvider).cancel();
                           },
@@ -372,10 +373,10 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                         const SizedBox(width: 8),
                         Text(
                           progress.status == S3SyncStatus.uploading
-                              ? '上传中'
+                              ? S.of(context).uploading
                               : progress.status == S3SyncStatus.downloading
-                                  ? '下载中'
-                                  : '错误',
+                                  ? S.of(context).downloading
+                                  : S.of(context).error,
                           style: theme.textTheme.titleSmall,
                         ),
                       ],
@@ -410,18 +411,18 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
 
           // ---- 定时自动同步 ----
           if (isConfigured) ...[
-            Text('定时同步', style: theme.textTheme.titleSmall),
+            Text(S.of(context).scheduledSync, style: theme.textTheme.titleSmall),
             const SizedBox(height: 8),
             Card(
               child: Column(
                 children: [
                   SwitchListTile(
                     secondary: const Icon(Icons.timer),
-                    title: const Text('定时自动同步'),
+                    title: Text(S.of(context).autoSync),
                     subtitle: Text(
                       ref.watch(autoSyncEnabledProvider)
-                          ? '每 ${_intervalLabel(ref.watch(autoSyncIntervalProvider))} 同步一次'
-                          : '仅手动同步',
+                          ? S.of(context).syncIntervalSummary(_intervalLabel(ref.watch(autoSyncIntervalProvider)))
+                          : S.of(context).manualSyncOnly,
                       style: theme.textTheme.bodySmall,
                     ),
                     value: ref.watch(autoSyncEnabledProvider),
@@ -438,34 +439,34 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                   ),
                   if (ref.watch(autoSyncEnabledProvider))
                     ListTile(
-                      title: const Text('同步间隔'),
+                      title: Text(S.of(context).syncInterval),
                       trailing: DropdownButton<Duration>(
                         value: ref.watch(autoSyncIntervalProvider),
                         underline: const SizedBox(),
                         items: const [
                           DropdownMenuItem(
                             value: Duration(minutes: 5),
-                            child: Text('5 分钟'),
+                            child: Text(S.of(context).fiveMinutes),
                           ),
                           DropdownMenuItem(
                             value: Duration(minutes: 15),
-                            child: Text('15 分钟'),
+                            child: Text(S.of(context).fifteenMinutes),
                           ),
                           DropdownMenuItem(
                             value: Duration(minutes: 30),
-                            child: Text('30 分钟'),
+                            child: Text(S.of(context).thirtyMinutes),
                           ),
                           DropdownMenuItem(
                             value: Duration(hours: 1),
-                            child: Text('1 小时'),
+                            child: Text(S.of(context).oneHour),
                           ),
                           DropdownMenuItem(
                             value: Duration(hours: 6),
-                            child: Text('6 小时'),
+                            child: Text(S.of(context).sixHours),
                           ),
                           DropdownMenuItem(
                             value: Duration(days: 1),
-                            child: Text('1 天'),
+                            child: Text(S.of(context).oneDay),
                           ),
                         ],
                         onChanged: (v) {
@@ -484,20 +485,20 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
           ],
 
           // ---- 存储统计（手动触发） ----
-          Text('存储统计', style: theme.textTheme.titleSmall),
+          Text(S.of(context).storageStatistics, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Card(
             child: Column(
               children: [
                 ListTile(
                   leading: const Icon(Icons.cloud),
-                  title: const Text('S3 存储'),
+                  title: Text(S.of(context).s3Storage),
                   subtitle: Text(
                     _storageStats != null
-                        ? '${_formatBytes(_storageStats!.totalBytes)} · ${_storageStats!.objectCount} 个文件'
+                        ? S.of(context).storageStatsDetail(_formatBytes(_storageStats!.totalBytes), _storageStats!.objectCount)
                         : _loadingStats
-                            ? '统计中...'
-                            : '点击右侧按钮刷新',
+                            ? S.of(context).calculating
+                            : S.of(context).clickToRefresh,
                     style: theme.textTheme.bodySmall,
                   ),
                   trailing: TextButton.icon(
@@ -508,7 +509,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.refresh, size: 18),
-                    label: const Text('刷新'),
+                    label: Text(S.of(context).refresh),
                     onPressed: isConfigured && !_loadingStats
                         ? _refreshStorageStats
                         : null,
@@ -520,7 +521,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                     final localBytes = localSnapshot.data ?? 0;
                     return ListTile(
                       leading: const Icon(Icons.storage),
-                      title: const Text('本地存储'),
+                      title: Text(S.of(context).localStorage),
                       subtitle: Text(
                         _formatBytes(localBytes),
                         style: theme.textTheme.bodySmall,
@@ -541,11 +542,11 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                 final ts = snapshot.data;
                 return ListTile(
                   leading: const Icon(Icons.history),
-                  title: const Text('上次同步'),
+                  title: Text(S.of(context).lastSync),
                   subtitle: Text(
                     ts != null
                         ? _formatDateTime(DateTime.fromMillisecondsSinceEpoch(ts))
-                        : '从未同步',
+                        : S.of(context).neverSynced,
                     style: theme.textTheme.bodySmall,
                   ),
                 );
@@ -558,9 +559,9 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
           Card(
             child: ListTile(
               leading: const Icon(Icons.delete_forever, color: Colors.red),
-              title: const Text('清空 S3 数据'),
+              title: Text(S.of(context).clearS3Data),
               subtitle: Text(
-                '删除 bucket 中所有文件',
+                S.of(context).deleteAllBucketFiles,
                 style: theme.textTheme.bodySmall,
               ),
               trailing: const Icon(Icons.chevron_right),
@@ -582,7 +583,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
       width: double.infinity,
       child: OutlinedButton.icon(
         icon: Icon(icon, size: 18),
-        label: Text(label, style: const TextStyle(fontSize: 13)),
+        label: Text(label, style: TextStyle(fontSize: 13)),
         onPressed: enabled ? onPressed : null,
       ),
     );
@@ -605,9 +606,9 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
   String _pad(int n) => n.toString().padLeft(2, '0');
 
   String _intervalLabel(Duration d) {
-    if (d.inMinutes < 60) return '${d.inMinutes} 分钟';
-    if (d.inHours < 24) return '${d.inHours} 小时';
-    return '${d.inDays} 天';
+    if (d.inMinutes < 60) return S.of(context).intervalMinutes(d.inMinutes);
+    if (d.inHours < 24) return S.of(context).intervalHours(d.inHours);
+    return S.of(context).intervalDays(d.inDays);
   }
 
   void _showConfigDialog(BuildContext context, WidgetRef ref, S3Config config) {
@@ -621,14 +622,14 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text('S3 配置'),
+          title: Text(S.of(context).s3Config),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: endpointCtl,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Endpoint',
                     hintText: 's3.amazonaws.com',
                     border: OutlineInputBorder(),
@@ -637,7 +638,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: bucketCtl,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Bucket',
                     border: OutlineInputBorder(),
                   ),
@@ -645,7 +646,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: regionCtl,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Region',
                     hintText: 'us-east-1',
                     border: OutlineInputBorder(),
@@ -654,7 +655,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: accessKeyCtl,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Access Key',
                     border: OutlineInputBorder(),
                   ),
@@ -663,7 +664,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                 TextField(
                   controller: secretKeyCtl,
                   obscureText: true,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Secret Key',
                     border: OutlineInputBorder(),
                   ),
@@ -674,7 +675,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(),
-              child: const Text('取消'),
+              child: Text(S.of(context).cancel),
             ),
             FilledButton(
               onPressed: () {
@@ -690,7 +691,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                 ref.read(s3SyncServiceProvider).updateConfig(newConfig);
                 Navigator.of(ctx, rootNavigator: true).pop();
               },
-              child: const Text('保存'),
+              child: Text(S.of(context).save),
             ),
           ],
         );

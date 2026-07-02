@@ -7,6 +7,7 @@ import '../../services/import_service.dart';
 import '../../services/log_service.dart';
 import '../../services/shared_media_handler.dart';
 import '../gallery/gallery_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class ImportReceiverScreen extends ConsumerStatefulWidget {
   final List<String>? filePaths;
@@ -114,7 +115,7 @@ class _ImportReceiverScreenState extends ConsumerState<ImportReceiverScreen> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('接收分享')),
+      appBar: AppBar(title: Text(S.of(context).receiveShare)),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -125,12 +126,12 @@ class _ImportReceiverScreenState extends ConsumerState<ImportReceiverScreen> {
                 Icon(Icons.cloud_download,
                     size: 64, color: colorScheme.primary),
                 const SizedBox(height: 24),
-                Text('正在导入 $_processed/$_total 张图片...',
+                Text(S.of(context).importingProgress(_processed, _total),
                     style: theme.textTheme.titleMedium),
                 const SizedBox(height: 16),
                 LinearProgressIndicator(value: _total > 0 ? _processed / _total : null),
                 const SizedBox(height: 8),
-                Text('SHA256 去重中',
+                Text(S.of(context).deduplicating,
                     style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.outline)),
               ] else if (_result != null) ...[
@@ -144,13 +145,13 @@ class _ImportReceiverScreenState extends ConsumerState<ImportReceiverScreen> {
                       : colorScheme.outline,
                 ),
                 const SizedBox(height: 24),
-                Text('导入完成', style: theme.textTheme.titleLarge),
+                Text(S.of(context).importCompleteTitle, style: theme.textTheme.titleLarge),
                 const SizedBox(height: 16),
-                Text('成功: ${_result!.success}'),
-                Text('跳过（已存在）: ${_result!.skipped}'),
+                Text(S.of(context).importSuccess(_result!.success)),
+                Text(S.of(context).importSkipped(_result!.skipped)),
                 if (_result!.errors.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text('错误: ${_result!.errors.length}',
+                  Text(S.of(context).importErrors(_result!.errors.length)),
                       style: TextStyle(color: colorScheme.error)),
                 ],
                 const SizedBox(height: 24),
@@ -159,7 +160,7 @@ class _ImportReceiverScreenState extends ConsumerState<ImportReceiverScreen> {
                     context.goNamed('gallery');
                   },
                   icon: const Icon(Icons.photo_library),
-                  label: const Text('查看图库'),
+                  label: Text(S.of(context).viewGallery),
                 ),
               ],
             ],

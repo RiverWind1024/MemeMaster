@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../services/meme_detector.dart';
 import '../gallery/gallery_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class ScanScreen extends ConsumerStatefulWidget {
   const ScanScreen({super.key});
@@ -30,7 +31,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     final cs = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('扫描 Meme')),
+      appBar: AppBar(title: Text(S.of(context).scanMeme)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -44,7 +45,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                   FilledButton.icon(
                     onPressed: _pickDir,
                     icon: const Icon(Icons.folder_copy),
-                    label: const Text('选择要扫描的目录'),
+                    label: Text(S.of(context).selectDirectoryToScan),
                   ),
                 ],
               ),
@@ -75,7 +76,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                '扫描中 ${_progress!.completed}/${_progress!.total}',
+                S.of(context).scanningProgress(_progress!.completed, _progress!.total),
                 style: theme.textTheme.bodySmall,
               ),
               if (_progress!.currentFile != null)
@@ -106,14 +107,14 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                   const SizedBox(width: 8),
                   _StatCard(
                     icon: Icons.text_fields,
-                    label: '有文字',
+                    label: S.of(context).hasText,
                     value: '${_progress!.textFound}',
                     color: cs.secondary,
                   ),
                   const SizedBox(width: 8),
                   _StatCard(
                     icon: Icons.image,
-                    label: '无文字',
+                    label: S.of(context).noText,
                     value: '${_progress!.noText}',
                     color: cs.outline,
                   ),
@@ -123,7 +124,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
 
               // 检测到的 meme 列表
               if (_memes.isNotEmpty) ...[
-                Text('检测到 ${_memes.length} 张 Meme',
+                Text(S.of(context).detectedMemes(_memes.length),
                     style: theme.textTheme.titleSmall),
                 const SizedBox(height: 8),
                 ..._memes.asMap().entries.map((e) {
@@ -156,7 +157,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           subtitle: Text(
-                            '匹配度 ${(m.score * 100).toInt()}%'
+                            S.of(context).matchScore((m.score * 100).toInt())
                             '${m.text != null ? ' · ${m.text!.length}字' : ''}',
                             style: theme.textTheme.bodySmall,
                           ),
@@ -180,7 +181,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                                   _memes.removeAt(i);
                                 }),
                                 visualDensity: VisualDensity.compact,
-                                tooltip: '移除',
+                                tooltip: S.of(context).remove,
                               ),
                             ],
                           ),
@@ -203,8 +204,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                         : const Icon(Icons.cloud_download),
                     label: Text(
                       _importing
-                          ? '导入中...'
-                          : '导入 ${_memes.length} 张 Meme',
+                          ? S.of(context).importing
+                          : S.of(context).importCountMeme(_memes.length),
                     ),
                   ),
                 ),
@@ -217,7 +218,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                       const SizedBox(height: 32),
                       Icon(Icons.search_off, size: 64, color: cs.outline),
                       const SizedBox(height: 16),
-                      Text('未检测到 Meme',
+                      Text(S.of(context).noMemeDetected,
                           style: theme.textTheme.titleMedium),
                     ],
                   ),
@@ -235,41 +236,41 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     final dir = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('选择扫描目录'),
+        title: Text(S.of(context).selectScanDirectory),
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/Download'),
             child: const ListTile(
               leading: Icon(Icons.download),
-              title: Text('下载'),
+              title: Text(S.of(context).directoryDownloads),
             ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/Pictures'),
             child: const ListTile(
               leading: Icon(Icons.photo_library),
-              title: Text('图片'),
+              title: Text(S.of(context).directoryPictures),
             ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/DCIM'),
             child: const ListTile(
               leading: Icon(Icons.camera_alt),
-              title: Text('相机'),
+              title: Text(S.of(context).directoryCamera),
             ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/tencent/MicroMsg/Download'),
             child: const ListTile(
               leading: Icon(Icons.wechat),
-              title: Text('微信下载'),
+              title: Text(S.of(context).directoryWechat),
             ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, '/storage/emulated/0'),
             child: const ListTile(
               leading: Icon(Icons.storage),
-              title: Text('全部存储'),
+              title: Text(S.of(context).directoryStorage),
             ),
           ),
           const Divider(height: 1),
@@ -280,7 +281,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
             },
             child: const ListTile(
               leading: Icon(Icons.edit),
-              title: Text('选择目录…'),
+              title: Text(S.of(context).selectDirectoryEllipsis),
             ),
           ),
         ],
@@ -415,7 +416,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('选择目录失败: $e')),
+          SnackBar(content: Text(S.of(context).selectDirectoryFailed(e.toString()))),
         );
       }
       return null;
@@ -459,7 +460,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       if (mounted) {
         setState(() => _scanning = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('该目录未找到图片文件')),
+          SnackBar(content: Text(S.of(context).noImagesInDirectory)),
         );
       }
       return;
