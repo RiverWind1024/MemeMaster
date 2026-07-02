@@ -6,6 +6,7 @@ import 'features/gallery/meme_detail_screen.dart';
 import 'features/import/import_receiver_screen.dart';
 import 'features/import/import_screen.dart';
 import 'features/scan/scan_screen.dart';
+import 'features/settings/llm_settings_screen.dart';
 import 'features/settings/log_viewer_screen.dart';
 import 'features/settings/s3_sync_screen.dart';
 import 'main_screen.dart';
@@ -74,6 +75,11 @@ final router = GoRouter(
             }
             return const ImportReceiverScreen();
           },
+        ),
+        GoRoute(
+          path: 'settings/llm',
+          name: 'llm-settings',
+          builder: (context, state) => const LlmSettingsScreen(),
         ),
         GoRoute(
           path: 'settings/logs',
