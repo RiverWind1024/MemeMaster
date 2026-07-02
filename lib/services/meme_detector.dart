@@ -201,10 +201,10 @@ class MemeDetector {
     return (0, 0);
   }
 
-  static List<String> scanDirectory(String dirPath) {
+  static List<String> scanDirectory(String dirPath, {DetectorLogger? logger}) {
     final dir = Directory(dirPath);
     if (!dir.existsSync()) {
-      _log('scanDirectory: dir not found: $dirPath');
+      _log('scanDirectory: dir not found: $dirPath', logger: logger);
       return [];
     }
     final images = <String>[];
@@ -216,16 +216,16 @@ class MemeDetector {
           if (!exts.any((e) => name.endsWith(e))) continue;
           final size = entity.statSync().size;
           if (size < 1024 || size > 2 * 1024 * 1024) {
-            _log('skip ${entity.path}: size=${size}B');
+            _log('skip ${entity.path}: size=${size}B', logger: logger);
             continue;
           }
           images.add(entity.path);
         }
       }
     } catch (e) {
-      _log('scanDirectory error: $e');
+      _log('scanDirectory error: $e', logger: logger);
     }
-    _log('scanDirectory found ${images.length} images in $dirPath');
+    _log('scanDirectory found ${images.length} images in $dirPath', logger: logger);
     return images;
   }
 
