@@ -14,8 +14,12 @@ import '../../core/image/color_extractor.dart';
 import '../../core/llm/config.dart';
 import '../../core/llm/enricher.dart';
 import '../../core/llm/llm_service.dart';
+import '../../core/llm/local_config.dart';
+import '../../core/llm/local_service.dart';
+import '../../core/llm/model_manager.dart';
 import '../../core/llm/ollama_service.dart';
 import '../../core/llm/openai_service.dart';
+import '../../core/llm/vision_enricher.dart';
 import '../../services/analysis_queue_scheduler.dart';
 import '../../services/file_storage_service.dart';
 import '../../services/log_service.dart';
@@ -167,8 +171,13 @@ final analysisSchedulerProvider = Provider<AnalysisQueueScheduler>((ref) {
     scheduler.setLlmEnricher(enricher);
   }
 
+  final visionEnricher = ref.watch(visionEnricherProvider);
+  if (visionEnricher != null) {
+    scheduler.setVisionEnricher(visionEnricher);
+  }
+
   scheduler.setOcrEnabled(ref.read(ocrEnabledProvider));
-  scheduler.setLlmEnabled(ref.read(llmEnabledProvider));
+  scheduler.setLlmEnabled(ref.read(llmModeProvider) != LlmMode.off);
 
   scheduler.start();
   debugPrint('[Startup] Scheduler started: ${DateTime.now().difference(t0).inMilliseconds}ms');
@@ -180,7 +189,31 @@ final analysisSchedulerProvider = Provider<AnalysisQueueScheduler>((ref) {
   return scheduler;
 });
 
-// ---- LLM ----
+// ---- LLM 模式 ----
+
+class LlmModeNotifier extends Notifier<LlmMode> {
+  @override
+  LlmMode build() {
+    try {
+      final prefs = ref.read(sharedPreferencesProvider);
+      final stored = prefs.getString('llm_mode');
+      if (stored != null) return LlmMode.values.byName(stored);
+    } catch (_) {}
+    return LlmMode.off;
+  }
+
+  void setMode(LlmMode mode) {
+    state = mode;
+    try {
+      ref.read(sharedPreferencesProvider).setString('llm_mode', mode.name);
+    } catch (_) {}
+  }
+}
+
+final llmModeProvider =
+    NotifierProvider<LlmModeNotifier, LlmMode>(LlmModeNotifier.new);
+
+// ---- 远程 LLM 配置 ----
 
 class LlmConfigNotifier extends Notifier<LlmConfig> {
   @override
@@ -208,28 +241,88 @@ class LlmConfigNotifier extends Notifier<LlmConfig> {
 final llmConfigProvider =
     NotifierProvider<LlmConfigNotifier, LlmConfig>(LlmConfigNotifier.new);
 
+// ---- 本地 LLM 配置 ----
+
+class LocalLlmConfigNotifier extends Notifier<LocalLlmConfig> {
+  @override
+  LocalLlmConfig build() {
+    try {
+      final prefs = ref.read(sharedPreferencesProvider);
+      final jsonStr = prefs.getString('local_llm_config');
+      if (jsonStr != null) {
+        return LocalLlmConfig.fromJson(
+            jsonDecode(jsonStr) as Map<String, dynamic>);
+      }
+    } catch (_) {}
+    return const LocalLlmConfig();
+  }
+
+  void update(LocalLlmConfig config) {
+    state = config;
+    try {
+      ref
+          .read(sharedPreferencesProvider)
+          .setString('local_llm_config', jsonEncode(config.toJson()));
+    } catch (_) {}
+  }
+}
+
+final localLlmConfigProvider =
+    NotifierProvider<LocalLlmConfigNotifier, LocalLlmConfig>(
+  LocalLlmConfigNotifier.new,
+);
+
+// ---- LLM 服务（按模式创建） ----
+
 final llmServiceProvider = Provider<LlmService?>((ref) {
-  final config = ref.watch(llmConfigProvider);
-  switch (config.provider) {
-    case LlmProviderType.openai:
-      return OpenAiLlmService(
-        baseUrl: config.baseUrl,
-        apiKey: config.apiKey,
-        model: config.model,
-      );
-    case LlmProviderType.ollama:
-      return OllamaLlmService(
-        baseUrl: config.baseUrl,
-        model: config.model,
-      );
+  final mode = ref.watch(llmModeProvider);
+  switch (mode) {
+    case LlmMode.off:
+      return null;
+    case LlmMode.remote:
+      final config = ref.watch(llmConfigProvider);
+      switch (config.provider) {
+        case LlmProviderType.openai:
+          return OpenAiLlmService(
+            baseUrl: config.baseUrl,
+            apiKey: config.apiKey,
+            model: config.model,
+          );
+        case LlmProviderType.ollama:
+          return OllamaLlmService(
+            baseUrl: config.baseUrl,
+            model: config.model,
+          );
+      }
+    case LlmMode.local:
+      final localConfig = ref.watch(localLlmConfigProvider);
+      return LocalLlmService(config: localConfig);
   }
 });
+
+// ---- 文本 LLM Enricher（基于 OCR 文本，已有） ----
 
 final llmEnricherProvider = Provider<LlmEnricher?>((ref) {
   final llm = ref.watch(llmServiceProvider);
   final repo = ref.watch(memeRepositoryProvider);
   if (llm == null || !llm.isAvailable) return null;
   return LlmEnricher(llm: llm, repo: repo);
+});
+
+// ---- 视觉 LLM Enricher（多模态） ----
+
+final visionEnricherProvider = Provider<VisionLlmEnricher?>((ref) {
+  final llm = ref.watch(llmServiceProvider);
+  final repo = ref.watch(memeRepositoryProvider);
+  final log = ref.watch(logServiceProvider);
+  if (llm == null || !llm.isAvailable) return null;
+  return VisionLlmEnricher(llm: llm, repo: repo, log: log);
+});
+
+// ---- 模型管理 ----
+
+final modelManagerProvider = Provider<ModelManager>((ref) {
+  throw UnimplementedError('ModelManager 需要在 main.dart 中初始化存储路径');
 });
 
 // ---- 管线配置 ----
