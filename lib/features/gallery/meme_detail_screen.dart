@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/database/database.dart';
 import 'gallery_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class MemeDetailScreen extends ConsumerStatefulWidget {
   final String memeId;
@@ -49,8 +50,8 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
 
       if (mounted) {
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('已加入分析队列，即将开始分析'),
+          SnackBar(
+            content: Text(S.of(context).addedToAnalysisQueue),
             duration: Duration(seconds: 2),
           ),
         );
@@ -58,7 +59,7 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
     } catch (e) {
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(content: Text('重新分析失败: $e')),
+          SnackBar(content: Text(S.of(context).reanalysisFailed(e.toString()))),
         );
       }
     }
@@ -68,8 +69,8 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text('确定要删除「${meme.filename}」吗？\n图片文件和所有分析数据都会被移除。'),
+        title: Text(S.of(context).confirmDeleteTitle),
+        content: Text(S.of(context).confirmDeleteMeme(meme.filename)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -77,7 +78,7 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('删除',
+            child: Text(S.of(context).delete,
                 style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
           ),
         ],
@@ -98,19 +99,19 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
 
     return memeListAsync.when(
       loading: () => Scaffold(
-        appBar: AppBar(title: const Text('加载中...')),
+        appBar: AppBar(title: Text(S.of(context).loading)),
         body: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => Scaffold(
-        appBar: AppBar(title: const Text('加载失败')),
+        appBar: AppBar(title: Text(S.of(context).loadFailed)),
         body: Center(child: Text('$e')),
       ),
       data: (memes) {
         final initialIndex = memes.indexWhere((m) => m.id == widget.memeId);
         if (initialIndex < 0) {
           return Scaffold(
-            appBar: AppBar(title: const Text('未找到')),
-            body: const Center(child: Text('Meme 不存在')),
+            appBar: AppBar(title: Text(S.of(context).notFound)),
+            body: Center(child: Text(S.of(context).memeNotExist)),
           );
         }
 
@@ -144,12 +145,12 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: () => _reanalyze(context, ref, currentMeme),
-                tooltip: '重新分析',
+                tooltip: S.of(context).reAnalyze,
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline),
                 onPressed: () => _deleteMeme(context, ref, currentMeme),
-                tooltip: '删除',
+                tooltip: S.of(context).delete,
               ),
             ],
           ),
@@ -265,12 +266,12 @@ class _MemeDetailPageState extends ConsumerState<_MemeDetailPage> {
                 _AiChip(memeId: widget.memeId),
                 const SizedBox(height: 16),
 
-                _InfoRow(label: '文件名', value: widget.meme.filename),
+                _InfoRow(label: S.of(context).fileName, value: widget.meme.filename),
                 _InfoRow(
-                    label: '尺寸',
+                    label: S.of(context).dimensions,
                     value: '${widget.meme.width} × ${widget.meme.height}'),
                 _InfoRow(
-                    label: '大小',
+                    label: S.of(context).fileSize,
                     value: _formatSize(widget.meme.fileSize)),
 
                 const SizedBox(height: 16),
@@ -333,10 +334,10 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color, icon) = switch (status) {
-      'done' => ('分析完成', Colors.green, Icons.check_circle_outline),
-      'processing' => ('正在分析...', Colors.orange, Icons.sync),
-      'failed' => ('分析失败', Colors.red, Icons.error_outline),
-      _ => ('待分析', Colors.grey, Icons.hourglass_empty),
+      'done' => (S.of(context).colorExtractionDone, Colors.green, Icons.check_circle_outline),
+      'processing' => (S.of(context).colorExtracting, Colors.orange, Icons.sync),
+      'failed' => (S.of(context).colorExtractionFailed, Colors.red, Icons.error_outline),
+      _ => (S.of(context).pendingColorExtraction, Colors.grey, Icons.hourglass_empty),
     };
 
     return Row(
@@ -359,7 +360,7 @@ class _OcrChip extends ConsumerWidget {
     return Row(children: [
       Icon(Icons.text_fields, size: 14, color: enabled ? Colors.blue : Colors.grey),
       const SizedBox(width: 6),
-      Text(enabled ? 'OCR 已开启' : '未开启 OCR 识别',
+      Text(enabled ? S.of(context).ocrEnabled : S.of(context).ocrDisabled,
           style: TextStyle(fontSize: 13, color: enabled ? Colors.blue : Colors.grey)),
     ]);
   }
@@ -375,7 +376,7 @@ class _AiChip extends ConsumerWidget {
     return Row(children: [
       Icon(Icons.auto_awesome, size: 14, color: enabled ? Colors.purple : Colors.grey),
       const SizedBox(width: 6),
-      Text(enabled ? 'AI 已开启' : '未开启 AI 识别',
+      Text(enabled ? S.of(context).aiEnabled : S.of(context).aiDisabled,
           style: TextStyle(fontSize: 13, color: enabled ? Colors.purple : Colors.grey)),
     ]);
   }
@@ -434,7 +435,7 @@ class _ColorPalette extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    Text('主色调',
+                    Text(S.of(context).dominantColors,
                         style: theme.textTheme.titleSmall),
                     const SizedBox(width: 8),
                     if (status == 'processing')
@@ -469,12 +470,12 @@ class _ColorPalette extends ConsumerWidget {
                     }).toList(),
                   )
                 else if (status == 'done' || status == 'failed')
-                  Text('未提取到主色调',
+                  Text(S.of(context).noDominantColors,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.outline,
                       ))
                 else
-                  Text('正在提取主色调...',
+                  Text(S.of(context).extractingDominantColors,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.outline,
                       )),
@@ -553,8 +554,8 @@ class _CustomTagsState extends ConsumerState<_CustomTags> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除标签'),
-        content: Text('确定删除标签「${tag.content}」吗？'),
+        title: Text(S.of(context).deleteTag),
+        content: Text(S.of(context).confirmDeleteTag(tag.content)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -562,7 +563,7 @@ class _CustomTagsState extends ConsumerState<_CustomTags> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('删除',
+            child: Text(S.of(context).delete,
                 style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
           ),
         ],
@@ -597,11 +598,11 @@ class _CustomTagsState extends ConsumerState<_CustomTags> {
               children: [
                 Icon(Icons.label_outline, size: 16, color: Colors.green),
                 const SizedBox(width: 6),
-                Text('自定义标签', style: theme.textTheme.titleSmall),
+                Text(S.of(context).customTags, style: theme.textTheme.titleSmall),
                 if (tags.isNotEmpty) ...[
                   const SizedBox(width: 6),
                   Text(
-                    '${tags.length} 个',
+                    S.of(context).tagCount(tags.length),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.outline,
                     ),
@@ -653,28 +654,46 @@ class _CustomTagsState extends ConsumerState<_CustomTags> {
                 }).toList(),
               )
             else if (!_showInput)
-              Text(
-                '暂无自定义标签',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.outline,
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  S.of(context).noCustomTags,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                  ),
                 ),
               ),
             if (_showInput) ...[
               const SizedBox(height: 8),
-              SizedBox(
-                height: 36,
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  decoration: const InputDecoration(
-                    hintText: '输入标签，回车添加',
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                    border: OutlineInputBorder(),
-                    isDense: true,
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 36,
+                      child: TextField(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        decoration: InputDecoration(
+                          hintText: S.of(context).inputTag,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: _onSubmitted,
+                      ),
+                    ),
                   ),
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: _onSubmitted,
-                ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 36,
+                    child: FilledButton.tonalIcon(
+                      onPressed: _addTag,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: Text(S.of(context).add),
+                    ),
+                  ),
+                ],
               ),
             ],
           ],
@@ -709,11 +728,11 @@ class _OcrTags extends ConsumerWidget {
               children: [
                 Icon(Icons.text_fields, size: 16, color: Colors.blue),
                 const SizedBox(width: 6),
-                Text('OCR 识别', style: theme.textTheme.titleSmall),
+                Text(S.of(context).ocrRecognition, style: theme.textTheme.titleSmall),
                 if (hasOcr) ...[
                   const SizedBox(width: 6),
                   Text(
-                    '${ocrTags.length} 词',
+                    S.of(context).ocrWordCount(ocrTags.length),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.outline,
                     ),
@@ -747,7 +766,7 @@ class _OcrTags extends ConsumerWidget {
               )
             else
               Text(
-                '暂未识别到文字',
+                S.of(context).noOcrText,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.outline,
                 ),

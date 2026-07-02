@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../services/log_service.dart';
 import '../gallery/gallery_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class LogViewerScreen extends ConsumerWidget {
   const LogViewerScreen({super.key});
@@ -25,12 +26,12 @@ class LogViewerScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('运行日志'),
+        title: Text(S.of(context).logViewer),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => (context as Element).markNeedsBuild(),
-            tooltip: '刷新',
+            tooltip: S.of(context).refresh,
           ),
           IconButton(
             icon: const Icon(Icons.copy),
@@ -41,13 +42,13 @@ class LogViewerScreen extends ConsumerWidget {
                   .join('\n');
               Clipboard.setData(ClipboardData(text: text));
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('日志已复制到剪贴板'),
+                SnackBar(
+                  content: Text(S.of(context).logCopied),
                   duration: Duration(seconds: 2),
                 ),
               );
             },
-            tooltip: '复制日志',
+            tooltip: S.of(context).copy,
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
@@ -55,7 +56,7 @@ class LogViewerScreen extends ConsumerWidget {
               logService.clear();
               (context as Element).markNeedsBuild();
             },
-            tooltip: '清空日志',
+            tooltip: S.of(context).clear,
           ),
         ],
       ),
@@ -67,7 +68,7 @@ class LogViewerScreen extends ConsumerWidget {
                   Icon(Icons.article_outlined,
                       size: 64, color: theme.colorScheme.outline),
                   const SizedBox(height: 16),
-                  Text('暂无日志',
+                  Text(S.of(context).noLogs,
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: theme.colorScheme.outline,
                       )),

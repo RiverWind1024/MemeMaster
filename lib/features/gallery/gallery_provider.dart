@@ -523,6 +523,37 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
 final themeModeProvider =
     NotifierProvider<ThemeModeNotifier, ThemeMode>(ThemeModeNotifier.new);
 
+// ---- 语言 ----
+
+class LocaleNotifier extends Notifier<Locale?> {
+  @override
+  Locale? build() {
+    try {
+      final stored = ref.read(sharedPreferencesProvider).getString('locale');
+      if (stored != null) {
+        final parts = stored.split('_');
+        return Locale(parts[0], parts.length > 1 ? parts[1] : null);
+      }
+    } catch (_) {}
+    return null; // null = 跟随系统
+  }
+
+  void set(Locale? locale) {
+    state = locale;
+    try {
+      final prefs = ref.read(sharedPreferencesProvider);
+      if (locale == null) {
+        prefs.remove('locale');
+      } else {
+        prefs.setString('locale', locale.toString());
+      }
+    } catch (_) {}
+  }
+}
+
+final localeProvider =
+    NotifierProvider<LocaleNotifier, Locale?>(LocaleNotifier.new);
+
 // ---- 定时同步 ----
 
 class AutoSyncEnabledNotifier extends Notifier<bool> {

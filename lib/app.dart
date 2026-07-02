@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'l10n/app_localizations.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -166,7 +168,7 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
       _log.info('Clipboard', 'downloading HTTP URL: $url');
       if (_navCtx != null && mounted) {
         ScaffoldMessenger.of(_navCtx!).showSnackBar(
-          const SnackBar(content: Text('正在下载剪贴板中的图片...')),
+          SnackBar(content: Text(S.of(_navCtx!).downloadingClipboardImage)),
         );
       }
       localPath = await _downloadToCache(url);
@@ -174,7 +176,7 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
       if (localPath == null) {
         if (_navCtx != null && mounted) {
           ScaffoldMessenger.of(_navCtx!).showSnackBar(
-            const SnackBar(content: Text('剪贴板图片下载失败')),
+            SnackBar(content: Text(S.of(_navCtx!).clipboardImageDownloadFailed)),
           );
         }
         return;
@@ -199,8 +201,8 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
           _log.info('Clipboard', 'clipboard image already imported (hash=$hash), skipping');
           if (mounted) {
             ScaffoldMessenger.of(_navCtx!).showSnackBar(
-              const SnackBar(
-                content: Text('剪贴板图片已导入过'),
+              SnackBar(
+                content: Text(S.of(_navCtx!).clipboardImageAlreadyImported),
                 duration: Duration(seconds: 2),
               ),
             );
@@ -261,6 +263,14 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
 
     return MaterialApp.router(
       title: 'MemeManager',
+      localizationsDelegates: const [
+        S.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: S.supportedLocales,
+      locale: ref.watch(localeProvider),
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.deepPurple,
