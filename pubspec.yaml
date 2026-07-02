@@ -57,6 +57,9 @@ dependencies:
   # 持久化
   shared_preferences: ^2.5.5
 
+  # 本地 LLM
+  llamafu: ^0.1.0
+
   # 工具
   collection: ^1.19.1
   path: ^1.9.1

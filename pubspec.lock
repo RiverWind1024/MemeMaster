@@ -655,6 +655,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.0"
+  llamafu:
+    dependency: "direct main"
+    description:
+      name: llamafu
+      sha256: "1ca096afbf6e7597a0c8a7565b5ed5a38057d595e4df4d473f76915141309fcb"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
   logging:
     dependency: transitive
     description:
