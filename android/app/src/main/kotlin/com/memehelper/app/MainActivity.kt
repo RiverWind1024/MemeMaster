@@ -6,7 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.os.Environment
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -17,6 +17,7 @@ import java.io.FileOutputStream
 
 private const val CHANNEL_CLIPBOARD = "com.memehelper.app/clipboard"
 private const val CHANNEL_SHARE = "com.memehelper.app/share"
+private const val CHANNEL_STORAGE = "com.memehelper.app/storage"
 
 class MainActivity : FlutterActivity() {
     companion object {
@@ -90,6 +91,50 @@ class MainActivity : FlutterActivity() {
                     } else {
                         result.error("INVALID_ARG", "uri required", null)
                     }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            CHANNEL_STORAGE
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "listSafDirectory" -> {
+                    Thread {
+                        try {
+                            val uriStr = call.argument<String>("uri") ?: run {
+                                result.error("NO_URI", "uri required", null)
+                                return@Thread
+                            }
+                            val treeUri = Uri.parse(uriStr)
+                            val treeDocId = DocumentsContract.getTreeDocumentId(treeUri)
+                            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, treeDocId)
+                            val cachedPaths = mutableListOf<String>()
+
+                            contentResolver.query(childrenUri, null, null, null, null)?.use { cursor ->
+                                while (cursor.moveToNext()) {
+                                    val docId = cursor.getString(cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)) ?: continue
+                                    val mime = cursor.getString(cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)) ?: ""
+                                    val size = cursor.getLong(cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE))
+                                    if (!mime.startsWith("image/")) continue
+                                    if (size < 1024 || size > 2 * 1024 * 1024) {
+                                        android.util.Log.d(tag, "listSafDirectory: skip $docId size=$size")
+                                        continue
+                                    }
+                                    val fileUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
+                                    val cached = copyContentUriToCache(fileUri)
+                                    if (cached != null) cachedPaths.add(cached)
+                                }
+                            }
+                            android.util.Log.d(tag, "listSafDirectory: found ${cachedPaths.size} files")
+                            result.success(cachedPaths)
+                        } catch (e: Exception) {
+                            android.util.Log.e(tag, "listSafDirectory failed", e)
+                            result.error("LIST_FAILED", e.message, null)
+                        }
+                    }.start()
                 }
                 else -> result.notImplemented()
             }
