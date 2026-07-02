@@ -469,6 +469,7 @@ void _showThemePicker(BuildContext context, WidgetRef ref) {
             value: ThemeMode.light,
             groupValue: current,
             onChanged: (v) {
+              if (v == null) return;
               ref.read(themeModeProvider.notifier).set(v);
               Navigator.pop(ctx);
             },
@@ -480,6 +481,7 @@ void _showThemePicker(BuildContext context, WidgetRef ref) {
             value: ThemeMode.dark,
             groupValue: current,
             onChanged: (v) {
+              if (v == null) return;
               ref.read(themeModeProvider.notifier).set(v);
               Navigator.pop(ctx);
             },
@@ -491,6 +493,7 @@ void _showThemePicker(BuildContext context, WidgetRef ref) {
             value: ThemeMode.system,
             groupValue: current,
             onChanged: (v) {
+              if (v == null) return;
               ref.read(themeModeProvider.notifier).set(v);
               Navigator.pop(ctx);
             },
