@@ -1,3 +1,5 @@
+import 'package:llamafu/llamafu.dart';
+
 import 'llm_service.dart';
 import 'local_config.dart';
 import 'models.dart';
@@ -8,6 +10,7 @@ import 'models.dart';
 /// 模型通过 ModelManager 下载后加载。
 class LocalLlmService implements LlmService {
   final LocalLlmConfig _config;
+  Llamafu? _engine;
 
   LocalLlmService({required LocalLlmConfig config}) : _config = config;
 
@@ -19,6 +22,19 @@ class LocalLlmService implements LlmService {
     final path = _config.modelPath;
     if (path == null) return 'none';
     return path.split('/').last.replaceAll('.gguf', '');
+  }
+
+  Future<void> _ensureLoaded() async {
+    if (_engine != null) return;
+    if (_config.modelPath == null) {
+      throw StateError('模型未加载，请先下载模型');
+    }
+    _engine = await Llamafu.init(
+      modelPath: _config.modelPath!,
+      mmprojPath: _config.mmprojPath,
+      threads: _config.threads,
+      contextSize: _config.contextSize,
+    );
   }
 
   @override
@@ -37,15 +53,37 @@ class LocalLlmService implements LlmService {
     List<LlmMessage> messages, {
     LlmOptions? options,
   }) async {
-    // TODO: 集成 llamafu 后实现真实推理
-    // 1. 按需加载 _engine
-    // 2. 根据是否有图片决定使用 multimodalComplete 或 complete
-    // 3. 解析流式/非流式输出
-    throw UnimplementedError('本地推理将在 llamafu 集成后实现');
+    await _ensureLoaded();
+
+    final engine = _engine!;
+    final hasImage = messages.any((m) => m.imageBase64 != null);
+    final prompt = messages.map((m) => '${m.role}: ${m.content}').join('\n');
+
+    if (hasImage) {
+      final imageMsg = messages.firstWhere((m) => m.imageBase64 != null);
+      return engine.multimodalComplete(
+        prompt: prompt,
+        mediaInputs: [
+          MediaInput(
+            type: MediaType.image,
+            data: imageMsg.imageBase64!,
+          ),
+        ],
+        maxTokens: options?.maxTokens ?? 512,
+        temperature: options?.temperature ?? 0.7,
+      );
+    }
+
+    return engine.complete(
+      prompt: prompt,
+      maxTokens: options?.maxTokens ?? 512,
+      temperature: options?.temperature ?? 0.7,
+    );
   }
 
   @override
   void dispose() {
-    // TODO: 释放 llamafu engine
+    _engine?.close();
+    _engine = null;
   }
 }
