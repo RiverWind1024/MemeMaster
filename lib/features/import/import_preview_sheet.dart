@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/file_storage_service.dart';
 import '../../services/import_service.dart';
 import '../gallery/gallery_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 /// 从底部弹出的导入预览弹窗，支持单图/多图
 Future<void> showImportPreviewSheet(
@@ -82,10 +83,10 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
           // 标题
           Text(
             _done
-                ? '导入完成'
+                ? S.of(context).importComplete
                 : single
-                    ? '导入图片'
-                    : '导入 $count 张图片',
+                    ? S.of(context).importImages
+                    : S.of(context).importCountImages(count),
             style: theme.textTheme.titleLarge,
           ),
           const SizedBox(height: 12),
@@ -144,7 +145,7 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _importing ? null : () => Navigator.pop(context),
-                    child: const Text('取消'),
+                    child: Text(S.of(context).cancel),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -160,7 +161,7 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
                                 strokeWidth: 2, color: Colors.white),
                           )
                         : const Icon(Icons.cloud_download),
-                    label: Text(_importing ? '导入中...' : '导入'),
+                    label: Text(_importing ? S.of(context).importing : S.of(context).importImages),
                   ),
                 ),
               ],
@@ -188,7 +189,7 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
                     children: [
                       Text(
                         _error ?? '成功 $_successCount 张'
-                            '${_skipCount > 0 ? '，跳过（已存在）$_skipCount 张' : ''}',
+                            '${_skipCount > 0 ? S.of(context).skippedExisting(_skipCount) : ''}',
                         style: theme.textTheme.bodyMedium,
                       ),
                       if (_skippedFiles.isNotEmpty && _skippedFiles.length <= 10) ...[
@@ -210,7 +211,7 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('完成'),
+                child: Text(S.of(context).done),
               ),
             ),
           ],
@@ -262,7 +263,7 @@ class _ImagePreview extends StatelessWidget {
             children: [
               Icon(Icons.broken_image, color: theme.colorScheme.outline),
               const SizedBox(height: 8),
-              Text('无法加载图片', style: theme.textTheme.bodySmall),
+              Text(S.of(context).cannotLoadImage, style: theme.textTheme.bodySmall),
             ],
           ),
         ),

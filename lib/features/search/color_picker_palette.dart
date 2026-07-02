@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/utils/color_utils.dart';
+import '../../l10n/app_localizations.dart';
 
 /// 预设色板颜色
 class PresetColor {
@@ -16,7 +17,7 @@ class PresetColor {
 }
 
 /// 预设色板
-const kPresetColors = [
+const kPresetColors(context) = [
   PresetColor(label: '红', value: 0xFFE53935, rgb: ColorRgb(229, 57, 53)),
   PresetColor(label: '深橙', value: 0xFFFF7043, rgb: ColorRgb(255, 112, 67)),
   PresetColor(label: '橙', value: 0xFFFF9800, rgb: ColorRgb(255, 152, 0)),
@@ -60,7 +61,7 @@ class ColorPickerPalette extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
-        ...kPresetColors.map((c) => _ColorChip(
+        ...kPresetColors(context).map((c) => _ColorChip(
               color: Color(c.value),
               label: c.label,
               selected: selectedValues.contains(c.value),

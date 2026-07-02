@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/utils/color_utils.dart';
+import '../../l10n/app_localizations.dart';
 
 /// HSV 颜色选择器对话框
 class ColorPickerDialog extends StatefulWidget {
@@ -59,7 +60,7 @@ class _ColorPickerDialogState extends State<ColorPickerDialog> {
     final colorScheme = theme.colorScheme;
 
     return AlertDialog(
-      title: const Text('自定义颜色'),
+      title: Text(S.of(context).customColor),
       content: SizedBox(
         width: 300,
         child: Column(
@@ -138,11 +139,11 @@ class _ColorPickerDialogState extends State<ColorPickerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: Text(S.of(context).cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(_currentRgb),
-          child: const Text('确定'),
+          child: Text(S.of(context).confirm),
         ),
       ],
     );

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/llm/local_config.dart';
 import '../../core/llm/model_manager.dart';
 import '../gallery/gallery_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class ModelManagerScreen extends ConsumerStatefulWidget {
   const ModelManagerScreen({super.key});
@@ -32,7 +33,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('模型管理'),
+        title: Text(S.of(context).modelManager),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -70,7 +71,7 @@ class _ModelSourceTab extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       children: [
         // 推荐模型列表
-        Text('推荐模型', style: theme.textTheme.titleMedium),
+        Text(S.of(context).recommendedModels, style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         if (models.isEmpty)
           Card(
@@ -78,7 +79,7 @@ class _ModelSourceTab extends ConsumerWidget {
               padding: const EdgeInsets.all(32),
               child: Center(
                 child: Text(
-                  '该源暂无推荐模型',
+                  S.of(context).noRecommendedModels,
                   style: theme.textTheme.bodyMedium
                       ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
@@ -94,7 +95,7 @@ class _ModelSourceTab extends ConsumerWidget {
         const SizedBox(height: 24),
 
         // 已下载模型
-        Text('已下载模型', style: theme.textTheme.titleMedium),
+        Text(S.of(context).downloadedModels, style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         if (downloaded.isEmpty)
           Card(
@@ -102,7 +103,7 @@ class _ModelSourceTab extends ConsumerWidget {
               padding: const EdgeInsets.all(32),
               child: Center(
                 child: Text(
-                  '暂无已下载的模型',
+                  S.of(context).noDownloadedModels,
                   style: theme.textTheme.bodyMedium
                       ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
@@ -163,19 +164,19 @@ class _ModelCard extends ConsumerWidget {
                 children: [
                   const Icon(Icons.check_circle, size: 16, color: Colors.green),
                   const SizedBox(width: 4),
-                  Text('已下载',
+                  Text(S.of(context).downloaded,
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: Colors.green)),
                   const SizedBox(width: 12),
                   TextButton.icon(
                     onPressed: () => _loadModel(ref),
                     icon: const Icon(Icons.play_arrow, size: 16),
-                    label: const Text('加载'),
+                    label: Text(S.of(context).loadModel),
                   ),
                   TextButton.icon(
                     onPressed: () => _deleteModel(ref),
                     icon: const Icon(Icons.delete_outline, size: 16),
-                    label: const Text('删除'),
+                    label: Text(S.of(context).deleteModel),
                     style:
                         TextButton.styleFrom(foregroundColor: Colors.red),
                   ),
@@ -188,14 +189,14 @@ class _ModelCard extends ConsumerWidget {
                   if (downloadState?.status == DownloadStatus.failed)
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: Text('下载失败',
+                      child: Text(S.of(context).downloadFailed,
                           style: theme.textTheme.bodySmall
                               ?.copyWith(color: Colors.red)),
                     ),
                   FilledButton.icon(
                     onPressed: () => _startDownload(ref),
                     icon: const Icon(Icons.download, size: 18),
-                    label: const Text('下载'),
+                    label: Text(S.of(context).download),
                   ),
                 ],
               ),
@@ -219,14 +220,14 @@ class _ModelCard extends ConsumerWidget {
       notifier.completeDownload(model.id);
       if (ref.context.mounted) {
         ScaffoldMessenger.of(ref.context).showSnackBar(
-          SnackBar(content: Text('${model.name} 下载完成')),
+          SnackBar(content: Text(S.of(context).modelDownloadComplete(model.name))),
         );
       }
     } catch (e) {
       notifier.failDownload(model.id, e.toString());
       if (ref.context.mounted) {
         ScaffoldMessenger.of(ref.context).showSnackBar(
-          SnackBar(content: Text('下载失败: $e')),
+          SnackBar(content: Text(S.of(context).downloadFailedWithError(e.toString()))),
         );
       }
     }
@@ -244,7 +245,7 @@ class _ModelCard extends ConsumerWidget {
         );
     if (ref.context.mounted) {
       ScaffoldMessenger.of(ref.context).showSnackBar(
-        const SnackBar(content: Text('模型已加载，请切换至本地模式使用')),
+        SnackBar(content: Text(S.of(context).modelLoadedSwitchToLocal)),
       );
     }
   }
@@ -253,15 +254,15 @@ class _ModelCard extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: ref.context,
       builder: (ctx) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text('确定要删除 ${model.name} 吗？'),
+        title: Text(S.of(context).confirmDelete),
+        content: Text(S.of(context).confirmDeleteModel(model.name)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+              child: Text(S.of(context).cancel)),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('删除')),
+              child: Text(S.of(context).delete)),
         ],
       ),
     );
@@ -310,10 +311,10 @@ class _DownloadedModelCard extends ConsumerWidget {
                         ),
                       );
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('模型已加载')),
+                    SnackBar(content: Text(S.of(context).modelLoaded)),
                   );
                 },
-                child: const Text('加载'),
+                child: Text(S.of(context).loadModel),
               ),
             IconButton(
               icon: const Icon(Icons.delete_outline),
@@ -323,7 +324,7 @@ class _DownloadedModelCard extends ConsumerWidget {
                     .deleteModel(model.id);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${model.id} 已删除')),
+                    SnackBar(content: Text(S.of(context).modelDeleted(model.id))),
                   );
                 }
               },
