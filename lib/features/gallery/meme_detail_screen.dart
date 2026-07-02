@@ -46,7 +46,7 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
 
       if (mounted) {
         messenger.showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(S.of(context).addedToAnalysisQueue),
             duration: Duration(seconds: 2),
           ),

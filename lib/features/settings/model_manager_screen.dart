@@ -189,7 +189,7 @@ class _ModelCard extends ConsumerWidget {
                   if (downloadState?.status == DownloadStatus.failed)
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: Text(S.of(context).downloadFailed,
+                      child: Text(S.of(context).downloadFailedWithError(''),
                           style: theme.textTheme.bodySmall
                               ?.copyWith(color: Colors.red)),
                     ),
@@ -220,14 +220,14 @@ class _ModelCard extends ConsumerWidget {
       notifier.completeDownload(model.id);
       if (ref.context.mounted) {
         ScaffoldMessenger.of(ref.context).showSnackBar(
-          SnackBar(content: Text(S.of(context).modelDownloadComplete(model.name))),
+          SnackBar(content: Text(S.of(ref.context).modelDownloadComplete(model.name))),
         );
       }
     } catch (e) {
       notifier.failDownload(model.id, e.toString());
       if (ref.context.mounted) {
         ScaffoldMessenger.of(ref.context).showSnackBar(
-          SnackBar(content: Text(S.of(context).downloadFailedWithError(e.toString()))),
+          SnackBar(content: Text(S.of(ref.context).downloadFailedWithError(e.toString()))),
         );
       }
     }
@@ -245,7 +245,7 @@ class _ModelCard extends ConsumerWidget {
         );
     if (ref.context.mounted) {
       ScaffoldMessenger.of(ref.context).showSnackBar(
-        SnackBar(content: Text(S.of(context).modelLoadedSwitchToLocal)),
+        SnackBar(content: Text(S.of(ref.context).modelLoadedSwitchToLocal)),
       );
     }
   }
@@ -254,15 +254,15 @@ class _ModelCard extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: ref.context,
       builder: (ctx) => AlertDialog(
-        title: Text(S.of(context).confirmDelete),
-        content: Text(S.of(context).confirmDeleteModel(model.name)),
+        title: Text(S.of(ref.context).confirmDelete),
+        content: Text(S.of(ref.context).confirmDeleteModel(model.name)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text(S.of(context).cancel)),
+              child: Text(S.of(ref.context).cancel)),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: Text(S.of(context).delete)),
+              child: Text(S.of(ref.context).delete)),
         ],
       ),
     );

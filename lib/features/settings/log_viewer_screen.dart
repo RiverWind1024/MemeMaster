@@ -42,7 +42,7 @@ class LogViewerScreen extends ConsumerWidget {
                   .join('\n');
               Clipboard.setData(ClipboardData(text: text));
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
+                SnackBar(
                   content: Text(S.of(context).logCopied),
                   duration: Duration(seconds: 2),
                 ),

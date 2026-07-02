@@ -77,7 +77,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       ),
-                      items: const [
+                      items: [
                         DropdownMenuItem(
                           value: LlmProviderType.openai,
                           child: Text(S.of(context).openaiCompatible),

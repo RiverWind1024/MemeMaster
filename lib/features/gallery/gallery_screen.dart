@@ -367,6 +367,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final progress = progressAsync.valueOrNull;
     if (progress == null || progress.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
+    final s = S.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -474,24 +475,24 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     if (_radialOpen) setState(() => _radialOpen = false);
   }
 
-  static const _fabActions = [
-    _SpeedDialAction(Icons.search, s.scanFolder),
-    _SpeedDialAction(Icons.add_photo_alternate, s.importImage),
-    _SpeedDialAction(Icons.content_paste, s.importFromClipboard),
-    _SpeedDialAction(Icons.photo_library, s.newAlbumShort),
-  ];
-
   Widget _buildFab() {
+    final s = S.of(context);
     final theme = Theme.of(context);
+    final fabActions = [
+      _SpeedDialAction(Icons.search, s.scanFolder),
+      _SpeedDialAction(Icons.add_photo_alternate, s.importImage),
+      _SpeedDialAction(Icons.content_paste, s.importFromClipboard),
+      _SpeedDialAction(Icons.photo_library, s.newAlbumShort),
+    ];
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         // 展开的动作项
-        for (int i = 0; i < _fabActions.length; i++) ...[
+        for (int i = 0; i < fabActions.length; i++) ...[
           _SpeedDialItem(
-            icon: _fabActions[i].icon,
-            label: _fabActions[i].label,
+            icon: fabActions[i].icon,
+            label: fabActions[i].label,
             visible: _radialOpen,
             index: i,
             onTap: () {
@@ -821,7 +822,7 @@ class _MemeGridTile extends ConsumerWidget {
     await ClipboardService.copyImageToClipboard(file.path);
     if (ref.context.mounted) {
       ScaffoldMessenger.of(ref.context).showSnackBar(
-        SnackBar(content: Text(S.of(context).copiedToClipboard)),
+        SnackBar(content: Text(S.of(ref.context).copiedToClipboard)),
       );
     }
   }
