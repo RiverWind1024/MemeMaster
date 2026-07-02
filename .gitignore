@@ -49,3 +49,6 @@ app.*.map.json
 
 # Superpowers temp files
 .superpowers/
+
+# llama.cpp 源码（外部依赖，不提交）
+llama.cpp/

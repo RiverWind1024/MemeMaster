@@ -274,7 +274,7 @@ packages:
     source: hosted
     version: "1.3.3"
   ffi:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: ffi
       sha256: "6d7fd89431262d8f3125e81b50d3847a091d846eafcd4fdb88dd06f36d705a45"
@@ -655,14 +655,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.0"
-  llamafu:
-    dependency: "direct main"
-    description:
-      name: llamafu
-      sha256: "1ca096afbf6e7597a0c8a7565b5ed5a38057d595e4df4d473f76915141309fcb"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.1.0"
   logging:
     dependency: transitive
     description:
