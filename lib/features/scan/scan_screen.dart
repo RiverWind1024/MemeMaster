@@ -302,6 +302,14 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
 
       // content://com.android.externalstorage.documents/tree/primary%3ADownload
       // → /storage/emulated/0/Download
+      // 某些设备/Android 版本下 getDirectoryPath 直接返回文件路径
+      if (uriStr.startsWith('/')) {
+        log.info('Scan', 'direct file path, using as-is: $uriStr');
+        return uriStr;
+      }
+
+      // content://com.android.externalstorage.documents/tree/primary%3ADownload
+      // → /storage/emulated/0/Download
       final uri = Uri.tryParse(uriStr);
       if (uri == null) {
         log.warning('Scan', 'cannot parse URI: $uriStr');
@@ -311,7 +319,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       final pathSegments = uri.pathSegments;
       final pathSegment = pathSegments.last;
       final decoded = Uri.decodeComponent(pathSegment);
-      log.info('Scan', 'pathSegments=$pathSegments decoded="$decoded"');
+      log.info('Scan', 'content URI pathSegments=$pathSegments decoded="$decoded"');
 
       if (decoded.startsWith('primary:')) {
         final result = '/storage/emulated/0/${decoded.substring(8)}';
@@ -319,8 +327,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
         return result;
       }
 
-      // 尝试 SD 卡路径: /storage/XXXX-XXXX/path
-      // 如果 decoded 形如 XXXX-XXXX:path
+      // SD 卡路径: /storage/XXXX-XXXX/path  (decoded 形如 XXXX-XXXX:path)
       final colon = decoded.indexOf(':');
       if (colon > 0) {
         final volume = decoded.substring(0, colon);
@@ -330,8 +337,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
         return result;
       }
 
-      // 兜底
-      log.warning('Scan', 'unexpected URI format, trying direct: /storage/$decoded');
+      log.warning('Scan', 'unexpected content URI format, trying /storage/$decoded');
       return '/storage/$decoded';
     } catch (e) {
       if (mounted) {

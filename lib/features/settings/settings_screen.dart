@@ -89,19 +89,38 @@ class SettingsScreen extends ConsumerWidget {
           Text('存储', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Card(
-            child: FutureBuilder<int>(
-              future: ref.read(fileStorageServiceProvider).storageUsed(),
-              builder: (context, snapshot) {
-                final used = snapshot.data ?? 0;
-                final usedStr = used < 1024 * 1024
-                    ? '${(used / 1024).toStringAsFixed(1)} KB'
-                    : '${(used / (1024 * 1024)).toStringAsFixed(1)} MB';
-                return ListTile(
-                  leading: const Icon(Icons.storage),
-                  title: const Text('存储空间'),
-                  subtitle: Text(usedStr),
-                );
-              },
+            child: Column(
+              children: [
+                FutureBuilder<int>(
+                  future: ref.read(fileStorageServiceProvider).storageUsed(),
+                  builder: (context, snapshot) {
+                    final used = snapshot.data ?? 0;
+                    final usedStr = used < 1024 * 1024
+                        ? '${(used / 1024).toStringAsFixed(1)} KB'
+                        : '${(used / (1024 * 1024)).toStringAsFixed(1)} MB';
+                    return ListTile(
+                      leading: const Icon(Icons.storage),
+                      title: const Text('存储空间'),
+                      subtitle: Text(usedStr),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.image),
+                  title: Text('图片数量',
+                      style: theme.textTheme.bodyMedium),
+                  trailing: ref.watch(memeCountProvider).when(
+                    loading: () => const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    error: (_, __) =>
+                        Text('?', style: theme.textTheme.bodyMedium),
+                    data: (count) =>
+                        Text('$count', style: theme.textTheme.bodyMedium),
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -129,31 +148,10 @@ class SettingsScreen extends ConsumerWidget {
           Text('关于', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Card(
-            child: Column(
-              children: [
-                const ListTile(
-                  leading: Icon(Icons.info_outline),
-                  title: Text('MemeManager'),
-                  subtitle: Text('v1.0.0'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.image),
-                  title: Text(
-                    '图片数量',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  trailing: ref.watch(memeCountProvider).when(
-                    loading: () => const SizedBox(
-                      width: 16, height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    error: (_, __) => Text('?',
-                        style: theme.textTheme.bodyMedium),
-                    data: (count) => Text('$count',
-                        style: theme.textTheme.bodyMedium),
-                  ),
-                ),
-              ],
+            child: const ListTile(
+              leading: Icon(Icons.info_outline),
+              title: Text('MemeManager'),
+              subtitle: Text('v1.0.0'),
             ),
           ),
         ],
