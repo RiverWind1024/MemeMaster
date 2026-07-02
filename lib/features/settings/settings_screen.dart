@@ -24,20 +24,18 @@ class SettingsScreen extends ConsumerWidget {
           Text('外观', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Card(
-            child: SwitchListTile(
-              title: const Text('深色模式'),
+            child: ListTile(
+              leading: const Icon(Icons.dark_mode),
+              title: const Text('主题模式'),
               subtitle: Text(
-                ref.watch(themeModeProvider) == ThemeMode.dark
-                    ? '强制深色'
-                    : '跟随系统设置自动切换',
+                switch (ref.watch(themeModeProvider)) {
+                  ThemeMode.light => '浅色',
+                  ThemeMode.dark => '深色',
+                  _ => '跟随系统',
+                },
               ),
-              value: ref.watch(themeModeProvider) == ThemeMode.dark,
-              onChanged: (v) {
-                ref.read(themeModeProvider.notifier).set(
-                      v ? ThemeMode.dark : ThemeMode.system,
-                    );
-              },
-              secondary: const Icon(Icons.dark_mode),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showThemePicker(context, ref),
             ),
           ),
 
@@ -450,4 +448,56 @@ class _ColorExtractionCard extends ConsumerWidget {
       ],
     );
   }
+}
+
+void _showThemePicker(BuildContext context, WidgetRef ref) {
+  final current = ref.read(themeModeProvider);
+  showModalBottomSheet(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 16, bottom: 8),
+            child: Text('主题模式', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+          RadioListTile<ThemeMode>(
+            title: const Text('浅色'),
+            subtitle: const Text('始终使用浅色主题'),
+            secondary: const Icon(Icons.light_mode),
+            value: ThemeMode.light,
+            groupValue: current,
+            onChanged: (v) {
+              ref.read(themeModeProvider.notifier).set(v);
+              Navigator.pop(ctx);
+            },
+          ),
+          RadioListTile<ThemeMode>(
+            title: const Text('深色'),
+            subtitle: const Text('始终使用深色主题'),
+            secondary: const Icon(Icons.dark_mode),
+            value: ThemeMode.dark,
+            groupValue: current,
+            onChanged: (v) {
+              ref.read(themeModeProvider.notifier).set(v);
+              Navigator.pop(ctx);
+            },
+          ),
+          RadioListTile<ThemeMode>(
+            title: const Text('跟随系统'),
+            subtitle: const Text('跟随系统设置自动切换'),
+            secondary: const Icon(Icons.settings),
+            value: ThemeMode.system,
+            groupValue: current,
+            onChanged: (v) {
+              ref.read(themeModeProvider.notifier).set(v);
+              Navigator.pop(ctx);
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
 }
