@@ -12,7 +12,6 @@ import '../../core/repositories/meme_repository.dart';
 import '../../core/image/color_extraction_config.dart';
 import '../../core/image/color_extractor.dart';
 import '../../core/llm/config.dart';
-import '../../core/llm/enricher.dart';
 import '../../core/llm/llm_service.dart';
 import '../../core/llm/local_config.dart';
 import '../../core/llm/local_service.dart';

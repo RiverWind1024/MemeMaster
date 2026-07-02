@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -42,6 +43,9 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
       await repo.deleteAutoTags(meme.id);
       await repo.updateAnalysisStatus(meme.id, 'pending');
       await repo.enqueueAnalysis(meme.id, priority: 1);
+
+      // 刷新列表以反映状态变化
+      ref.invalidate(memeListProvider);
 
       if (mounted) {
         messenger.showSnackBar(
@@ -169,14 +173,55 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
 
 }
 
-class _MemeDetailPage extends ConsumerWidget {
+class _MemeDetailPage extends ConsumerStatefulWidget {
   final Meme meme;
   final String memeId;
 
   const _MemeDetailPage({required this.meme, required this.memeId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_MemeDetailPage> createState() => _MemeDetailPageState();
+}
+
+class _MemeDetailPageState extends ConsumerState<_MemeDetailPage> {
+  Timer? _pollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _maybeStartPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  /// 当分析未完成时，定时刷新 memeListProvider 以反映进度
+  void _maybeStartPolling() {
+    _pollTimer?.cancel();
+    if (widget.meme.analysisStatus == 'pending' ||
+        widget.meme.analysisStatus == 'processing') {
+      _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        ref.invalidate(memeListProvider);
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _MemeDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 状态变为终态时停止轮询
+    final status = widget.meme.analysisStatus;
+    if (status != 'pending' && status != 'processing') {
+      _pollTimer?.cancel();
+      _pollTimer = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final storage = ref.read(fileStorageServiceProvider);
 
     return SingleChildScrollView(
@@ -185,7 +230,7 @@ class _MemeDetailPage extends ConsumerWidget {
         children: [
           // 图片
           FutureBuilder(
-            future: storage.getImage(meme.filePath),
+            future: storage.getImage(widget.meme.filePath),
             builder: (context, fileSnapshot) {
               if (!fileSnapshot.hasData) {
                 return const AspectRatio(
@@ -213,30 +258,36 @@ class _MemeDetailPage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _StatusChip(status: meme.analysisStatus),
+                _StatusChip(status: widget.meme.analysisStatus),
                 const SizedBox(height: 6),
-                _OcrChip(memeId: memeId),
+                _OcrChip(memeId: widget.memeId),
                 const SizedBox(height: 6),
-                _AiChip(memeId: memeId),
+                _AiChip(memeId: widget.memeId),
                 const SizedBox(height: 16),
 
-                _InfoRow(label: '文件名', value: meme.filename),
+                _InfoRow(label: '文件名', value: widget.meme.filename),
                 _InfoRow(
                     label: '尺寸',
-                    value: '${meme.width} × ${meme.height}'),
+                    value: '${widget.meme.width} × ${widget.meme.height}'),
                 _InfoRow(
                     label: '大小',
-                    value: _formatSize(meme.fileSize)),
+                    value: _formatSize(widget.meme.fileSize)),
 
                 const SizedBox(height: 16),
 
-                _ColorPalette(memeId: memeId),
+                _ColorPalette(memeId: widget.memeId),
                 const SizedBox(height: 16),
 
-                _OcrTags(memeId: memeId),
+                _OcrTags(memeId: widget.memeId),
                 const SizedBox(height: 16),
 
-                _CustomTags(memeId: memeId),
+                _LlmTags(memeId: widget.memeId),
+                const SizedBox(height: 16),
+
+                _Description(meme: widget.meme),
+                const SizedBox(height: 16),
+
+                _CustomTags(memeId: widget.memeId),
               ],
             ),
           ),
@@ -282,10 +333,10 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color, icon) = switch (status) {
-      'done' => ('颜色提取完成', Colors.green, Icons.check_circle_outline),
-      'processing' => ('正在提取颜色...', Colors.orange, Icons.sync),
-      'failed' => ('颜色提取失败', Colors.red, Icons.error_outline),
-      _ => ('待提取主色调', Colors.grey, Icons.hourglass_empty),
+      'done' => ('分析完成', Colors.green, Icons.check_circle_outline),
+      'processing' => ('正在分析...', Colors.orange, Icons.sync),
+      'failed' => ('分析失败', Colors.red, Icons.error_outline),
+      _ => ('待分析', Colors.grey, Icons.hourglass_empty),
     };
 
     return Row(
@@ -447,11 +498,14 @@ class _CustomTags extends ConsumerStatefulWidget {
 
 class _CustomTagsState extends ConsumerState<_CustomTags> {
   final _controller = TextEditingController();
+  final _focusNode = FocusNode();
   int _refresh = 0;
+  bool _showInput = false;
 
   @override
   void dispose() {
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -478,6 +532,23 @@ class _CustomTagsState extends ConsumerState<_CustomTags> {
     setState(() => _refresh++);
   }
 
+  void _toggleInput() {
+    setState(() => _showInput = !_showInput);
+    if (_showInput) {
+      _controller.clear();
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) _focusNode.requestFocus();
+      });
+    } else {
+      _controller.clear();
+      _focusNode.unfocus();
+    }
+  }
+
+  void _onSubmitted(String _) {
+    _addTag();
+  }
+
   Future<void> _removeTag(TagEntry tag) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -500,8 +571,6 @@ class _CustomTagsState extends ConsumerState<_CustomTags> {
     if (confirmed != true) return;
 
     final repo = ref.read(memeRepositoryProvider);
-    // 用 deleteByMemeId + 重新保存其他标签来实现打点删除
-    // 更干净的方式：通过 dao 删除单条，这里用简化方案
     final all = await repo.getTags(widget.memeId);
     final remaining = all.where((t) => t.id != tag.id).toList();
     await repo.deleteTags(widget.memeId);
@@ -538,6 +607,15 @@ class _CustomTagsState extends ConsumerState<_CustomTags> {
                     ),
                   ),
                 ],
+                const Spacer(),
+                GestureDetector(
+                  onTap: _toggleInput,
+                  child: Icon(
+                    _showInput ? Icons.close : Icons.add,
+                    size: 18,
+                    color: Colors.green,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -574,46 +652,31 @@ class _CustomTagsState extends ConsumerState<_CustomTags> {
                   );
                 }).toList(),
               )
-            else
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  '暂无自定义标签',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.outline,
-                  ),
+            else if (!_showInput)
+              Text(
+                '暂无自定义标签',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
                 ),
               ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 36,
-                    child: TextField(
-                      controller: _controller,
-                      decoration: const InputDecoration(
-                        hintText: '输入标签',
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _addTag(),
-                    ),
+            if (_showInput) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 36,
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  decoration: const InputDecoration(
+                    hintText: '输入标签，回车添加',
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                    border: OutlineInputBorder(),
+                    isDense: true,
                   ),
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: _onSubmitted,
                 ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  height: 36,
-                  child: FilledButton.tonalIcon(
-                    onPressed: _addTag,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('添加'),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ],
         );
       },
@@ -692,6 +755,113 @@ class _OcrTags extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// LLM 标签展示
+class _LlmTags extends ConsumerWidget {
+  final String memeId;
+
+  const _LlmTags({required this.memeId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repo = ref.read(memeRepositoryProvider);
+    final theme = Theme.of(context);
+
+    return FutureBuilder<List<TagEntry>>(
+      future: repo.getTags(memeId),
+      builder: (context, snapshot) {
+        final llmTags = snapshot.data?.where((t) => t.source == 'llm').toList() ?? [];
+        final hasLlm = llmTags.isNotEmpty;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.auto_awesome, size: 16, color: Colors.purple),
+                const SizedBox(width: 6),
+                Text('AI 识别', style: theme.textTheme.titleSmall),
+                if (hasLlm) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    '${llmTags.length} 个',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (hasLlm)
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: llmTags.map((tag) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: Colors.purple.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Text(
+                      tag.content,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.purple.shade700,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              )
+            else
+              Text(
+                '暂无 AI 标签',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// 描述展示（由 LLM 生成）
+class _Description extends StatelessWidget {
+  final Meme meme;
+
+  const _Description({required this.meme});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final desc = meme.description;
+
+    if (desc == null || desc.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.short_text, size: 16, color: Colors.orange),
+            const SizedBox(width: 6),
+            Text('描述', style: theme.textTheme.titleSmall),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          desc,
+          style: theme.textTheme.bodyMedium,
+        ),
+      ],
     );
   }
 }
