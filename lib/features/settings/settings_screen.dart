@@ -13,6 +13,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final ocrEnabled = ref.watch(ocrEnabledProvider);
+    final llmMode = ref.watch(llmModeProvider);
     final llmEnabled = ref.watch(llmEnabledProvider);
 
     return Scaffold(
@@ -58,16 +59,19 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Card(
-            child: SwitchListTile(
+            child: ListTile(
+              leading: const Icon(Icons.auto_awesome),
               title: const Text('AI 标签与描述'),
-              // TODO(Phase 2): LLM 直接分析图片识别内容生成标签（当前基于 OCR 文本）
-              subtitle: const Text('根据图片内容自动生成标签和描述'),
-              value: llmEnabled,
-              onChanged: (value) {
-                ref.read(llmEnabledProvider.notifier).setEnabled(value);
-                ref.read(analysisSchedulerProvider).setLlmEnabled(value);
-              },
-              secondary: const Icon(Icons.auto_awesome),
+              subtitle: Text(
+                switch (llmMode) {
+                  LlmMode.off => '已关闭',
+                  LlmMode.remote => '远程 (${ref.watch(llmConfigProvider).model})',
+                  LlmMode.local => '本地模型',
+                },
+                style: theme.textTheme.bodySmall,
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.pushNamed('llm-settings'),
             ),
           ),
 
