@@ -224,7 +224,8 @@ class SearchService {
     for (final entry in memeDistances.entries) {
       final meme = await _memeRepo.getById(entry.key);
       if (meme != null) {
-        final relevance = 1.0 / (1.0 + entry.value);
+        // ΔE 除以 10 让曲线平缓，避免浅色变体被过度惩罚
+        final relevance = 1.0 / (1.0 + entry.value / 10.0);
         results.add(SearchResult(meme: meme, relevance: relevance));
       }
     }

@@ -2,11 +2,9 @@ import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../services/log_service.dart';
-
-import '../../services/import_service.dart';
 import '../../services/meme_detector.dart';
 import '../gallery/gallery_provider.dart';
 
@@ -22,6 +20,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   List<MemeDetectionResult> _memes = [];
   ScanProgress? _progress;
   String? _scanDir;
+  String? _safUri; // 原始 SAF 内容 URI，用于列文件
   bool _scanning = false;
   bool _importing = false;
 
@@ -127,46 +126,67 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                 Text('检测到 ${_memes.length} 张 Meme',
                     style: theme.textTheme.titleSmall),
                 const SizedBox(height: 8),
-                ..._memes.map((m) => Card(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      child: ListTile(
-                        dense: true,
-                        leading: ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: SizedBox(
-                            width: 48,
-                            height: 48,
-                            child: Image.file(
-                              File(m.filePath),
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
-                                  Icon(Icons.broken_image,
-                                      color: cs.outline),
+                ..._memes.asMap().entries.map((e) {
+                      final i = e.key;
+                      final m = e.value;
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        child: ListTile(
+                          dense: true,
+                          leading: GestureDetector(
+                            onTap: () => _showImagePreview(m.filePath),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: SizedBox(
+                                width: 48,
+                                height: 48,
+                                child: Image.file(
+                                  File(m.filePath),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      Icon(Icons.broken_image,
+                                          color: cs.outline),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                        title: Text(
-                          m.filePath.split('/').last,
-                          style: theme.textTheme.bodyMedium,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          '匹配度 ${(m.score * 100).toInt()}%'
-                          '${m.text != null ? ' · ${m.text!.length}字' : ''}',
-                          style: theme.textTheme.bodySmall,
-                        ),
-                        trailing: Chip(
-                          label: Text(
-                            '${(m.score * 100).toInt()}%',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: m.score >= 0.7
-                                  ? Colors.green
-                                  : Colors.orange,
-                            ),
+                          title: Text(
+                            m.filePath.split('/').last,
+                            style: theme.textTheme.bodyMedium,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            '匹配度 ${(m.score * 100).toInt()}%'
+                            '${m.text != null ? ' · ${m.text!.length}字' : ''}',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Chip(
+                                label: Text(
+                                  '${(m.score * 100).toInt()}%',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: m.score >= 0.7
+                                        ? Colors.green
+                                        : Colors.orange,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.close, size: 18,
+                                    color: cs.onSurfaceVariant),
+                                onPressed: () => setState(() {
+                                  _memes.removeAt(i);
+                                }),
+                                visualDensity: VisualDensity.compact,
+                                tooltip: '移除',
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    )),
+                      );
+                    }),
 
                 const SizedBox(height: 16),
                 SizedBox(
@@ -270,12 +290,59 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     if (dir != null && mounted) {
       setState(() {
         _scanDir = dir;
+        _safUri = _filePathToSafUri(dir);
         _allImages = [];
         _memes = [];
         _progress = null;
       });
       _startScan();
     }
+  }
+
+  /// 把 /storage/emulated/0/XXX 转成 SAF tree URI
+  String? _filePathToSafUri(String path) {
+    final match = RegExp(r'^/storage/emulated/0/(.+)$').firstMatch(path);
+    if (match == null) return null;
+    return 'content://com.android.externalstorage.documents/tree/primary%3A${Uri.encodeComponent(match.group(1)!)}';
+  }
+
+  void _showImagePreview(String filePath) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) => GestureDetector(
+        onTap: () => Navigator.pop(ctx),
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: Colors.black26,
+            foregroundColor: Colors.white,
+            title: Text(
+              filePath.split('/').last,
+              style: const TextStyle(fontSize: 14),
+            ),
+            leading: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              maxScale: 8,
+              child: Image.file(
+                File(filePath),
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.broken_image,
+                  color: Colors.white54,
+                  size: 64,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _showCustomPathInput() async {
@@ -300,13 +367,19 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       log.info('Scan', 'SAF returned: $uriStr');
       if (uriStr == null) return null;
 
-      // content://com.android.externalstorage.documents/tree/primary%3ADownload
-      // → /storage/emulated/0/Download
-      // 某些设备/Android 版本下 getDirectoryPath 直接返回文件路径
       if (uriStr.startsWith('/')) {
+        // 直接文件路径：构造 SAF content URI 用于列文件
         log.info('Scan', 'direct file path, using as-is: $uriStr');
+        final match = RegExp(r'^/storage/emulated/0/(.+)$').firstMatch(uriStr);
+        if (match != null) {
+          _safUri = 'content://com.android.externalstorage.documents/tree/primary%3A${Uri.encodeComponent(match.group(1)!)}';
+          log.info('Scan', 'constructed SAF URI: $_safUri');
+        }
         return uriStr;
       }
+
+      // content:// URI：直接保存用于列文件
+      _safUri = uriStr;
 
       // content://com.android.externalstorage.documents/tree/primary%3ADownload
       // → /storage/emulated/0/Download
@@ -358,10 +431,27 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       _progress = null;
     });
 
-    // 1. 扫描目录
+    // 1. 扫描目录：优先用 SAF content URI 列文件（兼容 Android 分区存储）
     final log = ref.read(logServiceProvider);
-    log.info('Scan', 'scanDirectory: $_scanDir');
-    final images = MemeDetector.scanDirectory(_scanDir!, logger: (tag, msg) => log.info(tag, msg));
+    List<String> images;
+
+    if (_safUri != null) {
+      log.info('Scan', 'listing via SAF: $_safUri');
+      try {
+        const channel = MethodChannel('com.memehelper.app/storage');
+        final result = await channel.invokeMethod<List<dynamic>>('listSafDirectory', {
+          'uri': _safUri,
+        });
+        images = result?.cast<String>() ?? [];
+        log.info('Scan', 'SAF listing found ${images.length} files');
+      } catch (e) {
+        log.warning('Scan', 'SAF listing failed: $e, falling back to direct path');
+        images = MemeDetector.scanDirectory(_scanDir!, logger: (tag, msg) => log.info(tag, msg));
+      }
+    } else {
+      log.info('Scan', 'scanDirectory: $_scanDir');
+      images = MemeDetector.scanDirectory(_scanDir!, logger: (tag, msg) => log.info(tag, msg));
+    }
     _allImages = images;
     log.info('Scan', 'scanDirectory found ${images.length} images');
 
