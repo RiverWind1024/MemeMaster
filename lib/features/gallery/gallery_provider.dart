@@ -166,18 +166,12 @@ final analysisSchedulerProvider = Provider<AnalysisQueueScheduler>((ref) {
     scheduler.setColorExtractionConfig(next);
   });
 
-  final enricher = ref.watch(llmEnricherProvider);
-  if (enricher != null) {
-    scheduler.setLlmEnricher(enricher);
-  }
-
   final visionEnricher = ref.watch(visionEnricherProvider);
   if (visionEnricher != null) {
-    scheduler.setVisionEnricher(visionEnricher);
+    scheduler.setVisionLlmEnricher(visionEnricher);
   }
 
   scheduler.setOcrEnabled(ref.read(ocrEnabledProvider));
-  scheduler.setLlmEnabled(ref.read(llmModeProvider) != LlmMode.off);
 
   scheduler.start();
   debugPrint('[Startup] Scheduler started: ${DateTime.now().difference(t0).inMilliseconds}ms');
@@ -298,15 +292,6 @@ final llmServiceProvider = Provider<LlmService?>((ref) {
       final localConfig = ref.watch(localLlmConfigProvider);
       return LocalLlmService(config: localConfig);
   }
-});
-
-// ---- 文本 LLM Enricher（基于 OCR 文本，已有） ----
-
-final llmEnricherProvider = Provider<LlmEnricher?>((ref) {
-  final llm = ref.watch(llmServiceProvider);
-  final repo = ref.watch(memeRepositoryProvider);
-  if (llm == null || !llm.isAvailable) return null;
-  return LlmEnricher(llm: llm, repo: repo);
 });
 
 // ---- 视觉 LLM Enricher（多模态） ----

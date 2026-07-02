@@ -35,7 +35,7 @@ class LlmConfig {
   const LlmConfig({
     this.mode = LlmMode.off,
     this.provider = LlmProviderType.ollama,
-    this.baseUrl = 'http://localhost:11434',
+    this.baseUrl = 'http://localhost:11434/v1',
     this.apiKey = '',
     this.model = 'llama3.2',
   });

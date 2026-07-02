@@ -22,6 +22,14 @@ class OpenAiLlmService implements LlmService {
   })  : _baseUrl = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/',
         _client = client ?? http.Client();
 
+  /// 拼接完整的 API endpoint URL
+  ///
+  /// baseUrl 应包含版本前缀，如:
+  ///   - OpenAI:  https://api.openai.com/v1
+  ///   - 讯飞 v2: https://maas-api.cn-huabei-1.xf-yun.com/v2
+  ///   - Ollama:  http://localhost:11434/v1
+  Uri get _endpoint => Uri.parse('${_baseUrl}chat/completions');
+
   @override
   bool get isAvailable => _apiKey.isNotEmpty;
 
@@ -78,7 +86,7 @@ class OpenAiLlmService implements LlmService {
     };
 
     final response = await _client.post(
-      Uri.parse('${_baseUrl}v1/chat/completions'),
+      _endpoint,
       headers: {
         'Content-Type': 'application/json',
         if (_apiKey.isNotEmpty) 'Authorization': 'Bearer $_apiKey',

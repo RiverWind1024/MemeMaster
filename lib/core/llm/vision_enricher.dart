@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui';
 
+import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
 import '../../services/log_service.dart';
@@ -84,16 +86,21 @@ class VisionLlmEnricher {
   }
 
   Future<_AnalysisResult?> _analyzeImage(String base64Image) async {
+    final locale = PlatformDispatcher.instance.locale;
+    final isChinese = locale.languageCode.startsWith('zh');
+
+    final systemPrompt = await _loadPrompt(
+      isChinese ? 'vision_system_zh.txt' : 'vision_system_en.txt',
+      locale,
+    );
+    final userPrompt = await _loadPrompt(
+      isChinese ? 'vision_user_zh.txt' : 'vision_user_en.txt',
+      locale,
+    );
+
     final messages = [
-      LlmMessage(
-        role: 'system',
-        content: _systemPrompt,
-      ),
-      LlmMessage(
-        role: 'user',
-        content: _userPrompt,
-        imageBase64: base64Image,
-      ),
+      LlmMessage(role: 'system', content: systemPrompt),
+      LlmMessage(role: 'user', content: userPrompt, imageBase64: base64Image),
     ];
 
     final response = await _llm.chat(
@@ -104,10 +111,34 @@ class VisionLlmEnricher {
     return _parseResponse(response);
   }
 
+  static Future<String> _loadPrompt(String filename, Locale locale) async {
+    var text = await rootBundle.loadString('assets/prompts/$filename');
+    return text.replaceAll('{locale_language}', _localeLanguageName(locale));
+  }
+
+  static String _localeLanguageName(Locale locale) {
+    const names = {
+      'ja': 'Japanese', 'ko': 'Korean', 'fr': 'French', 'de': 'German',
+      'es': 'Spanish', 'pt': 'Portuguese', 'ru': 'Russian', 'it': 'Italian',
+      'th': 'Thai', 'vi': 'Vietnamese', 'ar': 'Arabic', 'hi': 'Hindi',
+      'id': 'Indonesian', 'tr': 'Turkish', 'nl': 'Dutch', 'pl': 'Polish',
+      'sv': 'Swedish', 'da': 'Danish', 'fi': 'Finnish', 'nb': 'Norwegian',
+      'cs': 'Czech', 'uk': 'Ukrainian', 'hu': 'Hungarian', 'ro': 'Romanian',
+    };
+    return names[locale.languageCode] ?? locale.languageCode.toUpperCase();
+  }
+
   _AnalysisResult? _parseResponse(String raw) {
+    // 剥离 markdown 代码块包裹（模型有时返回 ```json ... ```）
+    var text = raw.trim();
+    if (text.startsWith('```')) {
+      text = text.replaceFirst(RegExp(r'^```\w*\n?'), '');
+      text = text.replaceFirst(RegExp(r'\n?```$'), '');
+      text = text.trim();
+    }
+
     try {
-      // 尝试解析 JSON
-      final json = jsonDecode(raw) as Map<String, dynamic>;
+      final json = jsonDecode(text) as Map<String, dynamic>;
       final tags = (json['tags'] as List?)
               ?.map((e) => e.toString().trim())
               .where((t) => t.length >= 2 && t.length <= 20)
@@ -116,9 +147,8 @@ class VisionLlmEnricher {
       final description = (json['description'] as String?)?.trim() ?? '';
       return _AnalysisResult(tags: tags, description: description);
     } catch (_) {
-      // JSON 解析失败，回退：从纯文本中提取逗号分隔的标签
-      _log.warning('VisionLLM', 'JSON 解析失败，尝试回退解析: $raw');
-      final tags = raw
+      _log.warning('VisionLLM', 'JSON 解析失败，尝试回退解析: $text');
+      final tags = text
           .split(RegExp(r'[,，、\n]+'))
           .map((w) => w.trim())
           .where((w) => w.length >= 2 && w.length <= 20)
@@ -177,21 +207,6 @@ class VisionLlmEnricher {
     return bytes;
   }
 
-  static const _systemPrompt = '''
-你是一个表情包分析专家。请分析这张图片，返回 JSON 格式的分析结果。
-
-要求：
-- 标签用中文，每个 2-10 字
-- 标签需反映图片的核心内容，如：物体、场景、人物表情、情绪、meme 模板类型
-- 标签数量 3-8 个
-- 描述用一句话概括，10 字以内
-- 只返回 JSON，不要多余文字
-
-输出格式：
-{"tags": ["标签1", "标签2"], "description": "一句话描述"}
-''';
-
-  static const _userPrompt = '请分析这张表情包图片：';
 }
 
 class _AnalysisResult {

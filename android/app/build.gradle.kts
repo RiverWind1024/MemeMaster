@@ -22,6 +22,23 @@ android {
         ndk {
             abiFilters += "arm64-v8a"
         }
+        externalNativeBuild {
+            cmake {
+                val llamaDir = System.getenv("LLAMA_CPP_DIR")
+                    ?: project.findProperty("llama.cpp.dir")?.toString()
+                    ?: "${project.rootDir}/../llama.cpp"
+                arguments += listOf("-DLLAMA_CPP_DIR=${llamaDir}")
+                cppFlags += listOf("-O3", "-DNDEBUG")
+                targets += listOf("meme_llm")
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     buildTypes {
