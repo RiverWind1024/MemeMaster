@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -296,7 +294,7 @@ class _DownloadedModelCard extends ConsumerWidget {
             : const Icon(Icons.model_training),
         title: Text(model.id, style: theme.textTheme.bodyMedium),
         subtitle: Text(
-          '${sizeMB} MB  ●  ${model.downloadedAt.toString().substring(0, 10)}',
+          '$sizeMB MB  ●  ${model.downloadedAt.toString().substring(0, 10)}',
           style: theme.textTheme.bodySmall,
         ),
         trailing: Row(
