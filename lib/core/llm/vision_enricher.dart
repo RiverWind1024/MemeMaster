@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:image/image.dart' as img;
+
 import '../../services/log_service.dart';
 import '../database/database.dart';
 import '../repositories/meme_repository.dart';
@@ -18,7 +20,13 @@ class VisionLlmEnricher {
   final LogService _log;
 
   /// 图片最大边长（超过此尺寸会被压缩以节省 token）
-  static const int _maxImageDimension = 1024;
+  static const int _maxImageDimension = 768;
+
+  /// JPEG 编码质量（1-100）
+  static const int _jpgQuality = 85;
+
+  /// 原始文件超过此大小才触发重编码（字节）
+  static const int _reencodeThreshold = 200 * 1024;
 
   const VisionLlmEnricher({
     required LlmService llm,
@@ -124,14 +132,48 @@ class VisionLlmEnricher {
   Future<Uint8List> _readAndResizeImage(String imagePath) async {
     final file = File(imagePath);
     final bytes = await file.readAsBytes();
+    final originalSize = bytes.length;
 
-    // 如果图片过大，简单提示压缩（后续可用 image 库 resize）
-    if (bytes.length > 1024 * 1024) {
+    // 解码图片
+    final original = img.decodeImage(bytes);
+    if (original == null) {
+      _log.warning('VisionLLM', '无法解码图片，使用原始文件');
+      return bytes;
+    }
+
+    int w = original.width;
+    int h = original.height;
+
+    // 如果尺寸超出阈值，等比缩放
+    if (w > _maxImageDimension || h > _maxImageDimension) {
+      if (w > h) {
+        h = (h * _maxImageDimension / w).round();
+        w = _maxImageDimension;
+      } else {
+        w = (w * _maxImageDimension / h).round();
+        h = _maxImageDimension;
+      }
+      final resized = img.copyResize(original, width: w, height: h);
+      final jpeg = img.encodeJpg(resized, quality: _jpgQuality);
       _log.info(
         'VisionLLM',
-        '图片较大 (${bytes.length} 字节)，建议压缩后发送',
+        '图片压缩: $originalSize -> ${jpeg.length} 字节, '
+            '尺寸: ${original.width}x${original.height} -> ${w}x$h',
       );
+      return Uint8List.fromList(jpeg);
     }
+
+    // 尺寸没超但文件较大 → 重编码为 JPEG 减体积
+    if (originalSize > _reencodeThreshold) {
+      final jpeg = img.encodeJpg(original, quality: _jpgQuality);
+      _log.info(
+        'VisionLLM',
+        '图片重编码: $originalSize -> ${jpeg.length} 字节',
+      );
+      return Uint8List.fromList(jpeg);
+    }
+
+    _log.info('VisionLLM', '图片无需压缩: ${w}x$h, $originalSize 字节');
     return bytes;
   }
 
