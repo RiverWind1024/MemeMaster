@@ -39,6 +39,27 @@ class OpenAiLlmService implements LlmService {
     );
   }
 
+  /// 构建消息体，支持多模态 vision 消息
+  List<Map<String, dynamic>> _buildMessages(List<LlmMessage> messages) {
+    return messages.map((msg) {
+      if (msg.imageBase64 != null) {
+        return {
+          'role': msg.role,
+          'content': [
+            {'type': 'text', 'text': msg.content},
+            {
+              'type': 'image_url',
+              'image_url': {
+                'url': 'data:image/jpeg;base64,${msg.imageBase64}',
+              },
+            },
+          ],
+        };
+      }
+      return msg.toJson();
+    }).toList();
+  }
+
   @override
   Future<String> chat(
     List<LlmMessage> messages, {
@@ -53,6 +74,7 @@ class OpenAiLlmService implements LlmService {
     final body = {
       ...request.toJson(),
       if (options?.model == null) 'model': _model,
+      'messages': _buildMessages(messages),
     };
 
     final response = await _client.post(
