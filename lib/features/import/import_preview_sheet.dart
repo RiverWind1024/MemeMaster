@@ -40,6 +40,7 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
   int _skipCount = 0;
   String? _error;
   int _currentPage = 0;
+  List<String> _skippedFiles = [];
 
   @override
   void dispose() {
@@ -169,19 +170,37 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
           // 导入结果
           if (_done) ...[
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  _error != null
-                      ? Icons.error_outline
-                      : Icons.check_circle,
-                  color: _error != null ? colorScheme.error : Colors.green,
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(
+                    _error != null
+                        ? Icons.error_outline
+                        : Icons.check_circle,
+                    color: _error != null ? colorScheme.error : Colors.green,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    _error ?? '成功 $_successCount 张'
-                        '${_skipCount > 0 ? '，已跳过 $_skipCount 张' : ''}',
-                    style: theme.textTheme.bodyMedium,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _error ?? '成功 $_successCount 张'
+                            '${_skipCount > 0 ? '，跳过（已存在）$_skipCount 张' : ''}',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      if (_skippedFiles.isNotEmpty && _skippedFiles.length <= 10) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          _skippedFiles.map((f) => '• $f').join('\n'),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.outline,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
@@ -210,6 +229,7 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
         _done = true;
         _successCount = result.success;
         _skipCount = result.skipped;
+        _skippedFiles = result.skippedFiles;
       });
       ref.invalidate(memeListProvider);
       ref.invalidate(memeCountProvider);

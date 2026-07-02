@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -198,6 +199,30 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     if (_navCtx == null) {
       _log.error('Clipboard', 'navCtx is null, cannot show bottom sheet');
       return;
+    }
+
+    // 查重：剪贴板图片如果已经在库中，静默跳过
+    try {
+      final clipFile = File(localPath);
+      if (await clipFile.exists()) {
+        final bytes = await clipFile.readAsBytes();
+        final hash = sha256.convert(bytes).toString();
+        final existing = await ref.read(memeRepositoryProvider).getByFileHash(hash);
+        if (existing != null) {
+          _log.info('Clipboard', 'clipboard image already imported (hash=$hash), skipping');
+          if (mounted) {
+            ScaffoldMessenger.of(_navCtx!).showSnackBar(
+              const SnackBar(
+                content: Text('剪贴板图片已导入过'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      _log.warning('Clipboard', 'hash check failed, proceeding anyway: $e');
     }
 
     _log.info('Clipboard', 'showing import preview sheet for: $localPath');

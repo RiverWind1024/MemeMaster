@@ -11,11 +11,13 @@ class ImportResult {
   final int success;
   final int skipped;
   final List<String> errors;
+  final List<String> skippedFiles;
 
   const ImportResult({
     required this.success,
     required this.skipped,
     this.errors = const [],
+    this.skippedFiles = const [],
   });
 }
 
@@ -66,6 +68,7 @@ class ImportService {
     int success = 0;
     int skipped = 0;
     final errors = <String>[];
+    final skippedFiles = <String>[];
 
     for (final path in sourcePaths) {
       try {
@@ -74,6 +77,7 @@ class ImportService {
           success++;
         } else {
           skipped++;
+          skippedFiles.add(path.split('/').last);
         }
       } catch (e) {
         errors.add('$path: $e');
@@ -84,6 +88,7 @@ class ImportService {
       success: success,
       skipped: skipped,
       errors: errors,
+      skippedFiles: skippedFiles,
     );
   }
 

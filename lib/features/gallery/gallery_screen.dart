@@ -730,9 +730,26 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(result.success > 0 ? '导入完成' : '导入结果'),
-        content: Text(
-          '成功: ${result.success}\n跳过（已存在）: ${result.skipped}'
-          '${result.errors.isNotEmpty ? '\n错误: ${result.errors.length}' : ''}',
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('成功: ${result.success}'),
+              Text('跳过（已存在）: ${result.skipped}'),
+              if (result.skippedFiles.isNotEmpty && result.skippedFiles.length <= 10) ...[
+                const SizedBox(height: 8),
+                Text('已存在的文件:',
+                    style: Theme.of(ctx).textTheme.bodySmall),
+                ...result.skippedFiles.map((f) => Text('  • $f',
+                    style: Theme.of(ctx).textTheme.bodySmall)),
+              ],
+              if (result.errors.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text('错误: ${result.errors.length}'),
+              ],
+            ],
+          ),
         ),
         actions: [
           TextButton(

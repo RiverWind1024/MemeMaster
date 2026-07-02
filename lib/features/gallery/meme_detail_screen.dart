@@ -17,144 +17,31 @@ class MemeDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
-  int _refreshTrigger = 0;
-
-  Meme? _cachedMeme;
-
-  Future<Meme?> _fetchMeme() => ref.read(memeRepositoryProvider).getById(widget.memeId);
+  int _currentIndex = 0;
+  late PageController _pageCtrl;
+  bool _initialized = false;
 
   @override
-  Widget build(BuildContext context) {
-    final repo = ref.read(memeRepositoryProvider);
-    final storage = ref.read(fileStorageServiceProvider);
-
-    return FutureBuilder<Meme?>(
-      key: ValueKey('meme_${widget.memeId}_$_refreshTrigger'),
-      future: _fetchMeme(),
-      builder: (context, snapshot) {
-        final meme = snapshot.data;
-        if (snapshot.connectionState != ConnectionState.done) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('加载中...')),
-            body: const Center(child: CircularProgressIndicator()),
-          );
-        }
-        if (meme == null) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('未找到')),
-            body: const Center(child: Text('Meme 不存在')),
-          );
-        }
-        _cachedMeme = meme;
-
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(meme.filename),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () => _reanalyze(context, ref, meme),
-                tooltip: '重新分析',
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () => _deleteMeme(context, ref, meme),
-                tooltip: '删除',
-              ),
-            ],
-          ),
-          body: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 图片
-                FutureBuilder(
-                  future: storage.getImage(meme.filePath),
-                  builder: (context, fileSnapshot) {
-                    if (!fileSnapshot.hasData) {
-                      return const AspectRatio(
-                        aspectRatio: 1,
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    return GestureDetector(
-                      onTap: () => _showFullscreen(context, fileSnapshot.data!),
-                      child: Image.file(
-                        fileSnapshot.data!,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, _, _) => const AspectRatio(
-                          aspectRatio: 1,
-                          child: Icon(Icons.broken_image, size: 64),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-
-                // 信息
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 分析状态
-                      _StatusChip(status: meme.analysisStatus),
-                      const SizedBox(height: 6),
-                      _OcrChip(memeId: widget.memeId),
-                      const SizedBox(height: 6),
-                      _AiChip(memeId: widget.memeId),
-                      const SizedBox(height: 16),
-
-                      // 文件信息
-                      _InfoRow(label: '文件名', value: meme.filename),
-                      _InfoRow(
-                          label: '尺寸',
-                          value: '${meme.width} × ${meme.height}'),
-                      _InfoRow(
-                          label: '大小',
-                          value: _formatSize(meme.fileSize)),
-
-                      const SizedBox(height: 16),
-
-                      // 颜色
-                      _ColorPalette(memeId: widget.memeId),
-                      const SizedBox(height: 16),
-
-                      // OCR 标签
-                      _OcrTags(memeId: widget.memeId),
-                      const SizedBox(height: 16),
-
-                      // 自定义标签
-                      _CustomTags(memeId: widget.memeId),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  void initState() {
+    super.initState();
+    _pageCtrl = PageController();
   }
 
-  Future<void> _reanalyze(
-      BuildContext context, WidgetRef ref, Meme meme) async {
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _reanalyze(BuildContext context, WidgetRef ref, Meme meme) async {
     final repo = ref.read(memeRepositoryProvider);
     final messenger = ScaffoldMessenger.of(context);
 
     try {
-      // 1. 清除旧数据（只清除自动生成的，保留用户自定义标签）
       await repo.deleteColors(meme.id);
       await repo.deleteAutoTags(meme.id);
-
-      // 2. 重置分析状态
       await repo.updateAnalysisStatus(meme.id, 'pending');
-
-      // 3. 入队新分析任务
       await repo.enqueueAnalysis(meme.id, priority: 1);
-
-      // 4. 刷新页面
-      setState(() => _refreshTrigger++);
 
       if (mounted) {
         messenger.showSnackBar(
@@ -173,8 +60,7 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
     }
   }
 
-  Future<void> _deleteMeme(
-      BuildContext context, WidgetRef ref, Meme meme) async {
+  Future<void> _deleteMeme(BuildContext context, WidgetRef ref, Meme meme) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -202,13 +88,170 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
     }
   }
 
+  @override
+  Widget build(BuildContext context) {
+    final memeListAsync = ref.watch(memeListProvider);
+
+    return memeListAsync.when(
+      loading: () => Scaffold(
+        appBar: AppBar(title: const Text('加载中...')),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(title: const Text('加载失败')),
+        body: Center(child: Text('$e')),
+      ),
+      data: (memes) {
+        final initialIndex = memes.indexWhere((m) => m.id == widget.memeId);
+        if (initialIndex < 0) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('未找到')),
+            body: const Center(child: Text('Meme 不存在')),
+          );
+        }
+
+        // 延迟一帧初始化 PageController 的初始位置
+        if (!_initialized) {
+          _initialized = true;
+          _currentIndex = initialIndex;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_pageCtrl.hasClients && _pageCtrl.page != initialIndex.toDouble()) {
+              _pageCtrl.jumpToPage(initialIndex);
+            }
+          });
+        }
+
+        final currentMeme = memes[_currentIndex];
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(currentMeme.filename),
+            actions: [
+              if (memes.length > 1)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Text(
+                    '${_currentIndex + 1}/${memes.length}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
+                ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () => _reanalyze(context, ref, currentMeme),
+                tooltip: '重新分析',
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                onPressed: () => _deleteMeme(context, ref, currentMeme),
+                tooltip: '删除',
+              ),
+            ],
+          ),
+          body: PageView.builder(
+            controller: _pageCtrl,
+            itemCount: memes.length,
+            onPageChanged: (index) {
+              setState(() => _currentIndex = index);
+            },
+            itemBuilder: (context, index) {
+              return _MemeDetailPage(
+                meme: memes[index],
+                memeId: memes[index].id,
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+}
+
+class _MemeDetailPage extends ConsumerWidget {
+  final Meme meme;
+  final String memeId;
+
+  const _MemeDetailPage({required this.meme, required this.memeId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final storage = ref.read(fileStorageServiceProvider);
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 图片
+          FutureBuilder(
+            future: storage.getImage(meme.filePath),
+            builder: (context, fileSnapshot) {
+              if (!fileSnapshot.hasData) {
+                return const AspectRatio(
+                  aspectRatio: 1,
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              return GestureDetector(
+                onTap: () => _showFullscreen(context, ref, fileSnapshot.data!),
+                child: Image.file(
+                  fileSnapshot.data!,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => const AspectRatio(
+                    aspectRatio: 1,
+                    child: Icon(Icons.broken_image, size: 64),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // 信息
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _StatusChip(status: meme.analysisStatus),
+                const SizedBox(height: 6),
+                _OcrChip(memeId: memeId),
+                const SizedBox(height: 6),
+                _AiChip(memeId: memeId),
+                const SizedBox(height: 16),
+
+                _InfoRow(label: '文件名', value: meme.filename),
+                _InfoRow(
+                    label: '尺寸',
+                    value: '${meme.width} × ${meme.height}'),
+                _InfoRow(
+                    label: '大小',
+                    value: _formatSize(meme.fileSize)),
+
+                const SizedBox(height: 16),
+
+                _ColorPalette(memeId: memeId),
+                const SizedBox(height: 16),
+
+                _OcrTags(memeId: memeId),
+                const SizedBox(height: 16),
+
+                _CustomTags(memeId: memeId),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _formatSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
-  void _showFullscreen(BuildContext context, File file) {
+  void _showFullscreen(BuildContext context, WidgetRef ref, File file) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => Scaffold(
