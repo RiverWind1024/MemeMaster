@@ -156,13 +156,22 @@ class LlmSettingsScreen extends ConsumerWidget {
                           style: theme.textTheme.bodyMedium,
                         ),
                         subtitle: Text('已加载', style: theme.textTheme.bodySmall),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () {
-                            ref.read(localLlmConfigProvider.notifier).update(
-                              const LocalLlmConfig(),
-                            );
-                          },
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextButton(
+                              onPressed: () => context.push('/settings/llm/model-manager'),
+                              child: const Text('管理'),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () {
+                                ref.read(localLlmConfigProvider.notifier).update(
+                                  const LocalLlmConfig(),
+                                );
+                              },
+                            ),
+                          ],
                         ),
                       ),
                       const Divider(),
@@ -205,11 +214,7 @@ class LlmSettingsScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('模型下载即将在后续版本实现')),
-                          );
-                        },
+                        onPressed: () => context.push('/settings/llm/model-manager'),
                         icon: const Icon(Icons.open_in_new),
                         label: const Text('下载推荐模型'),
                       ),
