@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -22,11 +24,18 @@ void main() async {
   initLogFilePath('${docsDir.path}/logs/app.log');
   debugPrint('[Startup] docsDir: ${DateTime.now().difference(t0).inMilliseconds}ms');
 
+  // 初始化模型存储目录
+  final modelsDir = Directory('${docsDir.path}/models');
+  if (!await modelsDir.exists()) {
+    await modelsDir.create(recursive: true);
+  }
+  debugPrint('[Startup] models dir: ${modelsDir.path}');
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
   debugPrint('[Startup] runApp: ${DateTime.now().difference(t0).inMilliseconds}ms');
-  runApp(MemeManagerApp(prefs: prefs));
+  runApp(MemeManagerApp(prefs: prefs, storageDir: modelsDir.path));
 }

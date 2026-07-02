@@ -14,14 +14,16 @@ import 'services/shared_media_handler.dart';
 
 class MemeManagerApp extends StatelessWidget {
   final SharedPreferences prefs;
+  final String storageDir;
 
-  const MemeManagerApp({super.key, required this.prefs});
+  const MemeManagerApp({super.key, required this.prefs, required this.storageDir});
 
   @override
   Widget build(BuildContext context) {
     return ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
+        storageDirProvider.overrideWithValue(storageDir),
       ],
       child: _AppBody(),
     );

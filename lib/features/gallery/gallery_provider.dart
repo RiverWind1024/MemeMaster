@@ -319,10 +319,64 @@ final visionEnricherProvider = Provider<VisionLlmEnricher?>((ref) {
   return VisionLlmEnricher(llm: llm, repo: repo, log: log);
 });
 
+// ---- 模型下载状态 ----
+
+/// 下载状态跟踪 Notifier
+class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
+  DownloadStatesNotifier() : super({});
+
+  void startDownload(String modelId) {
+    state = {
+      ...state,
+      modelId: DownloadState(modelId: modelId, status: DownloadStatus.downloading),
+    };
+  }
+
+  void updateProgress(String modelId, double progress) {
+    state = {
+      ...state,
+      modelId: state[modelId]?.copyWith(progress: progress) ??
+          DownloadState(modelId: modelId, status: DownloadStatus.downloading, progress: progress),
+    };
+  }
+
+  void completeDownload(String modelId) {
+    state = {
+      ...state,
+      modelId: state[modelId]?.copyWith(status: DownloadStatus.completed, progress: 1.0) ??
+          DownloadState(modelId: modelId, status: DownloadStatus.completed, progress: 1.0),
+    };
+  }
+
+  void failDownload(String modelId, String error) {
+    state = {
+      ...state,
+      modelId: state[modelId]?.copyWith(status: DownloadStatus.failed, errorMessage: error) ??
+          DownloadState(modelId: modelId, status: DownloadStatus.failed, errorMessage: error),
+    };
+  }
+
+  void removeState(String modelId) {
+    final map = Map<String, DownloadState>.from(state);
+    map.remove(modelId);
+    state = map;
+  }
+}
+
+final downloadStatesProvider =
+    StateNotifierProvider<DownloadStatesNotifier, Map<String, DownloadState>>((ref) {
+  return DownloadStatesNotifier();
+});
+
 // ---- 模型管理 ----
 
+final storageDirProvider = Provider<String>((ref) {
+  throw UnimplementedError('storageDirProvider 需要在 main.dart 中覆盖');
+});
+
 final modelManagerProvider = Provider<ModelManager>((ref) {
-  throw UnimplementedError('ModelManager 需要在 main.dart 中初始化存储路径');
+  final dir = ref.watch(storageDirProvider);
+  return ModelManager(storageDir: dir);
 });
 
 // ---- 管线配置 ----
