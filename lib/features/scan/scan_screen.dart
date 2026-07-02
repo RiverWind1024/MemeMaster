@@ -324,7 +324,6 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   Future<void> _startScan() async {
     if (_scanDir == null) return;
 
-    debugPrint('[Scan] startScan: $_scanDir');
     setState(() {
       _scanning = true;
       _memes = [];
@@ -334,9 +333,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     // 1. 扫描目录
     final log = ref.read(logServiceProvider);
     log.info('Scan', 'scanDirectory: $_scanDir');
-    final images = MemeDetector.scanDirectory(_scanDir!);
+    final images = MemeDetector.scanDirectory(_scanDir!, logger: (tag, msg) => log.info(tag, msg));
     _allImages = images;
-    debugPrint('[Scan] scanDirectory found ${images.length} images');
+    log.info('Scan', 'scanDirectory found ${images.length} images');
 
     if (images.isEmpty) {
       if (mounted) {
@@ -356,7 +355,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     for (int i = 0; i < images.length; i += 5) {
       if (!mounted) return;
       final batch = images.skip(i).take(5).toList();
-      debugPrint('[Scan] batch ${i ~/ 5 + 1}/${(total + 4) ~/ 5}');
+      log.info('Scan', 'batch ${i ~/ 5 + 1}/${(total + 4) ~/ 5}');
 
       final detector = MemeDetector(logger: (tag, msg) => log.info(tag, msg));
       final results = await Future.wait(
@@ -364,7 +363,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
 
       for (final r in results) {
         completed++;
-        debugPrint('[Scan] ${r.filePath.split('/').last}: score=${r.score.toStringAsFixed(2)}'
+        log.info('Scan', '${r.filePath.split('/').last}: score=${r.score.toStringAsFixed(2)}'
             ' text=${r.text?.substring(0, (r.text?.length ?? 0).clamp(0, 30))}');
         if (r.isMeme) {
           memesFound++;
@@ -384,7 +383,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       }
     }
 
-    debugPrint('[Scan] done: memes=$memesFound text=$textFound noText=$noText');
+    log.info('Scan', 'done: memes=$memesFound text=$textFound noText=$noText');
     if (mounted) {
       setState(() {
         _memes = memes;
