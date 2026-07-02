@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/llm/config.dart';
 import '../../core/llm/local_config.dart';
 import '../gallery/gallery_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class LlmSettingsScreen extends ConsumerStatefulWidget {
   const LlmSettingsScreen({super.key});
@@ -23,21 +24,21 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('AI 标签与描述')),
+      appBar: AppBar(title: Text(S.of(context).aiTagsAndDescription)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // 模式选择
-          Text('分析模式', style: theme.textTheme.titleMedium),
+          Text(S.of(context).analysisMode, style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: SegmentedButton<LlmMode>(
-                segments: const [
-                  ButtonSegment(value: LlmMode.off, label: Text('关闭'), icon: Icon(Icons.cancel_outlined, size: 18)),
-                  ButtonSegment(value: LlmMode.remote, label: Text('远程 API'), icon: Icon(Icons.cloud_outlined, size: 18)),
-                  ButtonSegment(value: LlmMode.local, label: Text('本地模型'), icon: Icon(Icons.phone_android_outlined, size: 18)),
+                segments: [
+                  ButtonSegment(value: LlmMode.off, label: Text(S.of(context).modeOff), icon: Icon(Icons.cancel_outlined, size: 18)),
+                  ButtonSegment(value: LlmMode.remote, label: Text(S.of(context).modeRemoteApi), icon: Icon(Icons.cloud_outlined, size: 18)),
+                  ButtonSegment(value: LlmMode.local, label: Text(S.of(context).modeLocalModel), icon: Icon(Icons.phone_android_outlined, size: 18)),
                 ],
                 selected: {mode},
                 onSelectionChanged: (selected) {
@@ -49,9 +50,9 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
           const SizedBox(height: 8),
           Text(
             switch (mode) {
-              LlmMode.off => 'AI 标签功能已关闭，不会分析图片内容。',
-              LlmMode.remote => '通过远程 API 分析图片，需联网且消耗 API 额度。',
-              LlmMode.local => '在设备端本地运行模型，无需联网，需下载模型文件。',
+              LlmMode.off => S.of(context).modeOffDescription,
+              LlmMode.remote => S.of(context).modeRemoteDescription,
+              LlmMode.local => S.of(context).modeLocalDescription,
             },
             style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
@@ -60,7 +61,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
 
           // 远程模式配置
           if (mode == LlmMode.remote) ...[
-            Text('远程 API 配置', style: theme.textTheme.titleMedium),
+            Text(S.of(context).remoteApiConfig, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Card(
               child: Padding(
@@ -71,15 +72,15 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                     // 供应商选择
                     DropdownButtonFormField<LlmProviderType>(
                       value: llmConfig.provider,
-                      decoration: const InputDecoration(
-                        labelText: '供应商',
+                      decoration: InputDecoration(
+                        labelText: S.of(context).provider,
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       ),
-                      items: const [
+                      items: [
                         DropdownMenuItem(
                           value: LlmProviderType.openai,
-                          child: Text('OpenAI 兼容'),
+                          child: Text(S.of(context).openaiCompatible),
                         ),
                         DropdownMenuItem(
                           value: LlmProviderType.ollama,
@@ -97,7 +98,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                     const SizedBox(height: 12),
                     TextFormField(
                       initialValue: llmConfig.baseUrl,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Endpoint',
                         hintText: 'https://api.openai.com/v1',
                         border: OutlineInputBorder(),
@@ -110,7 +111,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                     const SizedBox(height: 12),
                     TextFormField(
                       initialValue: llmConfig.apiKey,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'API Key',
                         hintText: 'sk-...',
                         border: OutlineInputBorder(),
@@ -123,8 +124,8 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                     const SizedBox(height: 12),
                     TextFormField(
                       initialValue: llmConfig.model,
-                      decoration: const InputDecoration(
-                        labelText: '模型',
+                      decoration: InputDecoration(
+                        labelText: S.of(context).model,
                         hintText: 'gpt-4o-mini',
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -139,14 +140,14 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              '需要支持多模态视觉的模型，如 GPT-4o、GPT-4o-mini、Qwen2-VL 等。',
+              S.of(context).multimodalModelHint,
               style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ],
 
           // 本地模式配置
           if (mode == LlmMode.local) ...[
-            Text('本地模型', style: theme.textTheme.titleMedium),
+            Text(S.of(context).localModel, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Card(
               child: Padding(
@@ -161,13 +162,13 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                           localConfig.modelPath!.split('/').last,
                           style: theme.textTheme.bodyMedium,
                         ),
-                        subtitle: Text('已加载', style: theme.textTheme.bodySmall),
+                        subtitle: Text(S.of(context).loaded, style: theme.textTheme.bodySmall),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             TextButton(
                               onPressed: () => context.push('/settings/llm/model-manager'),
-                              child: const Text('管理'),
+                              child: Text(S.of(context).manage),
                             ),
                             IconButton(
                               icon: const Icon(Icons.close),
@@ -182,7 +183,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                       ),
                       const Divider(),
                       SwitchListTile(
-                        title: const Text('GPU 加速'),
+                        title: Text(S.of(context).gpuAcceleration),
                         value: localConfig.useGpu,
                         onChanged: (v) => ref.read(localLlmConfigProvider.notifier).update(
                           localConfig.copyWith(useGpu: v),
@@ -192,7 +193,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.tune),
-                        title: const Text('上下文长度'),
+                        title: Text(S.of(context).contextLength),
                         trailing: DropdownButton<int>(
                           value: localConfig.contextSize,
                           underline: const SizedBox(),
@@ -211,10 +212,10 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                     ] else ...[
                       const Icon(Icons.download_outlined, size: 48, color: Colors.grey),
                       const SizedBox(height: 8),
-                      const Text('暂无已下载的模型'),
+                      Text(S.of(context).noDownloadedModelsHint),
                       const SizedBox(height: 4),
                       Text(
-                        '可以从网络下载推荐模型，或手动选择本地 GGUF 文件',
+                        S.of(context).downloadOrSelectLocal,
                         style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                         textAlign: TextAlign.center,
                       ),
@@ -225,13 +226,13 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                           OutlinedButton.icon(
                             onPressed: () => context.push('/settings/llm/model-manager'),
                             icon: const Icon(Icons.cloud_download_outlined, size: 18),
-                            label: const Text('下载推荐模型'),
+                            label: Text(S.of(context).downloadRecommended),
                           ),
                           const SizedBox(width: 12),
                           FilledButton.tonalIcon(
                             onPressed: _pickLocalModel,
                             icon: const Icon(Icons.folder_open, size: 18),
-                            label: const Text('选择本地文件'),
+                            label: Text(S.of(context).selectLocalFile),
                           ),
                         ],
                       ),
@@ -251,7 +252,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
     final modelFile = await openFile(
       acceptedTypeGroups: [
         XTypeGroup(
-          label: 'GGUF 模型文件',
+          label: S.of(context).ggufModelFile,
           extensions: ['gguf'],
         ),
       ],
@@ -262,7 +263,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
     final wantMmproj = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('加载多模态投影？'),
+        title: Text(S.of(context).loadMultimodalProjection),
         content: const Text(
           '如果你的模型支持图片输入（多模态），建议同时选择 mmproj 投影文件。\n\n'
           '不需要请点「跳过」',
@@ -270,11 +271,11 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('跳过'),
+            child: Text(S.of(context).skip),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('选择投影文件'),
+            child: Text(S.of(context).selectProjectionFile),
           ),
         ],
       ),
@@ -285,7 +286,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
       final mmprojFile = await openFile(
         acceptedTypeGroups: [
           XTypeGroup(
-            label: 'GGUF 投影文件',
+            label: S.of(context).ggufProjectionFile,
             extensions: ['gguf'],
           ),
         ],
@@ -303,7 +304,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
       ),
     );
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('模型文件已加载')),
+      SnackBar(content: Text(S.of(context).modelFileLoaded)),
     );
   }
 }

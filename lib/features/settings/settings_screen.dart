@@ -6,6 +6,7 @@ import '../../services/s3_config.dart';
 import '../../core/image/color_extraction_config.dart';
 import '../../core/llm/config.dart';
 import '../gallery/gallery_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -18,38 +19,53 @@ class SettingsScreen extends ConsumerWidget {
     final llmEnabled = ref.watch(llmEnabledProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
+      appBar: AppBar(title: Text(S.of(context).settings)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // 外观
-          Text('外观', style: theme.textTheme.titleSmall),
+          Text(S.of(context).appearance, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Card(
             child: ListTile(
               leading: const Icon(Icons.dark_mode),
-              title: const Text('主题模式'),
+              title: Text(S.of(context).themeMode),
               subtitle: Text(
                 switch (ref.watch(themeModeProvider)) {
-                  ThemeMode.light => '浅色',
-                  ThemeMode.dark => '深色',
-                  _ => '跟随系统',
+                  ThemeMode.light => S.of(context).themeLight,
+                  ThemeMode.dark => S.of(context).themeDark,
+                  _ => S.of(context).themeSystem,
                 },
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _showThemePicker(context, ref),
             ),
           ),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.language),
+              title: Text(S.of(context).language),
+              subtitle: Text(
+                ref.watch(localeProvider) == null
+                    ? S.of(context).languageSystem
+                    : ref.watch(localeProvider)!.languageCode == 'zh'
+                        ? S.of(context).languageChinese
+                        : S.of(context).languageEnglish,
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showLocalePicker(context, ref),
+            ),
+          ),
 
           const SizedBox(height: 24),
 
           // 分析
-          Text('分析', style: theme.textTheme.titleSmall),
+          Text(S.of(context).analysis, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Card(
             child: SwitchListTile(
-              title: const Text('OCR 文字识别'),
-              subtitle: const Text('导入图片时自动提取图片中的文字作为标签'),
+              title: Text(S.of(context).ocrTextRecognition),
+              subtitle: Text(S.of(context).ocrDescription),
               value: ocrEnabled,
               onChanged: (value) {
                 ref.read(ocrEnabledProvider.notifier).setEnabled(value);
@@ -62,12 +78,12 @@ class SettingsScreen extends ConsumerWidget {
           Card(
             child: ListTile(
               leading: const Icon(Icons.auto_awesome),
-              title: const Text('AI 标签与描述'),
+              title: Text(S.of(context).aiTagsDescription),
               subtitle: Text(
                 switch (llmMode) {
-                  LlmMode.off => '已关闭',
-                  LlmMode.remote => '远程 (${ref.watch(llmConfigProvider).model})',
-                  LlmMode.local => '本地模型',
+                  LlmMode.off => S.of(context).llmOff,
+                  LlmMode.remote => S.of(context).llmRemote(ref.watch(llmConfigProvider).model),
+                  LlmMode.local => S.of(context).llmLocal,
                 },
                 style: theme.textTheme.bodySmall,
               ),
@@ -84,14 +100,14 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // 同步
-          Text('同步', style: theme.textTheme.titleSmall),
+          Text(S.of(context).sync, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           _S3ConfigCard(),
 
           const SizedBox(height: 24),
 
           // 存储
-          Text('存储', style: theme.textTheme.titleSmall),
+          Text(S.of(context).storage, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Card(
             child: Column(
@@ -105,14 +121,14 @@ class SettingsScreen extends ConsumerWidget {
                         : '${(used / (1024 * 1024)).toStringAsFixed(1)} MB';
                     return ListTile(
                       leading: const Icon(Icons.storage),
-                      title: const Text('存储空间'),
+                      title: Text(S.of(context).storageSpace),
                       subtitle: Text(usedStr),
                     );
                   },
                 ),
                 ListTile(
                   leading: const Icon(Icons.image),
-                  title: Text('图片数量',
+                  title: Text(S.of(context).imageCount,
                       style: theme.textTheme.bodyMedium),
                   trailing: ref.watch(memeCountProvider).when(
                     loading: () => const SizedBox(
@@ -132,14 +148,14 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // 调试
-          Text('调试', style: theme.textTheme.titleSmall),
+          Text(S.of(context).debug, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Card(
             child: ListTile(
               leading: const Icon(Icons.article_outlined),
-              title: const Text('运行日志'),
+              title: Text(S.of(context).runLogs),
               subtitle: Text(
-                '共 ${ref.watch(logServiceProvider).logs.length} 条',
+                S.of(context).logCount(ref.watch(logServiceProvider).logs.length),
                 style: theme.textTheme.bodySmall,
               ),
               trailing: const Icon(Icons.chevron_right),
@@ -150,10 +166,10 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // 关于
-          Text('关于', style: theme.textTheme.titleSmall),
+          Text(S.of(context).about, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Card(
-            child: const ListTile(
+            child: ListTile(
               leading: Icon(Icons.info_outline),
               title: Text('MemeManager'),
               subtitle: Text('v1.0.0'),
@@ -175,11 +191,11 @@ class _S3ConfigCard extends ConsumerWidget {
     return Card(
       child: ListTile(
         leading: const Icon(Icons.cloud_sync),
-        title: const Text('S3 云同步'),
+        title: Text(S.of(context).s3CloudSync),
         subtitle: Text(
           isConfigured
               ? '${config.endpoint}/${config.bucket}'
-              : '未配置',
+              : S.of(context).notConfigured,
           style: theme.textTheme.bodySmall,
         ),
         trailing: const Icon(Icons.chevron_right),
@@ -197,16 +213,16 @@ class _ColorExtractionCard extends ConsumerWidget {
     final theme = Theme.of(context);
 
     String methodLabel(ColorExtractionMethod m) => switch (m) {
-          ColorExtractionMethod.neuralQuantizer => '神经网络量化',
-          ColorExtractionMethod.histogram => '直方图分桶',
-          ColorExtractionMethod.kmeans => 'K-means 聚类',
-          ColorExtractionMethod.meanShift => '均值漂移',
+          ColorExtractionMethod.neuralQuantizer => S.of(context).methodNeuralQuantizer,
+          ColorExtractionMethod.histogram => S.of(context).methodHistogram,
+          ColorExtractionMethod.kmeans => S.of(context).methodKmeans,
+          ColorExtractionMethod.meanShift => S.of(context).methodMeanShift,
         };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('颜色提取', style: theme.textTheme.titleSmall),
+        Text(S.of(context).colorExtraction, style: theme.textTheme.titleSmall),
         const SizedBox(height: 8),
         Card(
           child: Padding(
@@ -217,7 +233,7 @@ class _ColorExtractionCard extends ConsumerWidget {
                 // ---- 算法选择 ----
                 Row(
                   children: [
-                    Text('算法', style: theme.textTheme.bodyMedium),
+                    Text(S.of(context).algorithm, style: theme.textTheme.bodyMedium),
                     const Spacer(),
                     DropdownButton<ColorExtractionMethod>(
                       value: config.method,
@@ -250,14 +266,14 @@ class _ColorExtractionCard extends ConsumerWidget {
                 // 最大返回颜色数
                 Row(
                   children: [
-                    Text('最大主色调数',
+                    Text(S.of(context).maxDominantColors,
                         style: theme.textTheme.bodyMedium),
                     const Spacer(),
                     DropdownButton<int>(
                       value: config.maxResultColors,
                       underline: const SizedBox(),
                       items: List.generate(10, (i) => i + 3).map((n) {
-                        return DropdownMenuItem(value: n, child: Text('$n 色'));
+                        return DropdownMenuItem(value: n, child: Text(S.of(context).colorCount(n)));
                       }).toList(),
                       onChanged: (v) {
                         if (v != null) {
@@ -274,7 +290,7 @@ class _ColorExtractionCard extends ConsumerWidget {
                 // 最小占比阈值
                 Row(
                   children: [
-                    Text('最小占比',
+                    Text(S.of(context).minRatio,
                         style: theme.textTheme.bodyMedium),
                     const Spacer(),
                     Text('${(config.minRatio * 100).round()}%',
@@ -298,7 +314,7 @@ class _ColorExtractionCard extends ConsumerWidget {
                 // 颜色合并阈值
                 Row(
                   children: [
-                    Text('颜色合并阈值',
+                    Text(S.of(context).colorMergeThreshold,
                         style: theme.textTheme.bodyMedium),
                     const Spacer(),
                     Text('${config.mergeThreshold.toStringAsFixed(0)}',
@@ -334,7 +350,7 @@ class _ColorExtractionCard extends ConsumerWidget {
     switch (config.method) {
       case ColorExtractionMethod.neuralQuantizer:
         return [
-          _rowLabel('初始颜色数量', '${config.initialColorCount}', theme),
+          _rowLabel(S.of(context).initialColorCount, '${config.initialColorCount}', theme),
           const SizedBox(height: 4),
           _dropdownControl(config.initialColorCount, [8, 16, 32, 64],
               (v) => config.copyWith(initialColorCount: v), ref),
@@ -343,7 +359,7 @@ class _ColorExtractionCard extends ConsumerWidget {
 
       case ColorExtractionMethod.histogram:
         return [
-          _rowLabel('RGB 分桶数', '${config.histogramBins}³ = ${config.histogramBins * config.histogramBins * config.histogramBins} 桶', theme),
+          _rowLabel(S.of(context).rgbBins, '${config.histogramBins}³ = ${config.histogramBins * config.histogramBins * config.histogramBins} 桶', theme),
           const SizedBox(height: 4),
           _dropdownControl(config.histogramBins, [4, 6, 8, 10, 12, 16],
               (v) => config.copyWith(histogramBins: v), ref),
@@ -352,12 +368,12 @@ class _ColorExtractionCard extends ConsumerWidget {
 
       case ColorExtractionMethod.kmeans:
         return [
-          _rowLabel('初始聚类数 (K)', '${config.initialColorCount}', theme),
+          _rowLabel(S.of(context).initialClusterK, '${config.initialColorCount}', theme),
           const SizedBox(height: 4),
           _dropdownControl(config.initialColorCount, [8, 16, 32, 48, 64],
               (v) => config.copyWith(initialColorCount: v), ref),
           const SizedBox(height: 8),
-          _rowLabel('像素采样率', '${(config.sampleRate * 100).round()}%', theme),
+          _rowLabel(S.of(context).pixelSampleRate, '${(config.sampleRate * 100).round()}%', theme),
           const SizedBox(height: 4),
           Slider(
             value: config.sampleRate,
@@ -370,7 +386,7 @@ class _ColorExtractionCard extends ConsumerWidget {
                       .update(config.copyWith(sampleRate: v)),
           ),
           const SizedBox(height: 8),
-          _rowLabel('最大迭代次数', '${config.maxIterations}', theme),
+          _rowLabel(S.of(context).maxIterations, '${config.maxIterations}', theme),
           const SizedBox(height: 4),
           _dropdownControl(config.maxIterations, [10, 20, 30, 50, 100],
               (v) => config.copyWith(maxIterations: v), ref),
@@ -379,7 +395,7 @@ class _ColorExtractionCard extends ConsumerWidget {
 
       case ColorExtractionMethod.meanShift:
         return [
-          _rowLabel('核半径', '${config.kernelRadius.toStringAsFixed(0)}', theme),
+          _rowLabel(S.of(context).kernelRadius, '${config.kernelRadius.toStringAsFixed(0)}', theme),
           const SizedBox(height: 4),
           Slider(
             value: config.kernelRadius,
@@ -392,7 +408,7 @@ class _ColorExtractionCard extends ConsumerWidget {
                       .update(config.copyWith(kernelRadius: v)),
           ),
           const SizedBox(height: 8),
-          _rowLabel('像素采样率', '${(config.sampleRate * 100).round()}%', theme),
+          _rowLabel(S.of(context).pixelSampleRate, '${(config.sampleRate * 100).round()}%', theme),
           const SizedBox(height: 4),
           Slider(
             value: config.sampleRate,
@@ -405,7 +421,7 @@ class _ColorExtractionCard extends ConsumerWidget {
                       .update(config.copyWith(sampleRate: v)),
           ),
           const SizedBox(height: 8),
-          _rowLabel('最大迭代次数', '${config.maxIterations}', theme),
+          _rowLabel(S.of(context).maxIterations, '${config.maxIterations}', theme),
           const SizedBox(height: 4),
           _dropdownControl(config.maxIterations, [10, 20, 30, 50, 100],
               (v) => config.copyWith(maxIterations: v), ref),
@@ -461,13 +477,13 @@ void _showThemePicker(BuildContext context, WidgetRef ref) {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 16, bottom: 8),
-            child: Text('主题模式', style: TextStyle(fontWeight: FontWeight.w600)),
+            child: Text(S.of(context).themeMode, style: TextStyle(fontWeight: FontWeight.w600)),
           ),
           RadioListTile<ThemeMode>(
-            title: const Text('浅色'),
-            subtitle: const Text('始终使用浅色主题'),
+            title: Text(S.of(context).themeLight),
+            subtitle: Text(S.of(context).lightThemeSubtitle),
             secondary: const Icon(Icons.light_mode),
             value: ThemeMode.light,
             groupValue: current,
@@ -478,8 +494,8 @@ void _showThemePicker(BuildContext context, WidgetRef ref) {
             },
           ),
           RadioListTile<ThemeMode>(
-            title: const Text('深色'),
-            subtitle: const Text('始终使用深色主题'),
+            title: Text(S.of(context).themeDark),
+            subtitle: Text(S.of(context).darkThemeSubtitle),
             secondary: const Icon(Icons.dark_mode),
             value: ThemeMode.dark,
             groupValue: current,
@@ -490,14 +506,63 @@ void _showThemePicker(BuildContext context, WidgetRef ref) {
             },
           ),
           RadioListTile<ThemeMode>(
-            title: const Text('跟随系统'),
-            subtitle: const Text('跟随系统设置自动切换'),
+            title: Text(S.of(context).themeSystem),
+            subtitle: Text(S.of(context).systemThemeSubtitle),
             secondary: const Icon(Icons.settings),
             value: ThemeMode.system,
             groupValue: current,
             onChanged: (v) {
               if (v == null) return;
               ref.read(themeModeProvider.notifier).set(v);
+              Navigator.pop(ctx);
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
+}
+
+void _showLocalePicker(BuildContext context, WidgetRef ref) {
+  final current = ref.read(localeProvider);
+  showModalBottomSheet(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 16, bottom: 8),
+            child: Text(S.of(context).language, style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+          RadioListTile<Locale?>(
+            title: Text(S.of(context).languageSystem),
+            secondary: const Icon(Icons.settings),
+            value: null,
+            groupValue: current,
+            onChanged: (v) {
+              ref.read(localeProvider.notifier).set(v);
+              Navigator.pop(ctx);
+            },
+          ),
+          RadioListTile<Locale?>(
+            title: Text(S.of(context).languageChinese),
+            secondary: const Icon(Icons.translate),
+            value: const Locale('zh'),
+            groupValue: current,
+            onChanged: (v) {
+              ref.read(localeProvider.notifier).set(v);
+              Navigator.pop(ctx);
+            },
+          ),
+          RadioListTile<Locale?>(
+            title: Text(S.of(context).languageEnglish),
+            secondary: const Icon(Icons.language),
+            value: const Locale('en'),
+            groupValue: current,
+            onChanged: (v) {
+              ref.read(localeProvider.notifier).set(v);
               Navigator.pop(ctx);
             },
           ),

@@ -11,6 +11,7 @@ import '../../services/file_storage_service.dart';
 import '../../services/import_service.dart';
 import '../../services/shared_media_handler.dart';
 import 'gallery_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class GalleryScreen extends ConsumerStatefulWidget {
   const GalleryScreen({super.key});
@@ -105,8 +106,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text('确定要删除选中的 $count 张图片吗？\n图片文件和所有分析数据都会被移除。'),
+        title: Text(S.of(context).confirmDeleteTitle),
+        content: Text(S.of(context).confirmDeleteSelected(count)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -134,7 +135,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已删除 $count 张图片')),
+        SnackBar(content: Text(S.of(context).deletedCountImages(count))),
       );
     }
   }
@@ -144,7 +145,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final albums = albumsAsync.valueOrNull ?? [];
     if (albums.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('还没有相册，请先创建')),
+        SnackBar(content: Text(S.of(context).noAlbumsCreateFirst)),
       );
       return;
     }
@@ -152,7 +153,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final album = await showDialog<Album>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('选择相册'),
+        title: Text(S.of(context).selectAlbum),
         children: albums
             .map((a) => SimpleDialogOption(
                   onPressed: () => Navigator.pop(ctx, a),
@@ -176,7 +177,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已将 $count 张图片添加到「${album.name}」')),
+        SnackBar(content: Text(S.of(context).addedToAlbum(count, album.name))),
       );
     }
   }
@@ -186,10 +187,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('新建相册'),
+        title: Text(S.of(context).newAlbum),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(hintText: '相册名称'),
+          decoration: InputDecoration(hintText: S.of(context).albumName),
           autofocus: true,
           textInputAction: TextInputAction.done,
           onSubmitted: (v) => Navigator.pop(ctx, v),
@@ -201,7 +202,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('创建'),
+            child: Text(S.of(context).create),
           ),
         ],
       ),
@@ -267,7 +268,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                           size: 64,
                           color: Theme.of(context).colorScheme.primary),
                       const SizedBox(height: 16),
-                      Text('松开导入图片',
+                      Text(S.of(context).releaseToImport,
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               color: Theme.of(context).colorScheme.primary)),
                     ],
@@ -287,7 +288,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       isScrollable: tabCount > 1,
       tabAlignment: tabCount > 1 ? null : TabAlignment.center,
       tabs: [
-        const Tab(text: '全部图片'),
+        Tab(text: S.of(context).allImages),
         ...ref.watch(albumsProvider).asData?.value
                 .where((a) => a.isDefault != 1)
                 .map((a) => Tab(text: a.name)) ??
@@ -308,7 +309,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
   PreferredSizeWidget _buildSelectionAppBar() {
     return AppBar(
-      title: Text('已选择 ${_selectedIds.length} 项'),
+      title: Text(S.of(context).selectedItems(_selectedIds.length)),
       centerTitle: true,
       leading: IconButton(
         icon: const Icon(Icons.close),
@@ -318,17 +319,17 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         IconButton(
           icon: const Icon(Icons.copy),
           onPressed: _copySelected,
-          tooltip: '复制',
+          tooltip: S.of(context).copy,
         ),
         IconButton(
           icon: const Icon(Icons.photo_album_outlined),
           onPressed: _moveSelectedToAlbum,
-          tooltip: '添加到相册',
+          tooltip: S.of(context).addToAlbum,
         ),
         IconButton(
           icon: const Icon(Icons.delete_outline),
           onPressed: _deleteSelected,
-          tooltip: '删除',
+          tooltip: S.of(context).delete,
         ),
       ],
     );
@@ -366,6 +367,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final progress = progressAsync.valueOrNull;
     if (progress == null || progress.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
+    final s = S.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -383,8 +385,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '正在分析 ${progress.running > 0 ? '(${progress.running} 进行中)' : ''}'
-              '剩余 ${progress.total} 张…',
+              s.analyzingProgress(progress.running > 0 ? s.analyzingRunning(progress.running) : '', progress.total)
+              ,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onPrimaryContainer,
               ),
@@ -400,7 +402,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
     return memeListAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('加载失败: $e')),
+      error: (e, _) => Center(child: Text(S.of(context).loadFailedWithError(e.toString()))),
       data: (memes) {
         if (memes.isEmpty) {
           return Center(
@@ -410,10 +412,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                 Icon(Icons.photo_library_outlined,
                     size: 80, color: colorScheme.outline),
                 const SizedBox(height: 16),
-                Text('还没有任何 Meme',
+                Text(S.of(context).noMemesYet,
                     style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 8),
-                Text('点击右下角按钮导入图片',
+                Text(S.of(context).tapToImport,
                     style: Theme.of(context)
                         .textTheme
                         .bodyMedium
@@ -473,24 +475,24 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     if (_radialOpen) setState(() => _radialOpen = false);
   }
 
-  static const _fabActions = [
-    _SpeedDialAction(Icons.search, '扫描文件夹'),
-    _SpeedDialAction(Icons.add_photo_alternate, '导入图片'),
-    _SpeedDialAction(Icons.content_paste, '从剪贴板导入'),
-    _SpeedDialAction(Icons.photo_library, '新建相册'),
-  ];
-
   Widget _buildFab() {
+    final s = S.of(context);
     final theme = Theme.of(context);
+    final fabActions = [
+      _SpeedDialAction(Icons.search, s.scanFolder),
+      _SpeedDialAction(Icons.add_photo_alternate, s.importImage),
+      _SpeedDialAction(Icons.content_paste, s.importFromClipboard),
+      _SpeedDialAction(Icons.photo_library, s.newAlbumShort),
+    ];
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         // 展开的动作项
-        for (int i = 0; i < _fabActions.length; i++) ...[
+        for (int i = 0; i < fabActions.length; i++) ...[
           _SpeedDialItem(
-            icon: _fabActions[i].icon,
-            label: _fabActions[i].label,
+            icon: fabActions[i].icon,
+            label: fabActions[i].label,
             visible: _radialOpen,
             index: i,
             onTap: () {
@@ -536,7 +538,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     if (paths.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('未发现图片文件')),
+          SnackBar(content: Text(S.of(context).noImageFilesFound)),
         );
       }
       return;
@@ -585,7 +587,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       log.warning('Clipboard', '剪贴板为空，无可用路径');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('剪贴板为空')),
+          SnackBar(content: Text(S.of(context).clipboardEmpty)),
         );
       }
       return;
@@ -606,7 +608,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         log.error('Clipboard', 'copyContentUri 失败，放弃导入');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('无法读取剪贴板 URI')),
+            SnackBar(content: Text(S.of(context).cannotReadClipboardUri)),
           );
         }
         return;
@@ -620,7 +622,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       log.info('Clipboard', '检测到 HTTP URL，开始下载: ${path.length > 100 ? path.substring(0, 100) : path}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('正在从剪贴板 URL 下载图片...')),
+          SnackBar(content: Text(S.of(context).downloadingFromClipboardUrl)),
         );
       }
       final localFile = await _downloadToCache(path);
@@ -628,7 +630,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         log.error('Clipboard', 'HTTP URL 下载失败');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('从 URL 下载图片失败')),
+            SnackBar(content: Text(S.of(context).downloadFromUrlFailed)),
           );
         }
         return;
@@ -646,7 +648,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         log.error('Clipboard', 'http-url:// 下载失败');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('下载剪贴板图片失败')),
+            SnackBar(content: Text(S.of(context).downloadClipboardImageFailed)),
           );
         }
         return;
@@ -663,7 +665,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       log.error('Clipboard', '文件不存在: $path');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('剪贴板内容不是有效的文件路径')),
+          SnackBar(content: Text(S.of(context).clipboardNotValidPath)),
         );
       }
       return;
@@ -672,7 +674,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       log.warning('Clipboard', '非图片格式: $path -> $ext');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('剪贴板文件不是图片格式')),
+          SnackBar(content: Text(S.of(context).clipboardNotImage)),
         );
       }
       return;
@@ -729,24 +731,24 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(result.success > 0 ? '导入完成' : '导入结果'),
+        title: Text(result.success > 0 ? S.of(context).importComplete : S.of(context).importResultTitle),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('成功: ${result.success}'),
-              Text('跳过（已存在）: ${result.skipped}'),
+              Text(S.of(context).importSuccess(result.success)),
+              Text(S.of(context).importSkipped(result.skipped)),
               if (result.skippedFiles.isNotEmpty && result.skippedFiles.length <= 10) ...[
                 const SizedBox(height: 8),
-                Text('已存在的文件:',
+                Text(S.of(context).existingFiles,
                     style: Theme.of(ctx).textTheme.bodySmall),
                 ...result.skippedFiles.map((f) => Text('  • $f',
                     style: Theme.of(ctx).textTheme.bodySmall)),
               ],
               if (result.errors.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text('错误: ${result.errors.length}'),
+                Text(S.of(context).importErrors(result.errors.length)),
               ],
             ],
           ),
@@ -754,7 +756,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('确定'),
+            child: Text(S.of(context).ok),
           ),
         ],
       ),
@@ -770,7 +772,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           children: [
             ListTile(
               leading: const Icon(Icons.add_photo_alternate),
-              title: const Text('导入图片'),
+              title: Text(S.of(context).importImage),
               onTap: () {
                 Navigator.pop(ctx);
                 context.pushNamed('import');
@@ -778,7 +780,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('新建相册'),
+              title: Text(S.of(context).newAlbum),
               onTap: () {
                 Navigator.pop(ctx);
                 _showNewAlbumDialog();
@@ -786,7 +788,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
             ),
             ListTile(
               leading: const Icon(Icons.content_paste),
-              title: const Text('从剪贴板导入'),
+              title: Text(S.of(context).importFromClipboard),
               onTap: () {
                 Navigator.pop(ctx);
                 _importFromClipboard();
@@ -820,7 +822,7 @@ class _MemeGridTile extends ConsumerWidget {
     await ClipboardService.copyImageToClipboard(file.path);
     if (ref.context.mounted) {
       ScaffoldMessenger.of(ref.context).showSnackBar(
-        const SnackBar(content: Text('已复制到剪贴板')),
+        SnackBar(content: Text(S.of(ref.context).copiedToClipboard)),
       );
     }
   }

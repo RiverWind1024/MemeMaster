@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../services/import_service.dart';
 import '../gallery/gallery_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class ImportScreen extends ConsumerStatefulWidget {
   const ImportScreen({super.key});
@@ -25,7 +26,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('导入图片')),
+      appBar: AppBar(title: Text(S.of(context).importImages)),
       body: Column(
         children: [
           Expanded(
@@ -42,7 +43,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                       FilledButton.icon(
                         onPressed: _importing ? null : _pickImages,
                         icon: const Icon(Icons.folder_open),
-                        label: const Text('从相册选择'),
+                        label: Text(S.of(context).importFromAlbum),
                       ),
                     ],
                   ),
@@ -53,13 +54,13 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                 if (_paths.isNotEmpty) ...[
                   Row(
                     children: [
-                      Text('已选 ${_paths.length} 张',
+                      Text(S.of(context).selectedCount(_paths.length),
                           style: theme.textTheme.titleSmall),
                       const Spacer(),
                       if (!_importing)
                         TextButton.icon(
                           icon: const Icon(Icons.clear_all, size: 18),
-                          label: const Text('清空'),
+                          label: Text(S.of(context).clear),
                           onPressed: () => setState(() => _paths.clear()),
                         ),
                     ],
@@ -75,12 +76,12 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                 // 导入结果
                 if (_result != null) ...[
                   const Divider(),
-                  Text('导入完成', style: theme.textTheme.titleSmall),
+                  Text(S.of(context).importDone, style: theme.textTheme.titleSmall),
                   const SizedBox(height: 8),
-                  Text('成功: ${_result!.success}  跳过: ${_result!.skipped}'),
+                  Text(S.of(context).importResultSummary(_result!.success, _result!.skipped)),
                   if (_result!.errors.isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text('错误:',
+                    Text(S.of(context).errorLabel,
                         style: theme.textTheme.bodySmall
                             ?.copyWith(color: Colors.red)),
                     ..._result!.errors.map((e) => Text(e,
@@ -109,7 +110,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                   child: FilledButton.icon(
                     onPressed: _doImport,
                     icon: const Icon(Icons.cloud_download),
-                    label: Text('导入 ${_paths.length} 张图片'),
+                    label: Text(S.of(context).importCountImages(_paths.length)),
                   ),
                 ),
               ),
@@ -140,7 +141,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('选择文件失败: $e')),
+          SnackBar(content: Text(S.of(context).selectFileFailed(e.toString()))),
         );
       }
     }
@@ -163,7 +164,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
 
       if (result.success > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('成功导入 ${result.success} 张图片')),
+          SnackBar(content: Text(S.of(context).importSuccessCountImages(result.success))),
         );
       }
     }
