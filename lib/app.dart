@@ -36,8 +36,6 @@ class _AppBody extends ConsumerStatefulWidget {
 class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver {
   final DateTime _appStartTime = DateTime.now();
   String? _lastClipboardPath;
-  int _clipboardRetryCount = 0;
-  static const _maxClipboardRetries = 3;
   /// 防止重复 resume 导致并行检测
   bool _clipboardCheckBusy = false;
 
@@ -105,7 +103,6 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
       return;
     }
     if (mounted && !_clipboardCheckBusy) {
-      _clipboardRetryCount = 0;
       _scheduleClipboardCheck(delay: const Duration(milliseconds: 500));
     }
   }
@@ -149,22 +146,10 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
   }
 
   Future<void> _doClipboardCheck() async {
-    _log.info('Clipboard', 'getClipboardImage attempt ${_clipboardRetryCount + 1}/$_maxClipboardRetries');
+    _log.info('Clipboard', 'getClipboardImage');
     final rawPath = await SharedMediaHandler().getClipboardImage();
     final preview = rawPath != null ? (rawPath.length > 120 ? '${rawPath.substring(0, 120)}...' : rawPath) : 'null';
     _log.info('Clipboard', 'getClipboardImage returned: $preview');
-
-    if (rawPath == null && _clipboardRetryCount < _maxClipboardRetries - 1) {
-      _clipboardRetryCount++;
-      _log.info('Clipboard', 'retrying after 1s delay...');
-      await Future.delayed(const Duration(seconds: 1));
-      if (mounted) {
-        await _doClipboardCheck();
-      }
-      return;
-    }
-
-    _clipboardRetryCount = 0;
 
     if (rawPath == null || rawPath == _lastClipboardPath || !mounted) {
       _log.info('Clipboard', 'skip: rawPath=$preview lastPath=$_lastClipboardPath mounted=$mounted');
