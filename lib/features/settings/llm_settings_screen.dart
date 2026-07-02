@@ -1,3 +1,4 @@
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,11 +7,16 @@ import '../../core/llm/config.dart';
 import '../../core/llm/local_config.dart';
 import '../gallery/gallery_provider.dart';
 
-class LlmSettingsScreen extends ConsumerWidget {
+class LlmSettingsScreen extends ConsumerStatefulWidget {
   const LlmSettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LlmSettingsScreen> createState() => _LlmSettingsScreenState();
+}
+
+class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
+  @override
+  Widget build(BuildContext context) {
     final mode = ref.watch(llmModeProvider);
     final llmConfig = ref.watch(llmConfigProvider);
     final localConfig = ref.watch(localLlmConfigProvider);
@@ -208,15 +214,26 @@ class LlmSettingsScreen extends ConsumerWidget {
                       const Text('暂无已下载的模型'),
                       const SizedBox(height: 4),
                       Text(
-                        '将 GGUF 模型文件放入应用存储目录的 models/ 文件夹',
+                        '可以从网络下载推荐模型，或手动选择本地 GGUF 文件',
                         style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: () => context.push('/settings/llm/model-manager'),
-                        icon: const Icon(Icons.open_in_new),
-                        label: const Text('下载推荐模型'),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () => context.push('/settings/llm/model-manager'),
+                            icon: const Icon(Icons.cloud_download_outlined, size: 18),
+                            label: const Text('下载推荐模型'),
+                          ),
+                          const SizedBox(width: 12),
+                          FilledButton.tonalIcon(
+                            onPressed: _pickLocalModel,
+                            icon: const Icon(Icons.folder_open, size: 18),
+                            label: const Text('选择本地文件'),
+                          ),
+                        ],
                       ),
                     ],
                   ],
@@ -226,6 +243,67 @@ class LlmSettingsScreen extends ConsumerWidget {
           ],
         ],
       ),
+    );
+  }
+
+  Future<void> _pickLocalModel() async {
+    // 选择 GGUF 模型文件
+    final modelFile = await openFile(
+      acceptedTypeGroups: [
+        XTypeGroup(
+          label: 'GGUF 模型文件',
+          extensions: ['gguf'],
+        ),
+      ],
+    );
+    if (modelFile == null || !mounted) return;
+
+    // 可选：选择 mmproj 文件
+    final wantMmproj = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('加载多模态投影？'),
+        content: const Text(
+          '如果你的模型支持图片输入（多模态），建议同时选择 mmproj 投影文件。\n\n'
+          '不需要请点「跳过」',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('跳过'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('选择投影文件'),
+          ),
+        ],
+      ),
+    );
+
+    String? mmprojPath;
+    if (wantMmproj == true && mounted) {
+      final mmprojFile = await openFile(
+        acceptedTypeGroups: [
+          XTypeGroup(
+            label: 'GGUF 投影文件',
+            extensions: ['gguf'],
+          ),
+        ],
+      );
+      if (mmprojFile != null) {
+        mmprojPath = mmprojFile.path;
+      }
+    }
+
+    if (!mounted) return;
+    ref.read(localLlmConfigProvider.notifier).update(
+      LocalLlmConfig(
+        modelPath: modelFile.path,
+        mmprojPath: mmprojPath,
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('模型文件已加载')),
     );
   }
 }
