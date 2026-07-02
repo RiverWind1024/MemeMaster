@@ -125,10 +125,9 @@ class ModelManager {
         name: 'Qwen2-VL 2B',
         description: '阿里通义多模态，中文优秀（ModelScope 镜像）',
         ggufUrl:
-            'https://modelscope.cn/models/Qwen/Qwen2-VL-2B-Instruct-GGUF/resolve/main/qwen2-vl-2b-instruct-q4_k_m.gguf',
-        mmprojUrl:
-            'https://modelscope.cn/models/Qwen/Qwen2-VL-2B-Instruct-GGUF/resolve/main/mmproj-qwen2-vl-2b-instruct-f16.gguf',
-        sizeLabel: '~1.8 GB',
+            'https://modelscope.cn/models/AI-ModelScope/Qwen2-VL-2B-Instruct-GGUF/resolve/main/Qwen2-VL-2B-Instruct-Q4_K_M.gguf',
+        // ModelScope 仓库不含 mmproj 文件，仅 HuggingFace 源提供
+        sizeLabel: '~1.0 GB',
       ),
       ModelInfo(
         id: 'moondream-2b-q4_k_m',
@@ -136,7 +135,7 @@ class ModelManager {
         name: 'Moondream 2B',
         description: '轻量多模态，专为图片描述优化（ModelScope 镜像）',
         ggufUrl:
-            'https://modelscope.cn/models/vikhyatk/moondream2-GGUF/resolve/main/moondream2-q4_k_m.gguf',
+            'https://modelscope.cn/models/AI-ModelScope/moondream2-GGUF/resolve/main/moondream2-q4_k_m.gguf',
         sizeLabel: '~1.2 GB',
       ),
     ],

@@ -82,6 +82,9 @@
   "selectProjectionFile": "Select Projection File",
   "ggufProjectionFile": "GGUF Projection File",
   "modelFileLoaded": "Model file loaded",
+  "invalidGgufFile": "Please select a .gguf model file",
+  "invalidGgufFileDetail": "The selected file \"{filename}\" is not in GGUF format and cannot be used for local inference.",
+  "@invalidGgufFileDetail": { "placeholders": { "filename": { "type": "String" } } },
 
   "settings": "Settings",
   "appearance": "Appearance",
@@ -339,5 +342,13 @@
   "language": "Language",
   "languageSystem": "System",
   "languageChinese": "中文",
-  "languageEnglish": "English"
+  "languageEnglish": "English",
+
+  "aiRecognition": "AI Recognition",
+  "noAiTags": "No AI tags",
+  "llmTagCount": "{count}",
+  "descriptionLabel": "Description",
+
+  "mmprojHint": "If your model supports image input (multimodal), it's recommended to also select the mmproj projection file.\n\nSkip if not needed",
+  "uriReadFailed": "Cannot read URI"
 }

@@ -165,6 +165,15 @@ final analysisSchedulerProvider = Provider<AnalysisQueueScheduler>((ref) {
     scheduler.setColorExtractionConfig(next);
   });
 
+  // 同步应用语言设置到调度器（LLM 分析使用对应语言的 prompt 模板）
+  final appLocale = ref.watch(localeProvider);
+  scheduler.setAppLocale(appLocale);
+
+  // 监听语言变化并同步
+  ref.listen<Locale?>(localeProvider, (_, next) {
+    scheduler.setAppLocale(next);
+  });
+
   final visionEnricher = ref.watch(visionEnricherProvider);
   if (visionEnricher != null) {
     scheduler.setVisionLlmEnricher(visionEnricher);

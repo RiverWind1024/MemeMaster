@@ -259,14 +259,26 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
     );
     if (modelFile == null || !mounted) return;
 
+    // 校验文件后缀（Linux 上 file_selector 的 extensions 过滤可被用户绕过）
+    if (!modelFile.path.toLowerCase().endsWith('.gguf')) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(S.of(context).invalidGgufFileDetail(
+            modelFile.path.split('/').last,
+          )),
+        ),
+      );
+      return;
+    }
+
     // 可选：选择 mmproj 文件
     final wantMmproj = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(S.of(context).loadMultimodalProjection),
-        content: const Text(
-          '如果你的模型支持图片输入（多模态），建议同时选择 mmproj 投影文件。\n\n'
-          '不需要请点「跳过」',
+        content: Text(
+          S.of(context).mmprojHint,
         ),
         actions: [
           TextButton(
@@ -292,7 +304,19 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
         ],
       );
       if (mmprojFile != null) {
-        mmprojPath = mmprojFile.path;
+        // 同样校验 mmproj 文件后缀
+        if (!mmprojFile.path.toLowerCase().endsWith('.gguf')) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(S.of(context).invalidGgufFileDetail(
+                mmprojFile.path.split('/').last,
+              )),
+            ),
+          );
+        } else {
+          mmprojPath = mmprojFile.path;
+        }
       }
     }
 

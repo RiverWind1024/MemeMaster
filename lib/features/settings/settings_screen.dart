@@ -359,7 +359,7 @@ class _ColorExtractionCard extends ConsumerWidget {
 
       case ColorExtractionMethod.histogram:
         return [
-          _rowLabel(S.of(context).rgbBins, '${config.histogramBins}³ = ${config.histogramBins * config.histogramBins * config.histogramBins} 桶', theme),
+          _rowLabel(S.of(context).rgbBins, S.of(context).rgbBinsDetail(config.histogramBins, config.histogramBins * config.histogramBins * config.histogramBins), theme),
           const SizedBox(height: 4),
           _dropdownControl(config.histogramBins, [4, 6, 8, 10, 12, 16],
               (v) => config.copyWith(histogramBins: v), ref),

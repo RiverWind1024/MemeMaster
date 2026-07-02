@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import '../core/database/daos/analysis_queue_dao.dart';
 import '../core/database/database.dart';
@@ -26,6 +27,7 @@ class AnalysisQueueScheduler {
   bool _ocrEnabled = false;
   VisionLlmEnricher? _visionEnricher;
   ColorExtractionConfig _colorConfig = const ColorExtractionConfig();
+  Locale? _appLocale;
 
   AnalysisQueueScheduler({
     required this._queueDao,
@@ -60,6 +62,11 @@ class AnalysisQueueScheduler {
 
   void setColorExtractionConfig(ColorExtractionConfig config) {
     _colorConfig = config;
+  }
+
+  /// 更新应用当前语言设置，LLM 分析会使用对应语言的 prompt 模板
+  void setAppLocale(Locale? locale) {
+    _appLocale = locale;
   }
 
   Future<void> _processNextBatch() async {
@@ -193,6 +200,6 @@ class AnalysisQueueScheduler {
       _log.info('VisionLLM', '未设置 VisionEnricher，跳过');
       return;
     }
-    await enricher.enrich(memeId, imagePath);
+    await enricher.enrich(memeId, imagePath, locale: _appLocale);
   }
 }

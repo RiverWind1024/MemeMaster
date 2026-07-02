@@ -39,13 +39,16 @@ class VisionLlmEnricher {
         _log = log;
 
   /// 对单张 meme 执行多模态分析
-  Future<void> enrich(String memeId, String imagePath) async {
+  ///
+  /// [locale] 为应用当前语言设置，用于选择对应语言的 prompt 模板。
+  Future<void> enrich(String memeId, String imagePath, {Locale? locale}) async {
     if (!_llm.isAvailable) {
       _log.warning('VisionLLM', 'LLM 不可用，跳过分析');
       return;
     }
 
-    _log.info('VisionLLM', '开始多模态分析: $memeId');
+    final effectiveLocale = locale ?? PlatformDispatcher.instance.locale;
+    _log.info('VisionLLM', '开始多模态分析: $memeId, locale: ${effectiveLocale.languageCode}');
 
     try {
       // 1. 读取图片并转 base64
@@ -54,7 +57,7 @@ class VisionLlmEnricher {
       _log.info('VisionLLM', '图片 base64: ${base64Image.length} 字节');
 
       // 2. 调用多模态 LLM
-      final result = await _analyzeImage(base64Image);
+      final result = await _analyzeImage(base64Image, effectiveLocale);
 
       if (result == null) {
         _log.warning('VisionLLM', 'LLM 返回空结果');
@@ -85,18 +88,15 @@ class VisionLlmEnricher {
     }
   }
 
-  Future<_AnalysisResult?> _analyzeImage(String base64Image) async {
-    final locale = PlatformDispatcher.instance.locale;
+  Future<_AnalysisResult?> _analyzeImage(String base64Image, Locale locale) async {
     final isChinese = locale.languageCode.startsWith('zh');
+    final systemFile = isChinese ? 'vision_system_zh.txt' : 'vision_system_en.txt';
+    final userFile = isChinese ? 'vision_user_zh.txt' : 'vision_user_en.txt';
 
-    final systemPrompt = await _loadPrompt(
-      isChinese ? 'vision_system_zh.txt' : 'vision_system_en.txt',
-      locale,
-    );
-    final userPrompt = await _loadPrompt(
-      isChinese ? 'vision_user_zh.txt' : 'vision_user_en.txt',
-      locale,
-    );
+    _log.info('VisionLLM', '语言判断: isChinese=$isChinese, 使用模板: $systemFile / $userFile');
+
+    final systemPrompt = await _loadPrompt(systemFile, locale);
+    final userPrompt = await _loadPrompt(userFile, locale);
 
     final messages = [
       LlmMessage(role: 'system', content: systemPrompt),

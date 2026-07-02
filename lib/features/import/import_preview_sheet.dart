@@ -188,8 +188,7 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _error ?? '成功 $_successCount 张'
-                            '${_skipCount > 0 ? S.of(context).skippedExisting(_skipCount) : ''}',
+                        _error ?? S.of(context).importSuccessCount(_successCount, _skipCount > 0 ? S.of(context).skippedExisting(_skipCount) : ''),
                         style: theme.textTheme.bodyMedium,
                       ),
                       if (_skippedFiles.isNotEmpty && _skippedFiles.length <= 10) ...[
@@ -235,10 +234,11 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
       ref.invalidate(memeListProvider);
       ref.invalidate(memeCountProvider);
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _importing = false;
         _done = true;
-        _error = '导入失败: $e';
+        _error = S.of(context).importFailed(e.toString());
       });
     }
   }
