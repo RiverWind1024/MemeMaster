@@ -187,7 +187,7 @@ class ModelManager {
     }
 
     // HEAD 请求获取总大小
-    final headResp = await _client.send(Request('HEAD', Uri.parse(url)));
+    final headResp = await _client.send(http.Request('HEAD', Uri.parse(url)));
     final totalBytes = headResp.headers['content-length'] != null
         ? int.parse(headResp.headers['content-length']!)
         : -1;
@@ -201,7 +201,7 @@ class ModelManager {
     }
 
     // GET 请求 + Range 头
-    final request = Request('GET', Uri.parse(url));
+    final request = http.Request('GET', Uri.parse(url));
     if (downloadedBytes > 0) {
       request.headers['Range'] = 'bytes=$downloadedBytes-';
     }
