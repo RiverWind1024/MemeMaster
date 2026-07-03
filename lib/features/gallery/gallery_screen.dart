@@ -80,6 +80,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   Future<void> _copySelected() async {
     final storage = ref.read(fileStorageServiceProvider);
     final memeRepo = ref.read(memeRepositoryProvider);
+    final userStatsDao = ref.read(userStatsDaoProvider);
     final paths = <String>[];
 
     for (final id in _selectedIds) {
@@ -87,6 +88,9 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       if (meme != null) {
         final file = await storage.getImage(meme.filePath);
         paths.add(file.path);
+        // 复制次数 +1
+        await memeRepo.incrementCopyCount(id);
+        await userStatsDao.incrementCopied();
       }
     }
 
@@ -296,14 +300,54 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       ],
     );
 
+    final sortMode = ref.watch(memeSortModeProvider);
+    const sortBarHeight = 36.0;
+    const tabBarHeight = 48.0;
+    final totalBottomHeight = (tabCount > 1 ? tabBarHeight : 0.0) + sortBarHeight;
+
     return AppBar(
       toolbarHeight: 0,
-      bottom: tabCount > 1
-          ? tabBar
-          : PreferredSize(
-              preferredSize: tabBar.preferredSize,
-              child: tabBar,
+      bottom: PreferredSize(
+        preferredSize: Size.fromHeight(totalBottomHeight),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (tabCount > 1) tabBar,
+            // 排序栏
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              height: 36,
+              child: Row(
+                children: [
+                  Icon(Icons.sort, size: 16,
+                      color: Theme.of(context).colorScheme.outline),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<MemeSortMode>(
+                        value: sortMode,
+                        isDense: true,
+                        style: Theme.of(context).textTheme.bodySmall,
+                        items: MemeSortMode.values.map((mode) {
+                          return DropdownMenuItem(
+                            value: mode,
+                            child: Text(mode.label, overflow: TextOverflow.ellipsis),
+                          );
+                        }).toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            ref.read(memeSortModeProvider.notifier).set(v);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -545,7 +589,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     }
 
     final service = ref.read(importServiceProvider);
-    final result = await service.importImages(paths);
+    final result = await service.importImages(paths, source: '系统分享');
 
     ref.invalidate(memeListProvider);
     ref.invalidate(memeCountProvider);
@@ -682,7 +726,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
     log.info('Clipboard', '开始导入: $path');
     final service = ref.read(importServiceProvider);
-    final result = await service.importImages([path]);
+    final result = await service.importImages([path], source: '剪贴板');
     log.info('Clipboard', '导入结果: 成功=${result.success} 跳过=${result.skipped} 错误=${result.errors.length}');
 
     ref.invalidate(memeListProvider);
@@ -818,8 +862,13 @@ class _MemeGridTile extends ConsumerWidget {
 
   Future<void> _copyMeme(WidgetRef ref) async {
     final storage = ref.read(fileStorageServiceProvider);
+    final memeRepo = ref.read(memeRepositoryProvider);
+    final userStatsDao = ref.read(userStatsDaoProvider);
     final file = await storage.getImage(meme.filePath);
     await ClipboardService.copyImageToClipboard(file.path);
+    // 复制次数 +1
+    await memeRepo.incrementCopyCount(meme.id);
+    await userStatsDao.incrementCopied();
     if (ref.context.mounted) {
       ScaffoldMessenger.of(ref.context).showSnackBar(
         SnackBar(content: Text(S.of(ref.context).copiedToClipboard)),
