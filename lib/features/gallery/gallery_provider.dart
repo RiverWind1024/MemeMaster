@@ -103,6 +103,7 @@ final importServiceProvider = Provider<ImportService>((ref) {
   return ImportService(
     memeRepo: ref.read(memeRepositoryProvider),
     storage: ref.read(fileStorageServiceProvider),
+    userStatsDao: ref.read(databaseProvider).userStatsDao,
   );
 });
 
@@ -274,10 +275,37 @@ final localLlmConfigProvider =
   LocalLlmConfigNotifier.new,
 );
 
+/// 本地 LLM 模型是否已加载到内存中
+///
+/// 与 [localLlmConfigProvider] 分离：配置持久化（模型路径），加载状态仅存运行时。
+/// 应用重启后自动置为 false，不持久化。
+final localLlmLoadedProvider = StateProvider<bool>((ref) => false);
+
+/// 本地 LLM 模型是否正在加载中
+final localLlmLoadingProvider = StateProvider<bool>((ref) => false);
+
 // ---- LLM 服务（按模式创建） ----
 
-final llmServiceProvider = Provider<LlmService?>((ref) {
+final llmServiceProvider = Provider.autoDispose<LlmService?>((ref) {
   final mode = ref.watch(llmModeProvider);
+
+  // token 用量持久化回调
+  void onTokenUsage(int prompt, int completion) {
+    try {
+      ref.read(databaseProvider).userStatsDao.incrementTokens(
+        prompt: prompt,
+        completion: completion,
+      );
+    } catch (_) {
+      // 静默失败，不影响 LLM 调用
+    }
+  }
+
+  LlmService? service;
+  ref.onDispose(() {
+    service?.dispose();
+  });
+
   switch (mode) {
     case LlmMode.off:
       return null;
@@ -285,21 +313,27 @@ final llmServiceProvider = Provider<LlmService?>((ref) {
       final config = ref.watch(llmConfigProvider);
       switch (config.provider) {
         case LlmProviderType.openai:
-          return OpenAiLlmService(
+          service = OpenAiLlmService(
             baseUrl: config.baseUrl,
             apiKey: config.apiKey,
             model: config.model,
+            onTokenUsage: onTokenUsage,
           );
+          return service;
         case LlmProviderType.ollama:
-          return OllamaLlmService(
+          service = OllamaLlmService(
             baseUrl: config.baseUrl,
             model: config.model,
+            onTokenUsage: onTokenUsage,
           );
+          return service;
       }
     case LlmMode.local:
       final localConfig = ref.watch(localLlmConfigProvider);
-      return LocalLlmService(config: localConfig);
+      service = LocalLlmService(config: localConfig);
+      return service;
   }
+  return null;
 });
 
 // ---- 视觉 LLM Enricher（多模态） ----
@@ -315,43 +349,76 @@ final visionEnricherProvider = Provider<VisionLlmEnricher?>((ref) {
 // ---- 模型下载状态 ----
 
 /// 下载状态跟踪 Notifier
+///
+/// 使用 [downloadTaskId] 作为key，格式为 "{modelId}#{fileType}"，
+/// 其中 fileType 为 "gguf" 或 "mmproj"，确保同一模型的不同文件可以并行下载。
 class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
   DownloadStatesNotifier() : super({});
 
-  void startDownload(String modelId) {
+  /// 每个下载任务对应的取消令牌（用于暂停/取消）
+  final Map<String, CancelToken> _cancelTokens = {};
+
+  /// 生成唯一的下载任务ID
+  static String makeTaskId(String modelId, String fileType) => '$modelId#$fileType';
+
+  /// 获取指定下载任务当前的取消令牌
+  CancelToken? getCancelToken(String taskId) => _cancelTokens[taskId];
+
+  void startDownload(String taskId) {
+    _cancelTokens[taskId] = CancelToken();
     state = {
       ...state,
-      modelId: DownloadState(modelId: modelId, status: DownloadStatus.downloading),
+      taskId: DownloadState(modelId: taskId, status: DownloadStatus.downloading),
     };
   }
 
-  void updateProgress(String modelId, double progress) {
+  void updateProgress(String taskId, double progress) {
     state = {
       ...state,
-      modelId: state[modelId]?.copyWith(progress: progress) ??
-          DownloadState(modelId: modelId, status: DownloadStatus.downloading, progress: progress),
+      taskId: state[taskId]?.copyWith(progress: progress) ??
+          DownloadState(modelId: taskId, status: DownloadStatus.downloading, progress: progress),
     };
   }
 
-  void completeDownload(String modelId) {
+  void pauseDownload(String taskId) {
+    _cancelTokens[taskId]?.pause();
     state = {
       ...state,
-      modelId: state[modelId]?.copyWith(status: DownloadStatus.completed, progress: 1.0) ??
-          DownloadState(modelId: modelId, status: DownloadStatus.completed, progress: 1.0),
+      taskId: state[taskId]?.copyWith(status: DownloadStatus.paused) ??
+          DownloadState(modelId: taskId, status: DownloadStatus.paused),
     };
   }
 
-  void failDownload(String modelId, String error) {
+  void resumeDownload(String taskId) {
+    _cancelTokens[taskId]?.resume();
     state = {
       ...state,
-      modelId: state[modelId]?.copyWith(status: DownloadStatus.failed, errorMessage: error) ??
-          DownloadState(modelId: modelId, status: DownloadStatus.failed, errorMessage: error),
+      taskId: state[taskId]?.copyWith(status: DownloadStatus.downloading) ??
+          DownloadState(modelId: taskId, status: DownloadStatus.downloading),
     };
   }
 
-  void removeState(String modelId) {
+  void failDownload(String taskId, String error) {
+    state = {
+      ...state,
+      taskId: state[taskId]?.copyWith(status: DownloadStatus.failed, errorMessage: error) ??
+          DownloadState(modelId: taskId, status: DownloadStatus.failed, errorMessage: error),
+    };
+  }
+
+  void completeDownload(String taskId) {
+    _cancelTokens.remove(taskId);
+    state = {
+      ...state,
+      taskId: state[taskId]?.copyWith(status: DownloadStatus.completed, progress: 1.0) ??
+          DownloadState(modelId: taskId, status: DownloadStatus.completed, progress: 1.0),
+    };
+  }
+
+  void removeState(String taskId) {
+    _cancelTokens.remove(taskId);
     final map = Map<String, DownloadState>.from(state);
-    map.remove(modelId);
+    map.remove(taskId);
     state = map;
   }
 }
@@ -467,6 +534,7 @@ final s3SyncServiceProvider = Provider<S3SyncService>((ref) {
       albumRepo: ref.read(albumRepositoryProvider),
       db: db,
     ),
+    db: db,
     log: ref.read(logServiceProvider),
   );
   final config = ref.read(s3ConfigProvider).valueOrNull;
@@ -478,12 +546,70 @@ final s3SyncServiceProvider = Provider<S3SyncService>((ref) {
 
 // ---- Gallery State ----
 
+/// 图库排序模式
+enum MemeSortMode {
+  importedAtDesc('imported_at', false, '导入时间 ↓'),
+  importedAtAsc('imported_at', true, '导入时间 ↑'),
+  fileSizeAsc('file_size', true, '大小 ↑'),
+  fileSizeDesc('file_size', false, '大小 ↓'),
+  copyCountDesc('copy_count', false, '复制次数 ↓'),
+  copyCountAsc('copy_count', true, '复制次数 ↑'),
+  createdAtDesc('created_at', false, '创建时间 ↓'),
+  createdAtAsc('created_at', true, '创建时间 ↑');
+
+  final String field;
+  final bool ascending;
+  final String label;
+  const MemeSortMode(this.field, this.ascending, this.label);
+}
+
+/// 排序模式提供器
+class MemeSortModeNotifier extends Notifier<MemeSortMode> {
+  @override
+  MemeSortMode build() => MemeSortMode.importedAtDesc;
+
+  void set(MemeSortMode mode) => state = mode;
+}
+
+final memeSortModeProvider =
+    NotifierProvider<MemeSortModeNotifier, MemeSortMode>(
+  MemeSortModeNotifier.new,
+);
+
 final memeListProvider = FutureProvider<List<Meme>>((ref) {
-  return ref.read(memeRepositoryProvider).getAll();
+  final sortMode = ref.watch(memeSortModeProvider);
+  return ref.read(memeRepositoryProvider).getAllSorted(
+        sortField: sortMode.field,
+        ascending: sortMode.ascending,
+      );
 });
 
 final memeCountProvider = FutureProvider<int>((ref) {
   return ref.read(memeRepositoryProvider).count();
+});
+
+// ---- User Stats ----
+
+final userStatsDaoProvider = Provider((ref) {
+  return ref.read(databaseProvider).userStatsDao;
+});
+
+/// 今日统计
+final todayStatsProvider = FutureProvider<UserStatsEntry?>((ref) {
+  final dao = ref.read(userStatsDaoProvider);
+  return dao.getOrCreateToday();
+});
+
+/// 近 7 天统计
+final recentWeekStatsProvider = FutureProvider<List<UserStatsEntry>>((ref) {
+  final dao = ref.read(userStatsDaoProvider);
+  return dao.getRecentDays(7);
+});
+
+/// 汇总统计
+final totalStatsProvider = FutureProvider<Map<String, int>>((ref) {
+  final dao = ref.read(userStatsDaoProvider);
+  return dao.getTotals();
 });
 
 // ---- Albums ----
