@@ -6,3 +6,4 @@ export 'analysis_queue_table.dart';
 export 'sync_state_table.dart';
 export 'albums_table.dart';
 export 'meme_albums_table.dart';
+export 'user_stats_table.dart';

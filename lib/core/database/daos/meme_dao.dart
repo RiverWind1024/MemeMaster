@@ -68,7 +68,8 @@ class MemeDao {
       'SELECT DISTINCT m.id, m.filename, m.file_path, '
       'm.file_size, m.mime_type, m.width, m.height, '
       'm.folder_id, m.analysis_status, m.file_hash, '
-      'm.description, m.created_at, m.updated_at, m.imported_at '
+      'm.description, m.created_at, m.updated_at, m.imported_at, '
+      'm.copy_count, m.source '
       'FROM memes_table AS m '
       'INNER JOIN tags_table AS t ON t.meme_id = m.id '
       'WHERE t.content LIKE ? '
@@ -93,6 +94,8 @@ class MemeDao {
         createdAt: d['created_at'] as int,
         updatedAt: d['updated_at'] as int,
         importedAt: d['imported_at'] as int,
+        copyCount: d['copy_count'] as int? ?? 0,
+        source: d['source'] as String?,
       ));
     }
     return result;
@@ -155,6 +158,75 @@ class MemeDao {
     final result =
         await _db.customSelect('SELECT COUNT(*) FROM memes_table').getSingle();
     return result.data.values.first as int;
+  }
+
+  /// 按指定字段排序获取所有 meme
+  Future<List<Meme>> getAllSorted({
+    required String sortField,
+    bool ascending = false,
+    int? limit,
+    int? offset,
+  }) async {
+    final allowedFields = {'imported_at', 'file_size', 'created_at', 'copy_count'};
+    final field = allowedFields.contains(sortField) ? sortField : 'imported_at';
+    final direction = ascending ? 'ASC' : 'DESC';
+    final limitClause = limit != null ? 'LIMIT $limit' : '';
+    final offsetClause = offset != null ? 'OFFSET $offset' : '';
+    final rows = await _db.customSelect(
+      'SELECT * FROM memes_table ORDER BY $field $direction $limitClause $offsetClause',
+    ).get();
+    return rows.map((row) {
+      final d = row.data;
+      return Meme(
+        id: d['id'] as String,
+        filename: d['filename'] as String,
+        filePath: d['file_path'] as String,
+        fileSize: d['file_size'] as int,
+        mimeType: d['mime_type'] as String,
+        width: d['width'] as int,
+        height: d['height'] as int,
+        folderId: d['folder_id'] as String?,
+        analysisStatus: d['analysis_status'] as String,
+        fileHash: d['file_hash'] as String,
+        description: d['description'] as String?,
+        createdAt: d['created_at'] as int,
+        updatedAt: d['updated_at'] as int,
+        importedAt: d['imported_at'] as int,
+        copyCount: d['copy_count'] as int? ?? 0,
+        source: d['source'] as String?,
+      );
+    }).toList();
+  }
+
+  /// 更新复制次数（原子递增）
+  Future<int> incrementCopyCount(String id) async {
+    return await _db.customUpdate(
+      'UPDATE memes_table SET copy_count = copy_count + 1, updated_at = ? WHERE id = ?',
+      variables: [
+        Variable(DateTime.now().millisecondsSinceEpoch),
+        Variable(id),
+      ],
+    );
+  }
+
+  /// 直接设置复制次数
+  Future<int> setCopyCount(String id, int count) async {
+    return await (_db.update(_db.memesTable)
+          ..where((t) => t.id.equals(id)))
+        .write(MemesTableCompanion(
+          copyCount: Value(count),
+          updatedAt: Value(DateTime.now().millisecondsSinceEpoch),
+        ));
+  }
+
+  /// 更新图片来源
+  Future<int> updateSource(String id, String source) async {
+    return await (_db.update(_db.memesTable)
+          ..where((t) => t.id.equals(id)))
+        .write(MemesTableCompanion(
+          source: Value(source),
+          updatedAt: Value(DateTime.now().millisecondsSinceEpoch),
+        ));
   }
 
   /// 统计分析状态数量

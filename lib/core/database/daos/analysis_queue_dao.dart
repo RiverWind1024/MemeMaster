@@ -84,6 +84,25 @@ class AnalysisQueueDao {
         ));
   }
 
+  /// 重置所有 running 状态的任务为 queued（应用启动时清理闪退遗留的卡住任务）
+  Future<void> resetAllRunningToQueued() async {
+    await (_db.update(_db.analysisQueueTable)
+          ..where((t) => t.status.equals('running')))
+        .write(const AnalysisQueueTableCompanion(
+          status: Value('queued'),
+          startedAt: Value(null),
+          doneAt: Value(null),
+        ));
+  }
+
+  /// 获取所有 running 状态任务的关联 meme ID
+  Future<List<String>> getRunningMemeIds() async {
+    final rows = await (_db.select(_db.analysisQueueTable)
+          ..where((t) => t.status.equals('running')))
+        .get();
+    return rows.map((r) => r.memeId).toList();
+  }
+
   /// 统计排队的任务数
   Future<int> countQueued() async {
     final result = await _db.customSelect(

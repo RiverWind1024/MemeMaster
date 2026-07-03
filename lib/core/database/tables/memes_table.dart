@@ -17,6 +17,12 @@ class MemesTable extends Table {
   IntColumn get updatedAt => integer()();
   IntColumn get importedAt => integer()();
 
+  /// 复制次数（用于排序和统计）
+  IntColumn get copyCount => integer().withDefault(const Constant(0))();
+
+  /// 图片来源：clipboard, wechat, album, bilibili, system_share, manual_import, drag_drop 等
+  TextColumn? get source => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
