@@ -4,6 +4,9 @@ import 'package:http/http.dart' as http;
 
 import 'llm_service.dart';
 
+/// OpenAI 返回 token 用量时的回调
+typedef TokenUsageCallback = void Function(int promptTokens, int completionTokens);
+
 /// OpenAI 兼容 API 的 LLM 服务实现
 ///
 /// 直接兼容：OpenAI API、Groq、DeepSeek、SiliconFlow、Together AI 等
@@ -14,11 +17,15 @@ class OpenAiLlmService implements LlmService {
   final String _model;
   final http.Client _client;
 
+  /// token 用量回调（可选），API 返回 usage 时触发
+  TokenUsageCallback? onTokenUsage;
+
   OpenAiLlmService({
     required String baseUrl,
     required this._apiKey,
     this._model = 'gpt-4o-mini',
     http.Client? client,
+    this.onTokenUsage,
   })  : _baseUrl = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/',
         _client = client ?? http.Client();
 
@@ -102,6 +109,9 @@ class OpenAiLlmService implements LlmService {
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final result = LlmCompletionResponse.fromOpenAiJson(data);
+    if (result.promptTokens != null && result.completionTokens != null) {
+      onTokenUsage?.call(result.promptTokens!, result.completionTokens!);
+    }
     return result.content;
   }
 

@@ -5,18 +5,19 @@ import 'openai_service.dart';
 ///
 /// Ollama 从 0.1.37+ 起提供了 `/v1/chat/completions` 兼容端点，
 /// 因此复用 [OpenAiLlmService] 实现。默认连接到 localhost:11434。
-///
-  /// 如果需要在 Android 模拟器中使用，baseUrl 需设为 `http://10.0.2.2:11434/v1`。
+/// 如果需要在 Android 模拟器中使用，baseUrl 需设为 `http://10.0.2.2:11434/v1`。
 class OllamaLlmService implements LlmService {
   final OpenAiLlmService _inner;
 
   OllamaLlmService({
     String baseUrl = 'http://localhost:11434/v1',
     String model = 'llama3.2',
+    TokenUsageCallback? onTokenUsage,
   }) : _inner = OpenAiLlmService(
           baseUrl: baseUrl,
           apiKey: '',
           model: model,
+          onTokenUsage: onTokenUsage,
         );
 
   @override
