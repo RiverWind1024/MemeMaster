@@ -55,6 +55,9 @@ dependencies:
   share_plus: ^10.1.4
   desktop_drop: ^0.7.1
 
+  # 打开文件/目录（移动平台）
+  open_filex: ^4.5.0
+
 
   # 持久化
   shared_preferences: ^2.5.5
