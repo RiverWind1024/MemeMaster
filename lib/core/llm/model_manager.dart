@@ -1,13 +1,14 @@
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 
 /// 模型下载源
 enum DownloadSource { huggingface, modelscope }
 
 /// 下载状态
-enum DownloadStatus { pending, downloading, completed, failed }
+enum DownloadStatus { pending, downloading, paused, completed, failed }
 
 /// 单个模型的下载跟踪状态
 class DownloadState {
@@ -37,11 +38,23 @@ class DownloadState {
   }
 }
 
-/// 下载取消令牌
+/// 下载取消令牌（支持暂停/继续）
 class CancelToken {
   bool _cancelled = false;
+  bool _paused = false;
   bool get isCancelled => _cancelled;
+  bool get isPaused => _paused;
   void cancel() => _cancelled = true;
+  void pause() => _paused = true;
+  void resume() => _paused = false;
+}
+
+/// 下载已暂停（可恢复）
+class PauseException implements Exception {
+  final String message;
+  const PauseException([this.message = '下载已暂停']);
+  @override
+  String toString() => message;
 }
 
 /// 模型信息
@@ -145,7 +158,9 @@ class ModelManager {
   String get storageDir => _storageDir;
 
   /// 下载模型（带进度回调与取消支持）
-  Future<void> downloadModel(
+  ///
+  /// 返回下载的文件路径，用于UI更新。
+  Future<String> downloadModel(
     ModelInfo info, {
     void Function(double progress)? onProgress,
     CancelToken? cancelToken,
@@ -167,6 +182,8 @@ class ModelManager {
         cancelToken: cancelToken,
       );
     }
+    
+    return p.join(_storageDir, '${info.id}.gguf');
   }
 
   /// 单个文件的断点续传下载
@@ -185,11 +202,16 @@ class ModelManager {
       downloadedBytes = await tempFile.length();
     }
 
-    // HEAD 请求获取总大小
-    final headResp = await _client.send(http.Request('HEAD', Uri.parse(url)));
-    final totalBytes = headResp.headers['content-length'] != null
-        ? int.parse(headResp.headers['content-length']!)
-        : -1;
+    // HEAD 请求获取总大小（部分 CDN/镜像不支持 HEAD，容错）
+    int totalBytes = -1;
+    try {
+      final headResp = await _client.send(http.Request('HEAD', Uri.parse(url)));
+      if (headResp.headers['content-length'] != null) {
+        totalBytes = int.parse(headResp.headers['content-length']!);
+      }
+    } catch (_) {
+      // HEAD 请求失败，继续尝试 GET
+    }
 
     // 如果已下载完整，直接跳过
     if (totalBytes > 0 && downloadedBytes >= totalBytes) {
@@ -199,7 +221,7 @@ class ModelManager {
       return;
     }
 
-    // GET 请求 + Range 头
+    // GET 请求 + Range 头（支持断点续传）
     final request = http.Request('GET', Uri.parse(url));
     if (downloadedBytes > 0) {
       request.headers['Range'] = 'bytes=$downloadedBytes-';
@@ -220,22 +242,57 @@ class ModelManager {
       throw HttpException('下载失败: HTTP $statusCode', uri: Uri.parse(url));
     }
 
+    // 从 GET 响应头获取 Content-Length（HEAD 未获取到时）
+    if (totalBytes <= 0 && response.headers['content-length'] != null) {
+      totalBytes = int.parse(response.headers['content-length']!);
+    }
+
     // 流式写入
-    final sink = tempFile.openWrite(mode: FileMode.writeOnlyAppend);
+    IOSink? sink;
+    try {
+      sink = tempFile.openWrite(mode: FileMode.writeOnlyAppend);
+    } catch (e) {
+      throw Exception('无法创建下载文件: $tempPath, 错误: $e');
+    }
+    
+    int lastReportedProgress = -1;
     try {
       await for (final chunk in response.stream) {
         if (cancelToken?.isCancelled == true) {
           throw Exception('下载已取消');
         }
-        sink.add(chunk);
+        if (cancelToken?.isPaused == true) {
+          // 暂停：关闭 sink 保存已下载部分，中断后由 resume 续传
+          await sink!.close();
+          sink = null;
+          throw const PauseException();
+        }
+        sink!.add(chunk);
         downloadedBytes += chunk.length;
         if (totalBytes > 0) {
-          onProgress?.call(downloadedBytes / totalBytes);
+          final p = (downloadedBytes / totalBytes).clamp(0.0, 1.0);
+          // 避免过于频繁的回调（每 0.01% 才更新）
+          final pct = (p * 10000).toInt();
+          if (pct != lastReportedProgress) {
+            lastReportedProgress = pct;
+            onProgress?.call(p);
+          }
+        } else {
+          // 无总大小信息：用已下载字节数作为估算（单位 MB）
+          final mb = downloadedBytes / (1024 * 1024);
+          // 每下载约 1MB 刷新一次界面
+          if ((mb * 10).toInt() != lastReportedProgress) {
+            lastReportedProgress = (mb * 10).toInt();
+            onProgress?.call(mb / 100.0); // 以 100MB 为100%
+          }
         }
       }
-      await sink.flush();
+      await sink!.flush();
     } catch (e) {
-      await sink.close();
+      if (sink != null) {
+        await sink.close();
+        sink = null;
+      }
       rethrow;
     }
     await sink.close();
@@ -277,6 +334,46 @@ class ModelManager {
     // 清理残留的临时文件
     final tempFile = File(p.join(_storageDir, '$modelId.gguf.download'));
     if (await tempFile.exists()) await tempFile.delete();
+  }
+
+  /// 在文件管理器中打开模型所在目录
+  ///
+  /// Android 上尝试打开模型所在的父目录（应用私有目录），
+  /// 如果无法打开目录则回退到打开 GGUF 文件本身。
+  /// 返回 open_filex 的结果，调用方可据此显示提示。
+  Future<OpenResult> showModelInFolder(String modelId) async {
+    final file = File(p.join(_storageDir, '$modelId.gguf'));
+    if (!await file.exists()) {
+      return OpenResult(type: ResultType.error, message: '文件不存在');
+    }
+
+    final dir = file.parent;
+
+    if (Platform.isAndroid) {
+      // 先尝试打开目录
+      final dirResult = await OpenFilex.open(dir.path);
+      if (dirResult.type == ResultType.done) {
+        return dirResult;
+      }
+      // 如果目录打不开，回退到打开文件本身
+      return await OpenFilex.open(file.path);
+    } else {
+      try {
+        final result = await Process.run('xdg-open', [dir.path]);
+        if (result.exitCode != 0) {
+          return OpenResult(
+            type: ResultType.error,
+            message: 'xdg-open 失败: ${result.stderr}',
+          );
+        }
+        return OpenResult(type: ResultType.done, message: dir.path);
+      } catch (e) {
+        return OpenResult(
+          type: ResultType.error,
+          message: '无法打开目录: $e',
+        );
+      }
+    }
   }
 
   /// 获取存储占用（字节）
