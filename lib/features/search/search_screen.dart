@@ -131,6 +131,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 当图库数据变更（导入/删除）时自动刷新搜索结果
+    ref.listen<AsyncValue<int>>(memeCountProvider, (previous, next) {
+      final prevData = previous?.asData?.value;
+      final nextData = next.asData?.value;
+      if (prevData != null && nextData != null && prevData != nextData && mounted) {
+        _triggerSearch();
+      }
+    });
+
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final s = S.of(context);

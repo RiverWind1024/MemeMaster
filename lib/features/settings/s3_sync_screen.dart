@@ -38,6 +38,24 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
     _syncSubscription = syncFn().listen((progress) {
       if (!mounted) return;
       setState(() => _lastProgress = progress);
+      
+      // 显示增量同步的结果提示
+      if (progress.status == S3SyncStatus.idle && 
+          progress.errorMessage != null && 
+          progress.errorMessage!.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(progress.errorMessage!)),
+        );
+      }
+    }, onError: (error) {
+      if (!mounted) return;
+      setState(() => _lastProgress = S3SyncProgress(
+        status: S3SyncStatus.error,
+        errorMessage: '同步失败: $error',
+      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('同步失败: $error')),
+      );
     });
   }
 
