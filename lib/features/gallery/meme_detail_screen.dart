@@ -259,11 +259,19 @@ class _MemeDetailPageState extends ConsumerState<_MemeDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _StatusChip(status: widget.meme.analysisStatus),
-                const SizedBox(height: 6),
-                _OcrChip(memeId: widget.memeId),
-                const SizedBox(height: 6),
-                _AiChip(memeId: widget.memeId),
+                // 状态、OCR、AI 三行合并为一行并排展示
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _StatusChip(status: widget.meme.analysisStatus),
+                      const SizedBox(width: 16),
+                      _OcrChip(memeId: widget.memeId),
+                      const SizedBox(width: 16),
+                      _AiChip(memeId: widget.memeId),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 16),
 
                 _InfoRow(label: S.of(context).fileName, value: widget.meme.filename),
