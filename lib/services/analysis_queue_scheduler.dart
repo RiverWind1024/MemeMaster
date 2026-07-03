@@ -40,7 +40,28 @@ class AnalysisQueueScheduler {
   void start() {
     if (_isRunning) return;
     _isRunning = true;
+
+    // 清理闪退遗留的 running 任务（上游重置为 queued 让调度器重新处理）
+    _cleanupStuckJobs();
+
     _timer = Timer.periodic(pollInterval, (_) => _processNextBatch());
+  }
+
+  /// 应用启动时清理因闪退而卡住的分析任务
+  Future<void> _cleanupStuckJobs() async {
+    try {
+      final stuckMemeIds = await _queueDao.getRunningMemeIds();
+      if (stuckMemeIds.isNotEmpty) {
+        _log.info('Scheduler', '发现 ${stuckMemeIds.length} 个卡住的分析任务，清理中…');
+        for (final memeId in stuckMemeIds) {
+          await _memeRepo.updateAnalysisStatus(memeId, 'pending');
+        }
+      }
+      await _queueDao.resetAllRunningToQueued();
+      _log.info('Scheduler', '卡住任务清理完成');
+    } catch (e) {
+      _log.error('Scheduler', '清理卡住任务失败: $e');
+    }
   }
 
   void stop() {

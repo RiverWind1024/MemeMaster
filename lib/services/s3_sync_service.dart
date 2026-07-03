@@ -33,6 +33,7 @@ class S3SyncService {
   final SyncStateDao _syncStateDao;
   final S3SyncSerializer _serializer;
   final LogService? _log;
+  final AppDatabase _db;
   S3Config _config = const S3Config();
   Minio? _client;
   bool _cancelled = false;
@@ -45,12 +46,14 @@ class S3SyncService {
     required FileStorageService storage,
     required SyncStateDao syncStateDao,
     required S3SyncSerializer serializer,
+    required AppDatabase db,
     LogService? log,
   })  : _memeRepo = memeRepo,
         _albumRepo = albumRepo,
         _storage = storage,
         _syncStateDao = syncStateDao,
         _serializer = serializer,
+        _db = db,
         _log = log;
 
   S3Config get config => _config;
@@ -221,8 +224,11 @@ class S3SyncService {
   Future<dynamic> _getJson(String key) async {
     try {
       final stream = await _getClient().getObject(_config.bucket, key);
-      final bytes = await stream.first;
-      return jsonDecode(utf8.decode(bytes));
+      final allBytes = await stream.fold<Uint8List>(
+        Uint8List(0),
+        (prev, chunk) => Uint8List.fromList([...prev, ...chunk]),
+      );
+      return jsonDecode(utf8.decode(allBytes));
     } on MinioS3Error {
       return null;
     }
@@ -423,7 +429,7 @@ class S3SyncService {
       final lastSyncAt = await _syncStateDao.getLastSyncAt();
       final now = DateTime.now().millisecondsSinceEpoch;
 
-      // Phase 1: 上传本地变更
+      // Phase 1: 上传本地变更（本地有更新 → S3）
       if (lastSyncAt != null) {
         final updatedMemes = await _memeRepo.getUpdatedSince(lastSyncAt);
         if (updatedMemes.isNotEmpty) {
@@ -470,17 +476,98 @@ class S3SyncService {
         }
       }
 
-      // Phase 2: 从 S3 拉取更新
-      // 当前简单策略：仅上传本地变更
-      // 如果从未全量下载过则要求先全量下载
-      if (lastSyncAt == null) {
-        yield const S3SyncProgress(
-          status: S3SyncStatus.idle,
-          errorMessage: '请先执行全量下载',
-        );
-        return;
+      // Phase 2: 从 S3 拉取更新（S3 有新数据 → 本地）
+      // 获取 S3 上所有 meme 元数据文件
+      final s3MemeKeys = <String>[];
+      try {
+        final results = _getClient().listObjects(_config.bucket, prefix: 'data/memes/', recursive: true);
+        await for (final batch in results) {
+          for (final obj in batch.objects) {
+            if (obj.key != null && obj.key!.endsWith('.json')) {
+              s3MemeKeys.add(obj.key!);
+            }
+          }
+        }
+      } catch (e) {
+        _log?.warning('S3', '列出 S3 meme 文件失败: $e');
       }
-      // TODO: 后续可扩展为基于 deleted_ids.json 的双向删除同步
+
+      // 下载 S3 上的新 meme 数据
+      if (s3MemeKeys.isNotEmpty) {
+        final localMemeIds = await _memeRepo.getAll().then((memes) => memes.map((m) => m.id).toSet());
+        final newMemeKeys = <String>[];
+        final updatedMemeKeys = <String>[];
+
+        for (final key in s3MemeKeys) {
+          final memeId = key.split('/').last.replaceAll('.json', '');
+          if (!localMemeIds.contains(memeId)) {
+            newMemeKeys.add(key);
+          } else {
+            // 检查 S3 上的更新时间是否比本地新
+            try {
+              final s3Data = await _getJson(key);
+              if (s3Data != null && s3Data['updatedAt'] != null) {
+                final s3UpdatedAt = s3Data['updatedAt'] as int;
+                final localMeme = await _memeRepo.getById(memeId);
+                if (localMeme != null && s3UpdatedAt > localMeme.updatedAt) {
+                  updatedMemeKeys.add(key);
+                }
+              }
+            } catch (e) {
+              _log?.warning('S3', '检查 S3 meme 更新时间失败: $e');
+            }
+          }
+        }
+
+        // 下载新 meme
+        if (newMemeKeys.isNotEmpty || updatedMemeKeys.isNotEmpty) {
+          final totalDownloadSteps = newMemeKeys.length + updatedMemeKeys.length;
+          yield S3SyncProgress(
+            status: S3SyncStatus.downloading,
+            completed: 0,
+            total: totalDownloadSteps,
+          );
+
+          var completed = 0;
+          for (final key in [...newMemeKeys, ...updatedMemeKeys]) {
+            if (_cancelled) {
+              yield S3SyncProgress(
+                status: S3SyncStatus.idle,
+                errorMessage: '已取消',
+              );
+              return;
+            }
+
+            try {
+              final memeData = await _getJson(key);
+              if (memeData != null) {
+                final memeSyncData = MemeSyncData.fromJson(memeData as Map<String, dynamic>);
+                // 导入 meme 数据（使用 insertOnConflictUpdate 实现更新或插入）
+                await _db.into(_db.memesTable).insertOnConflictUpdate(memeSyncData.meme);
+                // 导入 tags
+                for (final tag in memeSyncData.tags) {
+                  await _db.into(_db.tagsTable).insertOnConflictUpdate(tag);
+                }
+                // 导入 colors
+                for (final color in memeSyncData.colors) {
+                  await _db.into(_db.colorsTable).insertOnConflictUpdate(color);
+                }
+                // 下载图片
+                await _downloadImageIfNeeded(memeSyncData.meme);
+              }
+            } catch (e) {
+              _log?.warning('S3', '下载 S3 meme 数据失败: $e');
+            }
+
+            completed++;
+            yield S3SyncProgress(
+              status: S3SyncStatus.downloading,
+              completed: completed,
+              total: totalDownloadSteps,
+            );
+          }
+        }
+      }
 
       // Phase 3: 更新同步时间
       await _syncStateDao.setLastSyncAt(now);

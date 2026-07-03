@@ -69,6 +69,8 @@ class MemeSyncData {
         folderId: json['folderId'] as String?,
         description: json['description'] as String?,
         analysisStatus: json['analysisStatus'] as String,
+        copyCount: json['copyCount'] as int? ?? 0,
+        source: json['source'] as String?,
         createdAt: json['createdAt'] as int,
         updatedAt: json['updatedAt'] as int,
         importedAt: json['importedAt'] as int,
@@ -216,6 +218,7 @@ class S3SyncSerializer {
     await _db.transaction(() async {
       // 1. 清空所有关联表（FK 顺序：先子表再父表）
       await _db.delete(_db.syncStateTable).go();
+      await _db.delete(_db.analysisQueueTable).go();
       await _db.delete(_db.memeAlbumsTable).go();
       await _db.delete(_db.colorsTable).go();
       await _db.delete(_db.tagsTable).go();

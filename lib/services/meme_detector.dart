@@ -76,11 +76,20 @@ class MemeDetector {
     }
 
     final fileSize = await file.length();
-    if (fileSize < 1024 || fileSize > 2 * 1024 * 1024) {
-      _log('detect: size filter $imagePath size=$fileSize');
-      return MemeDetectionResult(filePath: imagePath, score: 0);
-    }
     final dims = await _imageDimensions(imagePath);
+
+    // 太大或太小的图片直接返回 score=0，不执行 OCR
+    if (fileSize < 1024 || fileSize > 2 * 1024 * 1024 ||
+        (dims.$1 > 0 && dims.$2 > 0 && (dims.$1 < 100 || dims.$2 < 100)) ||
+        (dims.$1 > 0 && dims.$2 > 0 && (dims.$1 > 4096 || dims.$2 > 4096))) {
+      _log('detect: 尺寸超限 $imagePath size=$fileSize ${dims.$1}x${dims.$2}→ score=0');
+      return MemeDetectionResult(
+        filePath: imagePath,
+        score: 0,
+        text: null,
+      );
+    }
+
     if (dims.$1 == 0 || dims.$2 == 0) {
       _log('detect: cannot read dimensions $imagePath');
     }
@@ -214,11 +223,6 @@ class MemeDetector {
         if (entity is File) {
           final name = entity.path.toLowerCase();
           if (!exts.any((e) => name.endsWith(e))) continue;
-          final size = entity.statSync().size;
-          if (size < 1024 || size > 2 * 1024 * 1024) {
-            _log('skip ${entity.path}: size=${size}B', logger: logger);
-            continue;
-          }
           images.add(entity.path);
         }
       }
