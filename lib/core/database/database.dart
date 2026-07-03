@@ -11,6 +11,7 @@ import 'daos/color_dao.dart';
 import 'daos/album_dao.dart';
 import 'daos/analysis_queue_dao.dart';
 import 'daos/sync_state_dao.dart';
+import 'daos/user_stats_dao.dart';
 import 'tables/tables.dart';
 
 part 'database.g.dart';
@@ -25,13 +26,14 @@ part 'database.g.dart';
     SyncStateTable,
     AlbumsTable,
     MemeAlbumsTable,
+    UserStatsTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -54,6 +56,17 @@ class AppDatabase extends _$AppDatabase {
           ],
         );
       },
+      onUpgrade: (m, from, to) async {
+        if (from < 2) {
+          await m.addColumn(memesTable, memesTable.copyCount);
+          await m.addColumn(memesTable, memesTable.source);
+          await m.create(userStatsTable);
+        }
+        if (from < 3) {
+          await m.addColumn(userStatsTable, userStatsTable.promptTokens);
+          await m.addColumn(userStatsTable, userStatsTable.completionTokens);
+        }
+      },
     );
   }
 
@@ -63,6 +76,7 @@ class AppDatabase extends _$AppDatabase {
   late final AlbumDao albumDao = AlbumDao(this);
   late final AnalysisQueueDao analysisQueueDao = AnalysisQueueDao(this);
   late final SyncStateDao syncStateDao = SyncStateDao(this);
+  late final UserStatsDao userStatsDao = UserStatsDao(this);
 }
 
 LazyDatabase _openConnection() {

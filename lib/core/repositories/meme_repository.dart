@@ -62,6 +62,7 @@ class MemeRepository {
       height: height,
       analysisStatus: 'pending',
       fileHash: fileHash,
+      copyCount: 0,
       createdAt: now,
       updatedAt: now,
       importedAt: now,
@@ -108,6 +109,33 @@ class MemeRepository {
       _memeDao.hasChangesSince(timestamp);
   Future<List<Meme>> getUpdatedSince(int timestamp) =>
       _memeDao.getUpdatedSince(timestamp);
+
+  // ---- 排序 ----
+
+  Future<List<Meme>> getAllSorted({
+    required String sortField,
+    bool ascending = false,
+    int? limit,
+    int? offset,
+  }) =>
+      _memeDao.getAllSorted(
+          sortField: sortField,
+          ascending: ascending,
+          limit: limit,
+          offset: offset);
+
+  // ---- 复制次数 ----
+
+  Future<void> incrementCopyCount(String id) =>
+      _memeDao.incrementCopyCount(id);
+
+  Future<void> setCopyCount(String id, int count) =>
+      _memeDao.setCopyCount(id, count);
+
+  // ---- 图片来源 ----
+
+  Future<void> updateSource(String id, String source) =>
+      _memeDao.updateSource(id, source);
 
   // ---- 关联数据 ----
 

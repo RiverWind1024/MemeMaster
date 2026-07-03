@@ -158,6 +158,27 @@ class $MemesTableTable extends MemesTable
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _copyCountMeta = const VerificationMeta(
+    'copyCount',
+  );
+  @override
+  late final GeneratedColumn<int> copyCount = GeneratedColumn<int>(
+    'copy_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+    'source',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -174,6 +195,8 @@ class $MemesTableTable extends MemesTable
     createdAt,
     updatedAt,
     importedAt,
+    copyCount,
+    source,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -296,6 +319,18 @@ class $MemesTableTable extends MemesTable
     } else if (isInserting) {
       context.missing(_importedAtMeta);
     }
+    if (data.containsKey('copy_count')) {
+      context.handle(
+        _copyCountMeta,
+        copyCount.isAcceptableOrUnknown(data['copy_count']!, _copyCountMeta),
+      );
+    }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
+    }
     return context;
   }
 
@@ -361,6 +396,14 @@ class $MemesTableTable extends MemesTable
         DriftSqlType.int,
         data['${effectivePrefix}imported_at'],
       )!,
+      copyCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}copy_count'],
+      )!,
+      source: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source'],
+      ),
     );
   }
 
@@ -385,6 +428,12 @@ class Meme extends DataClass implements Insertable<Meme> {
   final int createdAt;
   final int updatedAt;
   final int importedAt;
+
+  /// 复制次数（用于排序和统计）
+  final int copyCount;
+
+  /// 图片来源：clipboard, wechat, album, bilibili, system_share, manual_import, drag_drop 等
+  final String? source;
   const Meme({
     required this.id,
     required this.filename,
@@ -400,6 +449,8 @@ class Meme extends DataClass implements Insertable<Meme> {
     required this.createdAt,
     required this.updatedAt,
     required this.importedAt,
+    required this.copyCount,
+    this.source,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -422,6 +473,10 @@ class Meme extends DataClass implements Insertable<Meme> {
     map['created_at'] = Variable<int>(createdAt);
     map['updated_at'] = Variable<int>(updatedAt);
     map['imported_at'] = Variable<int>(importedAt);
+    map['copy_count'] = Variable<int>(copyCount);
+    if (!nullToAbsent || source != null) {
+      map['source'] = Variable<String>(source);
+    }
     return map;
   }
 
@@ -445,6 +500,10 @@ class Meme extends DataClass implements Insertable<Meme> {
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       importedAt: Value(importedAt),
+      copyCount: Value(copyCount),
+      source: source == null && nullToAbsent
+          ? const Value.absent()
+          : Value(source),
     );
   }
 
@@ -468,6 +527,8 @@ class Meme extends DataClass implements Insertable<Meme> {
       createdAt: serializer.fromJson<int>(json['createdAt']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
       importedAt: serializer.fromJson<int>(json['importedAt']),
+      copyCount: serializer.fromJson<int>(json['copyCount']),
+      source: serializer.fromJson<String?>(json['source']),
     );
   }
   @override
@@ -488,6 +549,8 @@ class Meme extends DataClass implements Insertable<Meme> {
       'createdAt': serializer.toJson<int>(createdAt),
       'updatedAt': serializer.toJson<int>(updatedAt),
       'importedAt': serializer.toJson<int>(importedAt),
+      'copyCount': serializer.toJson<int>(copyCount),
+      'source': serializer.toJson<String?>(source),
     };
   }
 
@@ -506,6 +569,8 @@ class Meme extends DataClass implements Insertable<Meme> {
     int? createdAt,
     int? updatedAt,
     int? importedAt,
+    int? copyCount,
+    Value<String?> source = const Value.absent(),
   }) => Meme(
     id: id ?? this.id,
     filename: filename ?? this.filename,
@@ -521,6 +586,8 @@ class Meme extends DataClass implements Insertable<Meme> {
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     importedAt: importedAt ?? this.importedAt,
+    copyCount: copyCount ?? this.copyCount,
+    source: source.present ? source.value : this.source,
   );
   Meme copyWithCompanion(MemesTableCompanion data) {
     return Meme(
@@ -544,6 +611,8 @@ class Meme extends DataClass implements Insertable<Meme> {
       importedAt: data.importedAt.present
           ? data.importedAt.value
           : this.importedAt,
+      copyCount: data.copyCount.present ? data.copyCount.value : this.copyCount,
+      source: data.source.present ? data.source.value : this.source,
     );
   }
 
@@ -563,7 +632,9 @@ class Meme extends DataClass implements Insertable<Meme> {
           ..write('description: $description, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('importedAt: $importedAt')
+          ..write('importedAt: $importedAt, ')
+          ..write('copyCount: $copyCount, ')
+          ..write('source: $source')
           ..write(')'))
         .toString();
   }
@@ -584,6 +655,8 @@ class Meme extends DataClass implements Insertable<Meme> {
     createdAt,
     updatedAt,
     importedAt,
+    copyCount,
+    source,
   );
   @override
   bool operator ==(Object other) =>
@@ -602,7 +675,9 @@ class Meme extends DataClass implements Insertable<Meme> {
           other.description == this.description &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
-          other.importedAt == this.importedAt);
+          other.importedAt == this.importedAt &&
+          other.copyCount == this.copyCount &&
+          other.source == this.source);
 }
 
 class MemesTableCompanion extends UpdateCompanion<Meme> {
@@ -620,6 +695,8 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
   final Value<int> createdAt;
   final Value<int> updatedAt;
   final Value<int> importedAt;
+  final Value<int> copyCount;
+  final Value<String?> source;
   final Value<int> rowid;
   const MemesTableCompanion({
     this.id = const Value.absent(),
@@ -636,6 +713,8 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.importedAt = const Value.absent(),
+    this.copyCount = const Value.absent(),
+    this.source = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MemesTableCompanion.insert({
@@ -653,6 +732,8 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     required int createdAt,
     required int updatedAt,
     required int importedAt,
+    this.copyCount = const Value.absent(),
+    this.source = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        filename = Value(filename),
@@ -680,6 +761,8 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     Expression<int>? createdAt,
     Expression<int>? updatedAt,
     Expression<int>? importedAt,
+    Expression<int>? copyCount,
+    Expression<String>? source,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -697,6 +780,8 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (importedAt != null) 'imported_at': importedAt,
+      if (copyCount != null) 'copy_count': copyCount,
+      if (source != null) 'source': source,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -716,6 +801,8 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     Value<int>? createdAt,
     Value<int>? updatedAt,
     Value<int>? importedAt,
+    Value<int>? copyCount,
+    Value<String?>? source,
     Value<int>? rowid,
   }) {
     return MemesTableCompanion(
@@ -733,6 +820,8 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       importedAt: importedAt ?? this.importedAt,
+      copyCount: copyCount ?? this.copyCount,
+      source: source ?? this.source,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -782,6 +871,12 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     if (importedAt.present) {
       map['imported_at'] = Variable<int>(importedAt.value);
     }
+    if (copyCount.present) {
+      map['copy_count'] = Variable<int>(copyCount.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -805,6 +900,8 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('importedAt: $importedAt, ')
+          ..write('copyCount: $copyCount, ')
+          ..write('source: $source, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3165,6 +3262,9 @@ class $MemeAlbumsTableTable extends MemeAlbumsTable
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES memes_table (id)',
+    ),
   );
   static const VerificationMeta _albumIdMeta = const VerificationMeta(
     'albumId',
@@ -3176,6 +3276,9 @@ class $MemeAlbumsTableTable extends MemeAlbumsTable
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES albums_table (id)',
+    ),
   );
   static const VerificationMeta _addedAtMeta = const VerificationMeta(
     'addedAt',
@@ -3415,6 +3518,451 @@ class MemeAlbumsTableCompanion extends UpdateCompanion<MemeAlbum> {
   }
 }
 
+class $UserStatsTableTable extends UserStatsTable
+    with TableInfo<$UserStatsTableTable, UserStatsEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UserStatsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<String> date = GeneratedColumn<String>(
+    'date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _importedCountMeta = const VerificationMeta(
+    'importedCount',
+  );
+  @override
+  late final GeneratedColumn<int> importedCount = GeneratedColumn<int>(
+    'imported_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _copiedCountMeta = const VerificationMeta(
+    'copiedCount',
+  );
+  @override
+  late final GeneratedColumn<int> copiedCount = GeneratedColumn<int>(
+    'copied_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _favoritedCountMeta = const VerificationMeta(
+    'favoritedCount',
+  );
+  @override
+  late final GeneratedColumn<int> favoritedCount = GeneratedColumn<int>(
+    'favorited_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _promptTokensMeta = const VerificationMeta(
+    'promptTokens',
+  );
+  @override
+  late final GeneratedColumn<int> promptTokens = GeneratedColumn<int>(
+    'prompt_tokens',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _completionTokensMeta = const VerificationMeta(
+    'completionTokens',
+  );
+  @override
+  late final GeneratedColumn<int> completionTokens = GeneratedColumn<int>(
+    'completion_tokens',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    date,
+    importedCount,
+    copiedCount,
+    favoritedCount,
+    promptTokens,
+    completionTokens,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'user_stats_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<UserStatsEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('date')) {
+      context.handle(
+        _dateMeta,
+        date.isAcceptableOrUnknown(data['date']!, _dateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dateMeta);
+    }
+    if (data.containsKey('imported_count')) {
+      context.handle(
+        _importedCountMeta,
+        importedCount.isAcceptableOrUnknown(
+          data['imported_count']!,
+          _importedCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('copied_count')) {
+      context.handle(
+        _copiedCountMeta,
+        copiedCount.isAcceptableOrUnknown(
+          data['copied_count']!,
+          _copiedCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('favorited_count')) {
+      context.handle(
+        _favoritedCountMeta,
+        favoritedCount.isAcceptableOrUnknown(
+          data['favorited_count']!,
+          _favoritedCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('prompt_tokens')) {
+      context.handle(
+        _promptTokensMeta,
+        promptTokens.isAcceptableOrUnknown(
+          data['prompt_tokens']!,
+          _promptTokensMeta,
+        ),
+      );
+    }
+    if (data.containsKey('completion_tokens')) {
+      context.handle(
+        _completionTokensMeta,
+        completionTokens.isAcceptableOrUnknown(
+          data['completion_tokens']!,
+          _completionTokensMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {date};
+  @override
+  UserStatsEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return UserStatsEntry(
+      date: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}date'],
+      )!,
+      importedCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}imported_count'],
+      )!,
+      copiedCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}copied_count'],
+      )!,
+      favoritedCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}favorited_count'],
+      )!,
+      promptTokens: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}prompt_tokens'],
+      )!,
+      completionTokens: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}completion_tokens'],
+      )!,
+    );
+  }
+
+  @override
+  $UserStatsTableTable createAlias(String alias) {
+    return $UserStatsTableTable(attachedDatabase, alias);
+  }
+}
+
+class UserStatsEntry extends DataClass implements Insertable<UserStatsEntry> {
+  /// 日期字符串（yyyy-MM-dd）
+  final String date;
+
+  /// 当天导入 meme 数量
+  final int importedCount;
+
+  /// 当天复制 meme 次数
+  final int copiedCount;
+
+  /// 当天收藏 meme 数量
+  final int favoritedCount;
+
+  /// 当天 remote LLM 调用 prompt token 数
+  final int promptTokens;
+
+  /// 当天 remote LLM 调用 completion token 数
+  final int completionTokens;
+  const UserStatsEntry({
+    required this.date,
+    required this.importedCount,
+    required this.copiedCount,
+    required this.favoritedCount,
+    required this.promptTokens,
+    required this.completionTokens,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['date'] = Variable<String>(date);
+    map['imported_count'] = Variable<int>(importedCount);
+    map['copied_count'] = Variable<int>(copiedCount);
+    map['favorited_count'] = Variable<int>(favoritedCount);
+    map['prompt_tokens'] = Variable<int>(promptTokens);
+    map['completion_tokens'] = Variable<int>(completionTokens);
+    return map;
+  }
+
+  UserStatsTableCompanion toCompanion(bool nullToAbsent) {
+    return UserStatsTableCompanion(
+      date: Value(date),
+      importedCount: Value(importedCount),
+      copiedCount: Value(copiedCount),
+      favoritedCount: Value(favoritedCount),
+      promptTokens: Value(promptTokens),
+      completionTokens: Value(completionTokens),
+    );
+  }
+
+  factory UserStatsEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return UserStatsEntry(
+      date: serializer.fromJson<String>(json['date']),
+      importedCount: serializer.fromJson<int>(json['importedCount']),
+      copiedCount: serializer.fromJson<int>(json['copiedCount']),
+      favoritedCount: serializer.fromJson<int>(json['favoritedCount']),
+      promptTokens: serializer.fromJson<int>(json['promptTokens']),
+      completionTokens: serializer.fromJson<int>(json['completionTokens']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'date': serializer.toJson<String>(date),
+      'importedCount': serializer.toJson<int>(importedCount),
+      'copiedCount': serializer.toJson<int>(copiedCount),
+      'favoritedCount': serializer.toJson<int>(favoritedCount),
+      'promptTokens': serializer.toJson<int>(promptTokens),
+      'completionTokens': serializer.toJson<int>(completionTokens),
+    };
+  }
+
+  UserStatsEntry copyWith({
+    String? date,
+    int? importedCount,
+    int? copiedCount,
+    int? favoritedCount,
+    int? promptTokens,
+    int? completionTokens,
+  }) => UserStatsEntry(
+    date: date ?? this.date,
+    importedCount: importedCount ?? this.importedCount,
+    copiedCount: copiedCount ?? this.copiedCount,
+    favoritedCount: favoritedCount ?? this.favoritedCount,
+    promptTokens: promptTokens ?? this.promptTokens,
+    completionTokens: completionTokens ?? this.completionTokens,
+  );
+  UserStatsEntry copyWithCompanion(UserStatsTableCompanion data) {
+    return UserStatsEntry(
+      date: data.date.present ? data.date.value : this.date,
+      importedCount: data.importedCount.present
+          ? data.importedCount.value
+          : this.importedCount,
+      copiedCount: data.copiedCount.present
+          ? data.copiedCount.value
+          : this.copiedCount,
+      favoritedCount: data.favoritedCount.present
+          ? data.favoritedCount.value
+          : this.favoritedCount,
+      promptTokens: data.promptTokens.present
+          ? data.promptTokens.value
+          : this.promptTokens,
+      completionTokens: data.completionTokens.present
+          ? data.completionTokens.value
+          : this.completionTokens,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserStatsEntry(')
+          ..write('date: $date, ')
+          ..write('importedCount: $importedCount, ')
+          ..write('copiedCount: $copiedCount, ')
+          ..write('favoritedCount: $favoritedCount, ')
+          ..write('promptTokens: $promptTokens, ')
+          ..write('completionTokens: $completionTokens')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    date,
+    importedCount,
+    copiedCount,
+    favoritedCount,
+    promptTokens,
+    completionTokens,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is UserStatsEntry &&
+          other.date == this.date &&
+          other.importedCount == this.importedCount &&
+          other.copiedCount == this.copiedCount &&
+          other.favoritedCount == this.favoritedCount &&
+          other.promptTokens == this.promptTokens &&
+          other.completionTokens == this.completionTokens);
+}
+
+class UserStatsTableCompanion extends UpdateCompanion<UserStatsEntry> {
+  final Value<String> date;
+  final Value<int> importedCount;
+  final Value<int> copiedCount;
+  final Value<int> favoritedCount;
+  final Value<int> promptTokens;
+  final Value<int> completionTokens;
+  final Value<int> rowid;
+  const UserStatsTableCompanion({
+    this.date = const Value.absent(),
+    this.importedCount = const Value.absent(),
+    this.copiedCount = const Value.absent(),
+    this.favoritedCount = const Value.absent(),
+    this.promptTokens = const Value.absent(),
+    this.completionTokens = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  UserStatsTableCompanion.insert({
+    required String date,
+    this.importedCount = const Value.absent(),
+    this.copiedCount = const Value.absent(),
+    this.favoritedCount = const Value.absent(),
+    this.promptTokens = const Value.absent(),
+    this.completionTokens = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : date = Value(date);
+  static Insertable<UserStatsEntry> custom({
+    Expression<String>? date,
+    Expression<int>? importedCount,
+    Expression<int>? copiedCount,
+    Expression<int>? favoritedCount,
+    Expression<int>? promptTokens,
+    Expression<int>? completionTokens,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (date != null) 'date': date,
+      if (importedCount != null) 'imported_count': importedCount,
+      if (copiedCount != null) 'copied_count': copiedCount,
+      if (favoritedCount != null) 'favorited_count': favoritedCount,
+      if (promptTokens != null) 'prompt_tokens': promptTokens,
+      if (completionTokens != null) 'completion_tokens': completionTokens,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  UserStatsTableCompanion copyWith({
+    Value<String>? date,
+    Value<int>? importedCount,
+    Value<int>? copiedCount,
+    Value<int>? favoritedCount,
+    Value<int>? promptTokens,
+    Value<int>? completionTokens,
+    Value<int>? rowid,
+  }) {
+    return UserStatsTableCompanion(
+      date: date ?? this.date,
+      importedCount: importedCount ?? this.importedCount,
+      copiedCount: copiedCount ?? this.copiedCount,
+      favoritedCount: favoritedCount ?? this.favoritedCount,
+      promptTokens: promptTokens ?? this.promptTokens,
+      completionTokens: completionTokens ?? this.completionTokens,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (date.present) {
+      map['date'] = Variable<String>(date.value);
+    }
+    if (importedCount.present) {
+      map['imported_count'] = Variable<int>(importedCount.value);
+    }
+    if (copiedCount.present) {
+      map['copied_count'] = Variable<int>(copiedCount.value);
+    }
+    if (favoritedCount.present) {
+      map['favorited_count'] = Variable<int>(favoritedCount.value);
+    }
+    if (promptTokens.present) {
+      map['prompt_tokens'] = Variable<int>(promptTokens.value);
+    }
+    if (completionTokens.present) {
+      map['completion_tokens'] = Variable<int>(completionTokens.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserStatsTableCompanion(')
+          ..write('date: $date, ')
+          ..write('importedCount: $importedCount, ')
+          ..write('copiedCount: $copiedCount, ')
+          ..write('favoritedCount: $favoritedCount, ')
+          ..write('promptTokens: $promptTokens, ')
+          ..write('completionTokens: $completionTokens, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3431,6 +3979,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $MemeAlbumsTableTable memeAlbumsTable = $MemeAlbumsTableTable(
     this,
   );
+  late final $UserStatsTableTable userStatsTable = $UserStatsTableTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3444,6 +3993,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     syncStateTable,
     albumsTable,
     memeAlbumsTable,
+    userStatsTable,
   ];
 }
 
@@ -3463,6 +4013,8 @@ typedef $$MemesTableTableCreateCompanionBuilder =
       required int createdAt,
       required int updatedAt,
       required int importedAt,
+      Value<int> copyCount,
+      Value<String?> source,
       Value<int> rowid,
     });
 typedef $$MemesTableTableUpdateCompanionBuilder =
@@ -3481,6 +4033,8 @@ typedef $$MemesTableTableUpdateCompanionBuilder =
       Value<int> createdAt,
       Value<int> updatedAt,
       Value<int> importedAt,
+      Value<int> copyCount,
+      Value<String?> source,
       Value<int> rowid,
     });
 
@@ -3542,6 +4096,29 @@ final class $$MemesTableTableReferences
 
     final cache = $_typedResult.readTableOrNull(
       _analysisQueueTableRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$MemeAlbumsTableTable, List<MemeAlbum>>
+  _memeAlbumsTableRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.memeAlbumsTable,
+    aliasName: $_aliasNameGenerator(
+      db.memesTable.id,
+      db.memeAlbumsTable.memeId,
+    ),
+  );
+
+  $$MemeAlbumsTableTableProcessedTableManager get memeAlbumsTableRefs {
+    final manager = $$MemeAlbumsTableTableTableManager(
+      $_db,
+      $_db.memeAlbumsTable,
+    ).filter((f) => f.memeId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _memeAlbumsTableRefsTable($_db),
     );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
@@ -3628,6 +4205,16 @@ class $$MemesTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get copyCount => $composableBuilder(
+    column: $table.copyCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> tagsTableRefs(
     Expression<bool> Function($$TagsTableTableFilterComposer f) f,
   ) {
@@ -3694,6 +4281,31 @@ class $$MemesTableTableFilterComposer
           }) => $$AnalysisQueueTableTableFilterComposer(
             $db: $db,
             $table: $db.analysisQueueTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> memeAlbumsTableRefs(
+    Expression<bool> Function($$MemeAlbumsTableTableFilterComposer f) f,
+  ) {
+    final $$MemeAlbumsTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.memeAlbumsTable,
+      getReferencedColumn: (t) => t.memeId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemeAlbumsTableTableFilterComposer(
+            $db: $db,
+            $table: $db.memeAlbumsTable,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3782,6 +4394,16 @@ class $$MemesTableTableOrderingComposer
     column: $table.importedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get copyCount => $composableBuilder(
+    column: $table.copyCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MemesTableTableAnnotationComposer
@@ -3840,6 +4462,12 @@ class $$MemesTableTableAnnotationComposer
     column: $table.importedAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get copyCount =>
+      $composableBuilder(column: $table.copyCount, builder: (column) => column);
+
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
 
   Expression<T> tagsTableRefs<T extends Object>(
     Expression<T> Function($$TagsTableTableAnnotationComposer a) f,
@@ -3916,6 +4544,31 @@ class $$MemesTableTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> memeAlbumsTableRefs<T extends Object>(
+    Expression<T> Function($$MemeAlbumsTableTableAnnotationComposer a) f,
+  ) {
+    final $$MemeAlbumsTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.memeAlbumsTable,
+      getReferencedColumn: (t) => t.memeId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemeAlbumsTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.memeAlbumsTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$MemesTableTableTableManager
@@ -3935,6 +4588,7 @@ class $$MemesTableTableTableManager
             bool tagsTableRefs,
             bool colorsTableRefs,
             bool analysisQueueTableRefs,
+            bool memeAlbumsTableRefs,
           })
         > {
   $$MemesTableTableTableManager(_$AppDatabase db, $MemesTableTable table)
@@ -3964,6 +4618,8 @@ class $$MemesTableTableTableManager
                 Value<int> createdAt = const Value.absent(),
                 Value<int> updatedAt = const Value.absent(),
                 Value<int> importedAt = const Value.absent(),
+                Value<int> copyCount = const Value.absent(),
+                Value<String?> source = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemesTableCompanion(
                 id: id,
@@ -3980,6 +4636,8 @@ class $$MemesTableTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 importedAt: importedAt,
+                copyCount: copyCount,
+                source: source,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3998,6 +4656,8 @@ class $$MemesTableTableTableManager
                 required int createdAt,
                 required int updatedAt,
                 required int importedAt,
+                Value<int> copyCount = const Value.absent(),
+                Value<String?> source = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemesTableCompanion.insert(
                 id: id,
@@ -4014,6 +4674,8 @@ class $$MemesTableTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 importedAt: importedAt,
+                copyCount: copyCount,
+                source: source,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -4029,6 +4691,7 @@ class $$MemesTableTableTableManager
                 tagsTableRefs = false,
                 colorsTableRefs = false,
                 analysisQueueTableRefs = false,
+                memeAlbumsTableRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -4036,6 +4699,7 @@ class $$MemesTableTableTableManager
                     if (tagsTableRefs) db.tagsTable,
                     if (colorsTableRefs) db.colorsTable,
                     if (analysisQueueTableRefs) db.analysisQueueTable,
+                    if (memeAlbumsTableRefs) db.memeAlbumsTable,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -4103,6 +4767,27 @@ class $$MemesTableTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (memeAlbumsTableRefs)
+                        await $_getPrefetchedData<
+                          Meme,
+                          $MemesTableTable,
+                          MemeAlbum
+                        >(
+                          currentTable: table,
+                          referencedTable: $$MemesTableTableReferences
+                              ._memeAlbumsTableRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$MemesTableTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).memeAlbumsTableRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.memeId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -4127,6 +4812,7 @@ typedef $$MemesTableTableProcessedTableManager =
         bool tagsTableRefs,
         bool colorsTableRefs,
         bool analysisQueueTableRefs,
+        bool memeAlbumsTableRefs,
       })
     >;
 typedef $$TagsTableTableCreateCompanionBuilder =
@@ -5590,6 +6276,34 @@ typedef $$AlbumsTableTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
+final class $$AlbumsTableTableReferences
+    extends BaseReferences<_$AppDatabase, $AlbumsTableTable, Album> {
+  $$AlbumsTableTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$MemeAlbumsTableTable, List<MemeAlbum>>
+  _memeAlbumsTableRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.memeAlbumsTable,
+    aliasName: $_aliasNameGenerator(
+      db.albumsTable.id,
+      db.memeAlbumsTable.albumId,
+    ),
+  );
+
+  $$MemeAlbumsTableTableProcessedTableManager get memeAlbumsTableRefs {
+    final manager = $$MemeAlbumsTableTableTableManager(
+      $_db,
+      $_db.memeAlbumsTable,
+    ).filter((f) => f.albumId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _memeAlbumsTableRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
 class $$AlbumsTableTableFilterComposer
     extends Composer<_$AppDatabase, $AlbumsTableTable> {
   $$AlbumsTableTableFilterComposer({
@@ -5628,6 +6342,31 @@ class $$AlbumsTableTableFilterComposer
     column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> memeAlbumsTableRefs(
+    Expression<bool> Function($$MemeAlbumsTableTableFilterComposer f) f,
+  ) {
+    final $$MemeAlbumsTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.memeAlbumsTable,
+      getReferencedColumn: (t) => t.albumId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemeAlbumsTableTableFilterComposer(
+            $db: $db,
+            $table: $db.memeAlbumsTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$AlbumsTableTableOrderingComposer
@@ -5696,6 +6435,31 @@ class $$AlbumsTableTableAnnotationComposer
 
   GeneratedColumn<int> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  Expression<T> memeAlbumsTableRefs<T extends Object>(
+    Expression<T> Function($$MemeAlbumsTableTableAnnotationComposer a) f,
+  ) {
+    final $$MemeAlbumsTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.memeAlbumsTable,
+      getReferencedColumn: (t) => t.albumId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemeAlbumsTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.memeAlbumsTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$AlbumsTableTableTableManager
@@ -5709,9 +6473,9 @@ class $$AlbumsTableTableTableManager
           $$AlbumsTableTableAnnotationComposer,
           $$AlbumsTableTableCreateCompanionBuilder,
           $$AlbumsTableTableUpdateCompanionBuilder,
-          (Album, BaseReferences<_$AppDatabase, $AlbumsTableTable, Album>),
+          (Album, $$AlbumsTableTableReferences),
           Album,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool memeAlbumsTableRefs})
         > {
   $$AlbumsTableTableTableManager(_$AppDatabase db, $AlbumsTableTable table)
     : super(
@@ -5761,9 +6525,45 @@ class $$AlbumsTableTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$AlbumsTableTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({memeAlbumsTableRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (memeAlbumsTableRefs) db.memeAlbumsTable,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (memeAlbumsTableRefs)
+                    await $_getPrefetchedData<
+                      Album,
+                      $AlbumsTableTable,
+                      MemeAlbum
+                    >(
+                      currentTable: table,
+                      referencedTable: $$AlbumsTableTableReferences
+                          ._memeAlbumsTableRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$AlbumsTableTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).memeAlbumsTableRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.albumId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -5778,9 +6578,9 @@ typedef $$AlbumsTableTableProcessedTableManager =
       $$AlbumsTableTableAnnotationComposer,
       $$AlbumsTableTableCreateCompanionBuilder,
       $$AlbumsTableTableUpdateCompanionBuilder,
-      (Album, BaseReferences<_$AppDatabase, $AlbumsTableTable, Album>),
+      (Album, $$AlbumsTableTableReferences),
       Album,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool memeAlbumsTableRefs})
     >;
 typedef $$MemeAlbumsTableTableCreateCompanionBuilder =
     MemeAlbumsTableCompanion Function({
@@ -5797,6 +6597,53 @@ typedef $$MemeAlbumsTableTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
+final class $$MemeAlbumsTableTableReferences
+    extends BaseReferences<_$AppDatabase, $MemeAlbumsTableTable, MemeAlbum> {
+  $$MemeAlbumsTableTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $MemesTableTable _memeIdTable(_$AppDatabase db) =>
+      db.memesTable.createAlias(
+        $_aliasNameGenerator(db.memeAlbumsTable.memeId, db.memesTable.id),
+      );
+
+  $$MemesTableTableProcessedTableManager get memeId {
+    final $_column = $_itemColumn<String>('meme_id')!;
+
+    final manager = $$MemesTableTableTableManager(
+      $_db,
+      $_db.memesTable,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_memeIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $AlbumsTableTable _albumIdTable(_$AppDatabase db) =>
+      db.albumsTable.createAlias(
+        $_aliasNameGenerator(db.memeAlbumsTable.albumId, db.albumsTable.id),
+      );
+
+  $$AlbumsTableTableProcessedTableManager get albumId {
+    final $_column = $_itemColumn<String>('album_id')!;
+
+    final manager = $$AlbumsTableTableTableManager(
+      $_db,
+      $_db.albumsTable,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_albumIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
 class $$MemeAlbumsTableTableFilterComposer
     extends Composer<_$AppDatabase, $MemeAlbumsTableTable> {
   $$MemeAlbumsTableTableFilterComposer({
@@ -5806,20 +6653,56 @@ class $$MemeAlbumsTableTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<String> get memeId => $composableBuilder(
-    column: $table.memeId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get albumId => $composableBuilder(
-    column: $table.albumId,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<int> get addedAt => $composableBuilder(
     column: $table.addedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$MemesTableTableFilterComposer get memeId {
+    final $$MemesTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.memeId,
+      referencedTable: $db.memesTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemesTableTableFilterComposer(
+            $db: $db,
+            $table: $db.memesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$AlbumsTableTableFilterComposer get albumId {
+    final $$AlbumsTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.albumId,
+      referencedTable: $db.albumsTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AlbumsTableTableFilterComposer(
+            $db: $db,
+            $table: $db.albumsTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$MemeAlbumsTableTableOrderingComposer
@@ -5831,20 +6714,56 @@ class $$MemeAlbumsTableTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<String> get memeId => $composableBuilder(
-    column: $table.memeId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get albumId => $composableBuilder(
-    column: $table.albumId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<int> get addedAt => $composableBuilder(
     column: $table.addedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$MemesTableTableOrderingComposer get memeId {
+    final $$MemesTableTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.memeId,
+      referencedTable: $db.memesTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemesTableTableOrderingComposer(
+            $db: $db,
+            $table: $db.memesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$AlbumsTableTableOrderingComposer get albumId {
+    final $$AlbumsTableTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.albumId,
+      referencedTable: $db.albumsTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AlbumsTableTableOrderingComposer(
+            $db: $db,
+            $table: $db.albumsTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$MemeAlbumsTableTableAnnotationComposer
@@ -5856,14 +6775,54 @@ class $$MemeAlbumsTableTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<String> get memeId =>
-      $composableBuilder(column: $table.memeId, builder: (column) => column);
-
-  GeneratedColumn<String> get albumId =>
-      $composableBuilder(column: $table.albumId, builder: (column) => column);
-
   GeneratedColumn<int> get addedAt =>
       $composableBuilder(column: $table.addedAt, builder: (column) => column);
+
+  $$MemesTableTableAnnotationComposer get memeId {
+    final $$MemesTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.memeId,
+      referencedTable: $db.memesTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemesTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.memesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$AlbumsTableTableAnnotationComposer get albumId {
+    final $$AlbumsTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.albumId,
+      referencedTable: $db.albumsTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AlbumsTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.albumsTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$MemeAlbumsTableTableTableManager
@@ -5877,12 +6836,9 @@ class $$MemeAlbumsTableTableTableManager
           $$MemeAlbumsTableTableAnnotationComposer,
           $$MemeAlbumsTableTableCreateCompanionBuilder,
           $$MemeAlbumsTableTableUpdateCompanionBuilder,
-          (
-            MemeAlbum,
-            BaseReferences<_$AppDatabase, $MemeAlbumsTableTable, MemeAlbum>,
-          ),
+          (MemeAlbum, $$MemeAlbumsTableTableReferences),
           MemeAlbum,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool memeId, bool albumId})
         > {
   $$MemeAlbumsTableTableTableManager(
     _$AppDatabase db,
@@ -5922,9 +6878,71 @@ class $$MemeAlbumsTableTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$MemeAlbumsTableTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({memeId = false, albumId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (memeId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.memeId,
+                                referencedTable:
+                                    $$MemeAlbumsTableTableReferences
+                                        ._memeIdTable(db),
+                                referencedColumn:
+                                    $$MemeAlbumsTableTableReferences
+                                        ._memeIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+                    if (albumId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.albumId,
+                                referencedTable:
+                                    $$MemeAlbumsTableTableReferences
+                                        ._albumIdTable(db),
+                                referencedColumn:
+                                    $$MemeAlbumsTableTableReferences
+                                        ._albumIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -5939,11 +6957,239 @@ typedef $$MemeAlbumsTableTableProcessedTableManager =
       $$MemeAlbumsTableTableAnnotationComposer,
       $$MemeAlbumsTableTableCreateCompanionBuilder,
       $$MemeAlbumsTableTableUpdateCompanionBuilder,
-      (
-        MemeAlbum,
-        BaseReferences<_$AppDatabase, $MemeAlbumsTableTable, MemeAlbum>,
-      ),
+      (MemeAlbum, $$MemeAlbumsTableTableReferences),
       MemeAlbum,
+      PrefetchHooks Function({bool memeId, bool albumId})
+    >;
+typedef $$UserStatsTableTableCreateCompanionBuilder =
+    UserStatsTableCompanion Function({
+      required String date,
+      Value<int> importedCount,
+      Value<int> copiedCount,
+      Value<int> favoritedCount,
+      Value<int> promptTokens,
+      Value<int> completionTokens,
+      Value<int> rowid,
+    });
+typedef $$UserStatsTableTableUpdateCompanionBuilder =
+    UserStatsTableCompanion Function({
+      Value<String> date,
+      Value<int> importedCount,
+      Value<int> copiedCount,
+      Value<int> favoritedCount,
+      Value<int> promptTokens,
+      Value<int> completionTokens,
+      Value<int> rowid,
+    });
+
+class $$UserStatsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $UserStatsTableTable> {
+  $$UserStatsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get importedCount => $composableBuilder(
+    column: $table.importedCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get copiedCount => $composableBuilder(
+    column: $table.copiedCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get favoritedCount => $composableBuilder(
+    column: $table.favoritedCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get promptTokens => $composableBuilder(
+    column: $table.promptTokens,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get completionTokens => $composableBuilder(
+    column: $table.completionTokens,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$UserStatsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $UserStatsTableTable> {
+  $$UserStatsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get importedCount => $composableBuilder(
+    column: $table.importedCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get copiedCount => $composableBuilder(
+    column: $table.copiedCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get favoritedCount => $composableBuilder(
+    column: $table.favoritedCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get promptTokens => $composableBuilder(
+    column: $table.promptTokens,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get completionTokens => $composableBuilder(
+    column: $table.completionTokens,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$UserStatsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $UserStatsTableTable> {
+  $$UserStatsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<int> get importedCount => $composableBuilder(
+    column: $table.importedCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get copiedCount => $composableBuilder(
+    column: $table.copiedCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get favoritedCount => $composableBuilder(
+    column: $table.favoritedCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get promptTokens => $composableBuilder(
+    column: $table.promptTokens,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get completionTokens => $composableBuilder(
+    column: $table.completionTokens,
+    builder: (column) => column,
+  );
+}
+
+class $$UserStatsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $UserStatsTableTable,
+          UserStatsEntry,
+          $$UserStatsTableTableFilterComposer,
+          $$UserStatsTableTableOrderingComposer,
+          $$UserStatsTableTableAnnotationComposer,
+          $$UserStatsTableTableCreateCompanionBuilder,
+          $$UserStatsTableTableUpdateCompanionBuilder,
+          (
+            UserStatsEntry,
+            BaseReferences<_$AppDatabase, $UserStatsTableTable, UserStatsEntry>,
+          ),
+          UserStatsEntry,
+          PrefetchHooks Function()
+        > {
+  $$UserStatsTableTableTableManager(
+    _$AppDatabase db,
+    $UserStatsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$UserStatsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$UserStatsTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$UserStatsTableTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> date = const Value.absent(),
+                Value<int> importedCount = const Value.absent(),
+                Value<int> copiedCount = const Value.absent(),
+                Value<int> favoritedCount = const Value.absent(),
+                Value<int> promptTokens = const Value.absent(),
+                Value<int> completionTokens = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UserStatsTableCompanion(
+                date: date,
+                importedCount: importedCount,
+                copiedCount: copiedCount,
+                favoritedCount: favoritedCount,
+                promptTokens: promptTokens,
+                completionTokens: completionTokens,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String date,
+                Value<int> importedCount = const Value.absent(),
+                Value<int> copiedCount = const Value.absent(),
+                Value<int> favoritedCount = const Value.absent(),
+                Value<int> promptTokens = const Value.absent(),
+                Value<int> completionTokens = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UserStatsTableCompanion.insert(
+                date: date,
+                importedCount: importedCount,
+                copiedCount: copiedCount,
+                favoritedCount: favoritedCount,
+                promptTokens: promptTokens,
+                completionTokens: completionTokens,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$UserStatsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $UserStatsTableTable,
+      UserStatsEntry,
+      $$UserStatsTableTableFilterComposer,
+      $$UserStatsTableTableOrderingComposer,
+      $$UserStatsTableTableAnnotationComposer,
+      $$UserStatsTableTableCreateCompanionBuilder,
+      $$UserStatsTableTableUpdateCompanionBuilder,
+      (
+        UserStatsEntry,
+        BaseReferences<_$AppDatabase, $UserStatsTableTable, UserStatsEntry>,
+      ),
+      UserStatsEntry,
       PrefetchHooks Function()
     >;
 
@@ -5966,4 +7212,6 @@ class $AppDatabaseManager {
       $$AlbumsTableTableTableManager(_db, _db.albumsTable);
   $$MemeAlbumsTableTableTableManager get memeAlbumsTable =>
       $$MemeAlbumsTableTableTableManager(_db, _db.memeAlbumsTable);
+  $$UserStatsTableTableTableManager get userStatsTable =>
+      $$UserStatsTableTableTableManager(_db, _db.userStatsTable);
 }
