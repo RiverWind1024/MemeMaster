@@ -18,12 +18,14 @@ class ScanScreen extends ConsumerStatefulWidget {
 
 class _ScanScreenState extends ConsumerState<ScanScreen> {
   List<String> _allImages = [];
-  List<MemeDetectionResult> _memes = [];
+  List<MemeDetectionResult> _allResults = []; // 所有检测结果（含 score=0）
+  List<MemeDetectionResult> _memes = [];       // 当前筛选后的结果
   ScanProgress? _progress;
   String? _scanDir;
   String? _safUri; // 原始 SAF 内容 URI，用于列文件
   bool _scanning = false;
   bool _importing = false;
+  RangeValues _scoreFilter = const RangeValues(0.0, 1.0); // 概率区间筛选
 
   @override
   Widget build(BuildContext context) {
@@ -96,34 +98,64 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
 
             // 扫描结果
             if (!_scanning && _progress != null) ...[
+              // 统计卡片：共 N 张图片，筛选后 N 张
               Row(
                 children: [
                   _StatCard(
-                    icon: Icons.emoji_emotions,
-                    label: 'Meme',
-                    value: '${_progress!.memesFound}',
+                    icon: Icons.image,
+                    label: S.of(context).total,
+                    value: '${_allResults.length}',
                     color: cs.primary,
                   ),
                   const SizedBox(width: 8),
                   _StatCard(
-                    icon: Icons.text_fields,
-                    label: S.of(context).hasText,
-                    value: '${_progress!.textFound}',
+                    icon: Icons.emoji_emotions,
+                    label: 'Meme',
+                    value: '${_allResults.where((r) => r.score >= 0.5).length}',
                     color: cs.secondary,
                   ),
                   const SizedBox(width: 8),
                   _StatCard(
-                    icon: Icons.image,
-                    label: S.of(context).noText,
-                    value: '${_progress!.noText}',
+                    icon: Icons.filter_list,
+                    label: S.of(context).filter,
+                    value: '${_memes.length}',
                     color: cs.outline,
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-              // 检测到的 meme 列表
-              if (_memes.isNotEmpty) ...[
+              // 概率区间筛选滑块
+              Row(
+                children: [
+                  Text('${(_scoreFilter.start * 100).toInt()}%',
+                      style: theme.textTheme.bodySmall),
+                  Expanded(
+                    child: RangeSlider(
+                      values: _scoreFilter,
+                      min: 0.0,
+                      max: 1.0,
+                      divisions: 100,
+                      labels: RangeLabels(
+                        '${(_scoreFilter.start * 100).toInt()}%',
+                        '${(_scoreFilter.end * 100).toInt()}%',
+                      ),
+                      onChanged: (v) {
+                        setState(() {
+                          _scoreFilter = v;
+                          _applyScoreFilter();
+                        });
+                      },
+                    ),
+                  ),
+                  Text('${(_scoreFilter.end * 100).toInt()}%',
+                      style: theme.textTheme.bodySmall),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // 全部图片列表（按概率降序排列，应用筛选）
+              if (_allResults.isNotEmpty) ...[
                 Text(S.of(context).detectedMemes(_memes.length),
                     style: theme.textTheme.titleSmall),
                 const SizedBox(height: 8),
@@ -157,7 +189,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           subtitle: Text(
-                            '${S.of(context).matchScore((m.score * 100).toInt())}${m.text != null ? ' · ${S.of(context).charCount(m.text!.length)}' : ''}',
+                            m.text != null
+                                ? '${(m.score * 100).toInt()}% · ${S.of(context).charCount(m.text!.length)}'
+                                : '${(m.score * 100).toInt()}%',
                             style: theme.textTheme.bodySmall,
                           ),
                           trailing: Row(
@@ -169,7 +203,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                                   style: theme.textTheme.labelSmall?.copyWith(
                                     color: m.score >= 0.7
                                         ? Colors.green
-                                        : Colors.orange,
+                                        : m.score >= 0.3
+                                            ? Colors.orange
+                                            : Colors.grey,
                                   ),
                                 ),
                               ),
@@ -177,7 +213,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                                 icon: Icon(Icons.close, size: 18,
                                     color: cs.onSurfaceVariant),
                                 onPressed: () => setState(() {
-                                  _memes.removeAt(i);
+                                  _allResults.removeAt(_allResults.indexOf(m));
+                                  _applyScoreFilter();
                                 }),
                                 visualDensity: VisualDensity.compact,
                                 tooltip: S.of(context).remove,
@@ -209,19 +246,6 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                   ),
                 ),
               ],
-
-              if (_memes.isEmpty && _allImages.isNotEmpty)
-                Center(
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 32),
-                      Icon(Icons.search_off, size: 64, color: cs.outline),
-                      const SizedBox(height: 16),
-                      Text(S.of(context).noMemeDetected,
-                          style: theme.textTheme.titleMedium),
-                    ],
-                  ),
-                ),
             ],
           ],
         ],
@@ -359,6 +383,14 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     }
   }
 
+  /// 应用概率区间筛选并排序
+  void _applyScoreFilter() {
+    _allResults.sort((a, b) => b.score.compareTo(a.score));
+    _memes = _allResults
+        .where((r) => r.score >= _scoreFilter.start && r.score <= _scoreFilter.end)
+        .toList();
+  }
+
   /// 调用 file_selector 的系统目录选择器，返回真实文件路径
   Future<String?> _pickDirectoryWithFileSelector() async {
     try {
@@ -465,10 +497,12 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       return;
     }
 
-    // 2. 批量检测（每批5张并发），直接收集结果
-    int memesFound = 0, textFound = 0, noText = 0, completed = 0;
+    // 2. 批量检测（每批5张并发），收集所有结果
+    int completed = 0;
+    int memesFound = 0;
+    int skippedNoOcr = 0;
     final total = images.length;
-    final memes = <MemeDetectionResult>[];
+    final allResults = <MemeDetectionResult>[];
 
     for (int i = 0; i < images.length; i += 5) {
       if (!mounted) return;
@@ -481,34 +515,33 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
 
       for (final r in results) {
         completed++;
-        log.info('Scan', '${r.filePath.split('/').last}: score=${r.score.toStringAsFixed(2)}'
-            ' text=${r.text?.substring(0, (r.text?.length ?? 0).clamp(0, 30))}');
-        if (r.isMeme) {
-          memesFound++;
-          memes.add(r);
-        } else if (r.text != null && r.text!.isNotEmpty) {
-          textFound++;
-        } else {
-          noText++;
-        }
+        if (r.score == 0 && r.text == null) skippedNoOcr++;
+        if (r.score >= 0.5) memesFound++;
+        allResults.add(r);
         if (mounted) {
           setState(() => _progress = ScanProgress(
             total: total, completed: completed,
-            memesFound: memesFound, textFound: textFound, noText: noText,
+            memesFound: memesFound,
+            textFound: allResults.where((x) => x.text != null && !x.isMeme).length,
+            noText: allResults.where((x) => x.text == null && x.score == 0).length,
             currentFile: r.filePath,
           ));
         }
       }
     }
 
-    log.info('Scan', 'done: memes=$memesFound text=$textFound noText=$noText');
+    log.info('Scan', 'done: total=${allResults.length} memes=$memesFound skippedNoOcr=$skippedNoOcr');
     if (mounted) {
       setState(() {
-        _memes = memes;
+        _allResults = allResults;
+        _allResults.sort((a, b) => b.score.compareTo(a.score));
+        _applyScoreFilter();
         _scanning = false;
         _progress = ScanProgress(
           total: total, completed: completed,
-          memesFound: memesFound, textFound: textFound, noText: noText,
+          memesFound: memesFound,
+          textFound: allResults.where((x) => x.text != null && !x.isMeme).length,
+          noText: allResults.where((x) => x.text == null && x.score == 0).length,
         );
       });
     }
@@ -518,7 +551,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     setState(() => _importing = true);
     final paths = _memes.map((m) => m.filePath).toList();
     final service = ref.read(importServiceProvider);
-    final result = await service.importImages(paths);
+    final result = await service.importImages(paths, source: '扫描文件夹');
+    // 用户统计由 ImportService 内部自动处理
     if (mounted) {
       setState(() => _importing = false);
       ref.invalidate(memeListProvider);
