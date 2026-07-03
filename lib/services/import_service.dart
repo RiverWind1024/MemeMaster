@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:image/image.dart' as img;
 
 import '../core/database/database.dart';
+import '../core/database/daos/user_stats_dao.dart';
 import '../core/repositories/meme_repository.dart';
 import 'file_storage_service.dart';
 
@@ -24,13 +25,15 @@ class ImportResult {
 class ImportService {
   final MemeRepository _memeRepo;
   final FileStorageService _storage;
+  final UserStatsDao? _userStatsDao;
 
   ImportService({
     required this._memeRepo,
     required this._storage,
+    this._userStatsDao,
   });
 
-  Future<Meme?> importImage(String sourcePath) async {
+  Future<Meme?> importImage(String sourcePath, {String? source}) async {
     final file = File(sourcePath);
     if (!await file.exists()) return null;
 
@@ -60,11 +63,20 @@ class ImportService {
       fileHash: fileHash,
     );
 
+    // 更新图片来源
+    if (source != null) {
+      await _memeRepo.updateSource(meme.id, source);
+    }
+
+    // 用户统计：今日导入数 +1
+    await _userStatsDao?.incrementImported();
+
     await _memeRepo.enqueueAnalysis(meme.id, priority: 0);
     return meme;
   }
 
-  Future<ImportResult> importImages(List<String> sourcePaths) async {
+  Future<ImportResult> importImages(List<String> sourcePaths,
+      {String? source}) async {
     int success = 0;
     int skipped = 0;
     final errors = <String>[];
@@ -72,7 +84,7 @@ class ImportService {
 
     for (final path in sourcePaths) {
       try {
-        final result = await importImage(path);
+        final result = await importImage(path, source: source);
         if (result != null) {
           success++;
         } else {
