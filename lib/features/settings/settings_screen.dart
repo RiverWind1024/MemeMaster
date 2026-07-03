@@ -1,18 +1,177 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:open_filex/open_filex.dart';
 
+import '../../services/config_exporter.dart';
 import '../../services/s3_config.dart';
 import '../../core/image/color_extraction_config.dart';
 import '../../core/llm/config.dart';
 import '../gallery/gallery_provider.dart';
 import '../../l10n/app_localizations.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  int _versionTapCount = 0;
+
+  void _onVersionTap() {
+    _versionTapCount++;
+    if (_versionTapCount >= 3) {
+      _versionTapCount = 0;
+      context.pushNamed('user-stats');
+    }
+    // 3 秒内不继续点击则重置计数
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _versionTapCount = 0);
+    });
+  }
+
+  Future<void> _onExportConfig(BuildContext context, WidgetRef ref) async {
+    final s = S.of(context);
+    try {
+      final s3Config = ref.read(s3ConfigProvider).valueOrNull ?? const S3Config();
+      final llmConfig = ref.read(llmConfigProvider);
+      final localLlmConfig = ref.read(localLlmConfigProvider);
+      final colorConfig = ref.read(colorExtractionConfigProvider);
+      final themeMode = ref.read(themeModeProvider).name;
+      final locale = ref.read(localeProvider)?.toString();
+      final ocrEnabled = ref.read(ocrEnabledProvider);
+      final llmEnabled = ref.read(llmEnabledProvider);
+      final llmMode = ref.read(llmModeProvider).name;
+
+      final jsonContent = await ConfigExporter.exportConfig(
+        s3Config: s3Config,
+        llmConfig: llmConfig,
+        localLlmConfig: localLlmConfig,
+        colorExtractionConfig: colorConfig,
+        themeMode: themeMode,
+        locale: locale,
+        ocrEnabled: ocrEnabled,
+        llmEnabled: llmEnabled,
+        llmMode: llmMode,
+      );
+
+      if (!mounted) return;
+
+      // 让用户选择导出方式
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(s.exportConfig),
+          content: const Text('选择导出方式'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'file'),
+              child: const Text('保存为文件'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'share'),
+              child: const Text('分享'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(s.cancel),
+            ),
+          ],
+        ),
+      );
+      if (choice == null || !mounted) return;
+
+      if (choice == 'file') {
+        final path = await ConfigExporter.exportToFile(jsonContent);
+        if (path != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${s.configExported}: $path')),
+          );
+        }
+      } else if (choice == 'share') {
+        await ConfigExporter.exportViaShare(jsonContent);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _onImportConfig(BuildContext context, WidgetRef ref) async {
+    final s = S.of(context);
+    try {
+      final payload = await ConfigExporter.importFromFile();
+      if (payload == null || !mounted) return;
+
+      final errors = await ConfigExporter.applyConfig(
+        payload: payload,
+        saveS3Config: (config) async {
+          await ref.read(s3ConfigProvider.notifier).save(config);
+        },
+        updateLlmConfig: (config) {
+          ref.read(llmConfigProvider.notifier).update(config);
+        },
+        updateLocalLlmConfig: (config) {
+          ref.read(localLlmConfigProvider.notifier).update(config);
+        },
+        updateColorExtraction: (config) {
+          ref.read(colorExtractionConfigProvider.notifier).update(config);
+        },
+        setThemeMode: (mode) {
+          ref.read(themeModeProvider.notifier).set(ThemeMode.values.byName(mode));
+        },
+        setLocale: (locale) {
+          if (locale != null) {
+            final parts = locale.split('_');
+            ref.read(localeProvider.notifier)
+                .set(Locale(parts[0], parts.length > 1 ? parts[1] : null));
+          } else {
+            ref.read(localeProvider.notifier).set(null);
+          }
+        },
+        setOcrEnabled: (value) {
+          ref.read(ocrEnabledProvider.notifier).setEnabled(value);
+        },
+        setLlmEnabled: (value) {
+          ref.read(llmEnabledProvider.notifier).setEnabled(value);
+        },
+        setLlmMode: (mode) {
+          ref.read(llmModeProvider.notifier).setMode(LlmMode.values.byName(mode));
+        },
+      );
+
+      if (!mounted) return;
+
+      if (errors.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(s.configImportSuccess)),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(s.configImportFailed(
+                errors.values.join('; '))),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(s.configImportFailed('$e'))),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocrEnabled = ref.watch(ocrEnabledProvider);
     final llmMode = ref.watch(llmModeProvider);
@@ -123,6 +282,30 @@ class SettingsScreen extends ConsumerWidget {
                       leading: const Icon(Icons.storage),
                       title: Text(S.of(context).storageSpace),
                       subtitle: Text(usedStr),
+                      trailing: const Icon(Icons.folder_open, size: 18),
+                      onTap: () async {
+                        final storage = ref.read(fileStorageServiceProvider);
+                        final dirPath = await storage.basePath;
+                        if (!context.mounted) return;
+                        try {
+                          if (Platform.isAndroid) {
+                            // 先尝试打开目录
+                            final result = await OpenFilex.open(dirPath);
+                            if (result.type != ResultType.done) {
+                              debugPrint('[OpenFolder] 打开目录失败: ${result.message}，尝试打开文件');
+                            }
+                          } else {
+                            await Process.run('xdg-open', [dirPath]);
+                          }
+                        } catch (e) {
+                          debugPrint('[OpenFolder] 打开目录异常: $e');
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('打开失败: $e')),
+                            );
+                          }
+                        }
+                      },
                     );
                   },
                 ),
@@ -165,6 +348,37 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 24),
 
+          // 配置导入导出
+          Text(S.of(context).config, style: theme.textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.file_upload_outlined),
+                    title: Text(S.of(context).exportConfig),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _onExportConfig(context, ref),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.file_download_outlined),
+                    title: Text(S.of(context).importConfig),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _onImportConfig(context, ref),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
           // 关于
           Text(S.of(context).about, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
@@ -173,6 +387,7 @@ class SettingsScreen extends ConsumerWidget {
               leading: Icon(Icons.info_outline),
               title: Text('MemeManager'),
               subtitle: Text('v1.0.0'),
+              onTap: _onVersionTap,
             ),
           ),
         ],
