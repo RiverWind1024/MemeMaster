@@ -10,6 +10,7 @@ import 'features/settings/llm_settings_screen.dart';
 import 'features/settings/model_manager_screen.dart';
 import 'features/settings/log_viewer_screen.dart';
 import 'features/settings/s3_sync_screen.dart';
+import 'features/settings/user_stats_screen.dart';
 import 'main_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -103,6 +104,11 @@ final router = GoRouter(
           path: 'settings/s3-sync',
           name: 's3-sync',
           builder: (context, state) => const S3SyncScreen(),
+        ),
+        GoRoute(
+          path: 'settings/user-stats',
+          name: 'user-stats',
+          builder: (context, state) => const UserStatsScreen(),
         ),
       ],
     ),

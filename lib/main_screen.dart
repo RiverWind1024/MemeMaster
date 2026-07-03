@@ -8,7 +8,7 @@ import 'l10n/app_localizations.dart';
 /// 应用主界面：底部 3 Tab（图库 / 搜索 / 设置）
 class MainScreen extends StatefulWidget {
   final int initialTab;
-  const MainScreen({super.key, this.initialTab = 0});
+  const MainScreen({super.key, this.initialTab = 1});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
