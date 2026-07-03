@@ -1,10 +1,15 @@
+import 'dart:io';
+
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/llm/config.dart';
 import '../../core/llm/local_config.dart';
+import '../../core/llm/local_service.dart';
+import '../../core/llm/models.dart';
 import '../gallery/gallery_provider.dart';
 import '../../l10n/app_localizations.dart';
 
@@ -157,12 +162,18 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                     if (localConfig.modelPath != null) ...[
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.check_circle, color: Colors.green),
+                        leading: ref.watch(localLlmLoadedProvider)
+                            ? const Icon(Icons.check_circle, color: Colors.green)
+                            : const Icon(Icons.info_outline, color: Colors.orange),
                         title: Text(
                           localConfig.modelPath!.split('/').last,
                           style: theme.textTheme.bodyMedium,
                         ),
-                        subtitle: Text(S.of(context).loaded, style: theme.textTheme.bodySmall),
+                        subtitle: ref.watch(localLlmLoadingProvider)
+                            ? Text('正在加载…', style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange))
+                            : ref.watch(localLlmLoadedProvider)
+                                ? Text(S.of(context).loaded, style: theme.textTheme.bodySmall)
+                                : Text('已配置，点击下方「加载模型」按钮', style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange)),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -176,11 +187,26 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                                 ref.read(localLlmConfigProvider.notifier).update(
                                   const LocalLlmConfig(),
                                 );
+                                ref.read(localLlmLoadedProvider.notifier).state = false;
                               },
                             ),
                           ],
                         ),
                       ),
+                      if (ref.watch(localLlmLoadingProvider))
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: LinearProgressIndicator(),
+                        ),
+                      if (!ref.watch(localLlmLoadedProvider) && !ref.watch(localLlmLoadingProvider))
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: OutlinedButton.icon(
+                            onPressed: () => _loadModel(),
+                            icon: const Icon(Icons.play_arrow, size: 18),
+                            label: const Text('加载模型'),
+                          ),
+                        ),
                       const Divider(),
                       SwitchListTile(
                         title: Text(S.of(context).gpuAcceleration),
@@ -207,6 +233,19 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                               );
                             }
                           },
+                        ),
+                      ),
+                      const Divider(),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.science_outlined),
+                        title: Text('测试推理'),
+                        subtitle: Text('运行快速测试验证模型加载和推理是否正常',
+                            style: theme.textTheme.bodySmall),
+                        trailing: FilledButton.tonalIcon(
+                          onPressed: () => _runTestInference(),
+                          icon: const Icon(Icons.play_arrow, size: 18),
+                          label: Text('测试'),
                         ),
                       ),
                     ] else ...[
@@ -245,6 +284,145 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _loadModel() async {
+    final config = ref.read(localLlmConfigProvider);
+    if (config.modelPath == null) return;
+
+    ref.read(localLlmLoadingProvider.notifier).state = true;
+    debugPrint('[LoadModel] 开始加载模型: ${config.modelPath}');
+    debugPrint('[LoadModel] 模型文件存在: ${File(config.modelPath!).existsSync()}');
+    debugPrint('[LoadModel] 模型文件大小: ${File(config.modelPath!).lengthSync()} bytes');
+
+    // 等一帧让进度条先渲染出来
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    try {
+      debugPrint('[LoadModel] 调用 runTestInference...');
+      final result = runTestInference(
+        modelPath: config.modelPath!,
+        mmprojPath: config.mmprojPath,
+        threads: config.threads,
+        contextSize: config.contextSize,
+        prompt: 'Answer with one word: hello',
+        maxTokens: 8,
+        temperature: 0.7,
+      );
+
+      if (result != null) {
+        ref.read(localLlmLoadedProvider.notifier).state = true;
+        debugPrint('[LoadModel] 模型加载成功');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('模型加载成功')),
+          );
+        }
+      } else {
+        debugPrint('[LoadModel] 模型加载失败：返回空指针');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('模型加载失败：返回空指针，请用 adb logcat 查看日志')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('[LoadModel] 模型加载异常: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('模型加载失败: $e')),
+        );
+      }
+    } finally {
+      ref.read(localLlmLoadingProvider.notifier).state = false;
+    }
+  }
+
+  Future<void> _runTestInference() async {
+    final config = ref.read(localLlmConfigProvider);
+    if (config.modelPath == null) return;
+
+    debugPrint('[TestInference] 开始测试推理, modelPath=${config.modelPath}');
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('正在执行推理测试…（约 5-30 秒）\n如果闪退请用 adb logcat 查看崩溃日志'),
+          ],
+        ),
+      ),
+    );
+
+    // 等一帧让 loading dialog 先渲染出来，再执行同步 FFI
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    try {
+      final result = runTestInference(
+        modelPath: config.modelPath!,
+        mmprojPath: config.mmprojPath,
+        threads: config.threads,
+        contextSize: config.contextSize,
+        prompt: 'Answer with one word: say hello',
+        maxTokens: 32,
+        temperature: 0.7,
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      if (result == null) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('推理测试失败'),
+            content: const Text('模型加载返回空指针，请检查模型文件是否损坏。\n\n用 adb logcat | grep mllm 查看详细日志。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('推理测试成功'),
+            content: Text('模型返回: "$result"'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[TestInference] 测试推理异常: $e');
+      if (!mounted) return;
+      Navigator.pop(context);
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('推理测试失败'),
+          content: Text('错误: $e\n\n请检查模型文件是否正确或查看日志。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Future<void> _pickLocalModel() async {
