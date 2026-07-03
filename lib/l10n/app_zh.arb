@@ -405,5 +405,31 @@
   "descriptionLabel": "描述",
 
   "mmprojHint": "如果你的模型支持图片输入（多模态），建议同时选择 mmproj 投影文件。\n\n不需要请点「跳过」",
-  "uriReadFailed": "无法读取 URI"
+  "uriReadFailed": "无法读取 URI",
+
+  "userStatsTitle": "用户统计",
+  "todayStats": "今日统计",
+  "recent7DayTrend": "近 7 天趋势",
+  "totalSummary": "全部汇总",
+  "imported": "导入",
+  "copied": "复制",
+  "favorited": "收藏",
+  "total": "总计",
+  "filter": "筛选",
+  "tokenUsage": "Token 用量",
+  "promptTokens": "Prompt Token",
+  "completionTokens": "Completion Token",
+  "totalTokens": "总 Token",
+  "day": "天",
+  "last7Days": "近 7 天",
+  "last30Days": "近 30 天",
+  "last365Days": "近 365 天",
+  "heatmap": "热度图",
+  "statsDateRange": "统计范围",
+  "exportConfig": "导出配置",
+  "importConfig": "导入配置",
+  "configExported": "配置已导出",
+  "configImportSuccess": "配置导入成功",
+  "configImportFailed": "配置导入失败: {error}",
+  "@configImportFailed": { "placeholders": { "error": { "type": "String" } } }
 }

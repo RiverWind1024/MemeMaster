@@ -1116,4 +1116,78 @@ class SEn extends S {
 
   @override
   String get uriReadFailed => 'Cannot read URI';
+
+  @override
+  String get userStatsTitle => 'User Statistics';
+
+  @override
+  String get todayStats => 'Today';
+
+  @override
+  String get recent7DayTrend => '7-Day Trend';
+
+  @override
+  String get totalSummary => 'All Time';
+
+  @override
+  String get imported => 'Imported';
+
+  @override
+  String get copied => 'Copied';
+
+  @override
+  String get favorited => 'Favorited';
+
+  @override
+  String get total => 'Total';
+
+  @override
+  String get filter => 'Filter';
+
+  @override
+  String get tokenUsage => 'Token Usage';
+
+  @override
+  String get promptTokens => 'Prompt Tokens';
+
+  @override
+  String get completionTokens => 'Completion Tokens';
+
+  @override
+  String get totalTokens => 'Total Tokens';
+
+  @override
+  String get day => 'day(s)';
+
+  @override
+  String get last7Days => 'Last 7 Days';
+
+  @override
+  String get last30Days => 'Last 30 Days';
+
+  @override
+  String get last365Days => 'Last 365 Days';
+
+  @override
+  String get heatmap => 'Heatmap';
+
+  @override
+  String get statsDateRange => 'Date Range';
+
+  @override
+  String get exportConfig => 'Export Config';
+
+  @override
+  String get importConfig => 'Import Config';
+
+  @override
+  String get configExported => 'Config exported';
+
+  @override
+  String get configImportSuccess => 'Config imported successfully';
+
+  @override
+  String configImportFailed(String error) {
+    return 'Config import failed: $error';
+  }
 }
