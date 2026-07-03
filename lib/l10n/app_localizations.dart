@@ -2064,6 +2064,150 @@ abstract class S {
   /// In zh, this message translates to:
   /// **'无法读取 URI'**
   String get uriReadFailed;
+
+  /// No description provided for @userStatsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户统计'**
+  String get userStatsTitle;
+
+  /// No description provided for @todayStats.
+  ///
+  /// In zh, this message translates to:
+  /// **'今日统计'**
+  String get todayStats;
+
+  /// No description provided for @recent7DayTrend.
+  ///
+  /// In zh, this message translates to:
+  /// **'近 7 天趋势'**
+  String get recent7DayTrend;
+
+  /// No description provided for @totalSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部汇总'**
+  String get totalSummary;
+
+  /// No description provided for @imported.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入'**
+  String get imported;
+
+  /// No description provided for @copied.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制'**
+  String get copied;
+
+  /// No description provided for @favorited.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏'**
+  String get favorited;
+
+  /// No description provided for @total.
+  ///
+  /// In zh, this message translates to:
+  /// **'总计'**
+  String get total;
+
+  /// No description provided for @filter.
+  ///
+  /// In zh, this message translates to:
+  /// **'筛选'**
+  String get filter;
+
+  /// No description provided for @tokenUsage.
+  ///
+  /// In zh, this message translates to:
+  /// **'Token 用量'**
+  String get tokenUsage;
+
+  /// No description provided for @promptTokens.
+  ///
+  /// In zh, this message translates to:
+  /// **'Prompt Token'**
+  String get promptTokens;
+
+  /// No description provided for @completionTokens.
+  ///
+  /// In zh, this message translates to:
+  /// **'Completion Token'**
+  String get completionTokens;
+
+  /// No description provided for @totalTokens.
+  ///
+  /// In zh, this message translates to:
+  /// **'总 Token'**
+  String get totalTokens;
+
+  /// No description provided for @day.
+  ///
+  /// In zh, this message translates to:
+  /// **'天'**
+  String get day;
+
+  /// No description provided for @last7Days.
+  ///
+  /// In zh, this message translates to:
+  /// **'近 7 天'**
+  String get last7Days;
+
+  /// No description provided for @last30Days.
+  ///
+  /// In zh, this message translates to:
+  /// **'近 30 天'**
+  String get last30Days;
+
+  /// No description provided for @last365Days.
+  ///
+  /// In zh, this message translates to:
+  /// **'近 365 天'**
+  String get last365Days;
+
+  /// No description provided for @heatmap.
+  ///
+  /// In zh, this message translates to:
+  /// **'热度图'**
+  String get heatmap;
+
+  /// No description provided for @statsDateRange.
+  ///
+  /// In zh, this message translates to:
+  /// **'统计范围'**
+  String get statsDateRange;
+
+  /// No description provided for @exportConfig.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出配置'**
+  String get exportConfig;
+
+  /// No description provided for @importConfig.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入配置'**
+  String get importConfig;
+
+  /// No description provided for @configExported.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置已导出'**
+  String get configExported;
+
+  /// No description provided for @configImportSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置导入成功'**
+  String get configImportSuccess;
+
+  /// No description provided for @configImportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置导入失败: {error}'**
+  String configImportFailed(String error);
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

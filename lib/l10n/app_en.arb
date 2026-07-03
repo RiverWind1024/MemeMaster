@@ -350,5 +350,31 @@
   "descriptionLabel": "Description",
 
   "mmprojHint": "If your model supports image input (multimodal), it's recommended to also select the mmproj projection file.\n\nSkip if not needed",
-  "uriReadFailed": "Cannot read URI"
+  "uriReadFailed": "Cannot read URI",
+
+  "userStatsTitle": "User Statistics",
+  "todayStats": "Today",
+  "recent7DayTrend": "7-Day Trend",
+  "totalSummary": "All Time",
+  "imported": "Imported",
+  "copied": "Copied",
+  "favorited": "Favorited",
+  "total": "Total",
+  "filter": "Filter",
+  "tokenUsage": "Token Usage",
+  "promptTokens": "Prompt Tokens",
+  "completionTokens": "Completion Tokens",
+  "totalTokens": "Total Tokens",
+  "day": "day(s)",
+  "last7Days": "Last 7 Days",
+  "last30Days": "Last 30 Days",
+  "last365Days": "Last 365 Days",
+  "heatmap": "Heatmap",
+  "statsDateRange": "Date Range",
+  "exportConfig": "Export Config",
+  "importConfig": "Import Config",
+  "configExported": "Config exported",
+  "configImportSuccess": "Config imported successfully",
+  "configImportFailed": "Config import failed: {error}",
+  "@configImportFailed": { "placeholders": { "error": { "type": "String" } } }
 }

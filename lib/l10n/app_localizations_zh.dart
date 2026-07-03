@@ -1101,4 +1101,78 @@ class SZh extends S {
 
   @override
   String get uriReadFailed => '无法读取 URI';
+
+  @override
+  String get userStatsTitle => '用户统计';
+
+  @override
+  String get todayStats => '今日统计';
+
+  @override
+  String get recent7DayTrend => '近 7 天趋势';
+
+  @override
+  String get totalSummary => '全部汇总';
+
+  @override
+  String get imported => '导入';
+
+  @override
+  String get copied => '复制';
+
+  @override
+  String get favorited => '收藏';
+
+  @override
+  String get total => '总计';
+
+  @override
+  String get filter => '筛选';
+
+  @override
+  String get tokenUsage => 'Token 用量';
+
+  @override
+  String get promptTokens => 'Prompt Token';
+
+  @override
+  String get completionTokens => 'Completion Token';
+
+  @override
+  String get totalTokens => '总 Token';
+
+  @override
+  String get day => '天';
+
+  @override
+  String get last7Days => '近 7 天';
+
+  @override
+  String get last30Days => '近 30 天';
+
+  @override
+  String get last365Days => '近 365 天';
+
+  @override
+  String get heatmap => '热度图';
+
+  @override
+  String get statsDateRange => '统计范围';
+
+  @override
+  String get exportConfig => '导出配置';
+
+  @override
+  String get importConfig => '导入配置';
+
+  @override
+  String get configExported => '配置已导出';
+
+  @override
+  String get configImportSuccess => '配置导入成功';
+
+  @override
+  String configImportFailed(String error) {
+    return '配置导入失败: $error';
+  }
 }
