@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:open_filex/open_filex.dart';
 
 import '../../services/config_exporter.dart';
 import '../../services/s3_config.dart';
@@ -289,35 +289,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         if (!context.mounted) return;
                         try {
                           if (Platform.isAndroid) {
-                            // 先尝试打开目录
-                            final result = await OpenFilex.open(dirPath);
-                            if (result.type != ResultType.done) {
-                              debugPrint('[OpenFolder] 打开目录失败: ${result.message}，尝试打开文件');
-                            }
+                            const channel =
+                                MethodChannel('com.memehelper.app/file');
+                            await channel.invokeMethod(
+                                'openDownloadsFolder');
                           } else {
                             await Process.run('xdg-open', [dirPath]);
                           }
                         } catch (e) {
                           debugPrint('[OpenFolder] 打开目录异常: $e');
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('打开失败: $e')),
-                            );
-                          }
+                          if (context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('打开失败: $e')),
+                          );
                         }
                       },
                     );
                   },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.image),
-                  title: Text(S.of(context).imageCount,
-                      style: theme.textTheme.bodyMedium),
-                  trailing: ref.watch(memeCountProvider).when(
-                    loading: () => const SizedBox(
-                      width: 16, height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
+),
+                 ListTile(
+                   leading: const Icon(Icons.image),
+                   title: Text(S.of(context).imageCount,
+                       style: theme.textTheme.bodyMedium),
+                   trailing: ref.watch(memeCountProvider).when(
+                     loading: () => const SizedBox(
+                       width: 16, height: 16,
+                       child: CircularProgressIndicator(strokeWidth: 2),
+                     ),
                     error: (_, __) =>
                         Text('?', style: theme.textTheme.bodyMedium),
                     data: (count) =>
