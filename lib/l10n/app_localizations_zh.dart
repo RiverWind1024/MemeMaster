@@ -596,6 +596,17 @@ class SZh extends S {
   String get noLogs => '暂无日志';
 
   @override
+  String get logSearchHint => '搜索日志 (支持 message / tag / level)';
+
+  @override
+  String get logNoMatch => '无匹配日志';
+
+  @override
+  String logFilteredCount(Object count, Object total) {
+    return '$count/$total 条';
+  }
+
+  @override
   String get importComplete => '导入完成';
 
   @override

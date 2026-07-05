@@ -1171,6 +1171,24 @@ abstract class S {
   /// **'暂无日志'**
   String get noLogs;
 
+  /// No description provided for @logSearchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索日志 (支持 message / tag / level)'**
+  String get logSearchHint;
+
+  /// No description provided for @logNoMatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'无匹配日志'**
+  String get logNoMatch;
+
+  /// No description provided for @logFilteredCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count}/{total} 条'**
+  String logFilteredCount(Object count, Object total);
+
   /// No description provided for @importComplete.
   ///
   /// In zh, this message translates to:
