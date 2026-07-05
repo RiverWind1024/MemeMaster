@@ -10,7 +10,17 @@ class MemesTable extends Table {
   IntColumn get width => integer()();
   IntColumn get height => integer()();
   TextColumn? get folderId => text().nullable()();
+  /// 整体分析状态
   TextColumn get analysisStatus => text().withDefault(const Constant('pending'))();
+
+  /// 颜色提取分析状态: pending, running, done, failed
+  TextColumn get colorAnalysisStatus => text().withDefault(const Constant('pending'))();
+
+  /// OCR分析状态: pending, running, done, failed
+  TextColumn get ocrAnalysisStatus => text().withDefault(const Constant('pending'))();
+
+  /// AI分析状态: pending, running, done, failed
+  TextColumn get aiAnalysisStatus => text().withDefault(const Constant('pending'))();
   TextColumn get fileHash => text()();
   TextColumn? get description => text().nullable()();
   IntColumn get createdAt => integer()();

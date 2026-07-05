@@ -7,6 +7,9 @@ class MemeDao {
   final AppDatabase _db;
   MemeDao(this._db);
 
+  /// 获取数据库实例
+  AppDatabase get database => _db;
+
   /// 插入新 meme
   Future<void> insert(Meme meme) async {
     await _db.into(_db.memesTable).insertOnConflictUpdate(meme);
@@ -89,6 +92,9 @@ class MemeDao {
         height: d['height'] as int,
         folderId: d['folder_id'] as String?,
         analysisStatus: d['analysis_status'] as String,
+        colorAnalysisStatus: d['color_analysis_status'] as String? ?? 'pending',
+        ocrAnalysisStatus: d['ocr_analysis_status'] as String? ?? 'pending',
+        aiAnalysisStatus: d['ai_analysis_status'] as String? ?? 'pending',
         fileHash: d['file_hash'] as String,
         description: d['description'] as String?,
         createdAt: d['created_at'] as int,
@@ -127,6 +133,36 @@ class MemeDao {
           ..where((t) => t.id.equals(id)))
         .write(MemesTableCompanion(
           analysisStatus: Value(status),
+          updatedAt: Value(DateTime.now().millisecondsSinceEpoch),
+        ));
+  }
+
+  /// 更新颜色提取分析状态
+  Future<int> updateColorAnalysisStatus(String id, String status) {
+    return (_db.update(_db.memesTable)
+          ..where((t) => t.id.equals(id)))
+        .write(MemesTableCompanion(
+          colorAnalysisStatus: Value(status),
+          updatedAt: Value(DateTime.now().millisecondsSinceEpoch),
+        ));
+  }
+
+  /// 更新 OCR 分析状态
+  Future<int> updateOcrAnalysisStatus(String id, String status) {
+    return (_db.update(_db.memesTable)
+          ..where((t) => t.id.equals(id)))
+        .write(MemesTableCompanion(
+          ocrAnalysisStatus: Value(status),
+          updatedAt: Value(DateTime.now().millisecondsSinceEpoch),
+        ));
+  }
+
+  /// 更新 AI 分析状态
+  Future<int> updateAiAnalysisStatus(String id, String status) {
+    return (_db.update(_db.memesTable)
+          ..where((t) => t.id.equals(id)))
+        .write(MemesTableCompanion(
+          aiAnalysisStatus: Value(status),
           updatedAt: Value(DateTime.now().millisecondsSinceEpoch),
         ));
   }
@@ -187,6 +223,9 @@ class MemeDao {
         height: d['height'] as int,
         folderId: d['folder_id'] as String?,
         analysisStatus: d['analysis_status'] as String,
+        colorAnalysisStatus: d['color_analysis_status'] as String? ?? 'pending',
+        ocrAnalysisStatus: d['ocr_analysis_status'] as String? ?? 'pending',
+        aiAnalysisStatus: d['ai_analysis_status'] as String? ?? 'pending',
         fileHash: d['file_hash'] as String,
         description: d['description'] as String?,
         createdAt: d['created_at'] as int,

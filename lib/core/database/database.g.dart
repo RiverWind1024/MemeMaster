@@ -103,6 +103,43 @@ class $MemesTableTable extends MemesTable
     requiredDuringInsert: false,
     defaultValue: const Constant('pending'),
   );
+  static const VerificationMeta _colorAnalysisStatusMeta =
+      const VerificationMeta('colorAnalysisStatus');
+  @override
+  late final GeneratedColumn<String> colorAnalysisStatus =
+      GeneratedColumn<String>(
+        'color_analysis_status',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('pending'),
+      );
+  static const VerificationMeta _ocrAnalysisStatusMeta = const VerificationMeta(
+    'ocrAnalysisStatus',
+  );
+  @override
+  late final GeneratedColumn<String> ocrAnalysisStatus =
+      GeneratedColumn<String>(
+        'ocr_analysis_status',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('pending'),
+      );
+  static const VerificationMeta _aiAnalysisStatusMeta = const VerificationMeta(
+    'aiAnalysisStatus',
+  );
+  @override
+  late final GeneratedColumn<String> aiAnalysisStatus = GeneratedColumn<String>(
+    'ai_analysis_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
   static const VerificationMeta _fileHashMeta = const VerificationMeta(
     'fileHash',
   );
@@ -190,6 +227,9 @@ class $MemesTableTable extends MemesTable
     height,
     folderId,
     analysisStatus,
+    colorAnalysisStatus,
+    ocrAnalysisStatus,
+    aiAnalysisStatus,
     fileHash,
     description,
     createdAt,
@@ -275,6 +315,33 @@ class $MemesTableTable extends MemesTable
         analysisStatus.isAcceptableOrUnknown(
           data['analysis_status']!,
           _analysisStatusMeta,
+        ),
+      );
+    }
+    if (data.containsKey('color_analysis_status')) {
+      context.handle(
+        _colorAnalysisStatusMeta,
+        colorAnalysisStatus.isAcceptableOrUnknown(
+          data['color_analysis_status']!,
+          _colorAnalysisStatusMeta,
+        ),
+      );
+    }
+    if (data.containsKey('ocr_analysis_status')) {
+      context.handle(
+        _ocrAnalysisStatusMeta,
+        ocrAnalysisStatus.isAcceptableOrUnknown(
+          data['ocr_analysis_status']!,
+          _ocrAnalysisStatusMeta,
+        ),
+      );
+    }
+    if (data.containsKey('ai_analysis_status')) {
+      context.handle(
+        _aiAnalysisStatusMeta,
+        aiAnalysisStatus.isAcceptableOrUnknown(
+          data['ai_analysis_status']!,
+          _aiAnalysisStatusMeta,
         ),
       );
     }
@@ -376,6 +443,18 @@ class $MemesTableTable extends MemesTable
         DriftSqlType.string,
         data['${effectivePrefix}analysis_status'],
       )!,
+      colorAnalysisStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color_analysis_status'],
+      )!,
+      ocrAnalysisStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ocr_analysis_status'],
+      )!,
+      aiAnalysisStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ai_analysis_status'],
+      )!,
       fileHash: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}file_hash'],
@@ -422,7 +501,18 @@ class Meme extends DataClass implements Insertable<Meme> {
   final int width;
   final int height;
   final String? folderId;
+
+  /// 整体分析状态
   final String analysisStatus;
+
+  /// 颜色提取分析状态: pending, running, done, failed
+  final String colorAnalysisStatus;
+
+  /// OCR分析状态: pending, running, done, failed
+  final String ocrAnalysisStatus;
+
+  /// AI分析状态: pending, running, done, failed
+  final String aiAnalysisStatus;
   final String fileHash;
   final String? description;
   final int createdAt;
@@ -444,6 +534,9 @@ class Meme extends DataClass implements Insertable<Meme> {
     required this.height,
     this.folderId,
     required this.analysisStatus,
+    required this.colorAnalysisStatus,
+    required this.ocrAnalysisStatus,
+    required this.aiAnalysisStatus,
     required this.fileHash,
     this.description,
     required this.createdAt,
@@ -466,6 +559,9 @@ class Meme extends DataClass implements Insertable<Meme> {
       map['folder_id'] = Variable<String>(folderId);
     }
     map['analysis_status'] = Variable<String>(analysisStatus);
+    map['color_analysis_status'] = Variable<String>(colorAnalysisStatus);
+    map['ocr_analysis_status'] = Variable<String>(ocrAnalysisStatus);
+    map['ai_analysis_status'] = Variable<String>(aiAnalysisStatus);
     map['file_hash'] = Variable<String>(fileHash);
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
@@ -493,6 +589,9 @@ class Meme extends DataClass implements Insertable<Meme> {
           ? const Value.absent()
           : Value(folderId),
       analysisStatus: Value(analysisStatus),
+      colorAnalysisStatus: Value(colorAnalysisStatus),
+      ocrAnalysisStatus: Value(ocrAnalysisStatus),
+      aiAnalysisStatus: Value(aiAnalysisStatus),
       fileHash: Value(fileHash),
       description: description == null && nullToAbsent
           ? const Value.absent()
@@ -522,6 +621,11 @@ class Meme extends DataClass implements Insertable<Meme> {
       height: serializer.fromJson<int>(json['height']),
       folderId: serializer.fromJson<String?>(json['folderId']),
       analysisStatus: serializer.fromJson<String>(json['analysisStatus']),
+      colorAnalysisStatus: serializer.fromJson<String>(
+        json['colorAnalysisStatus'],
+      ),
+      ocrAnalysisStatus: serializer.fromJson<String>(json['ocrAnalysisStatus']),
+      aiAnalysisStatus: serializer.fromJson<String>(json['aiAnalysisStatus']),
       fileHash: serializer.fromJson<String>(json['fileHash']),
       description: serializer.fromJson<String?>(json['description']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
@@ -544,6 +648,9 @@ class Meme extends DataClass implements Insertable<Meme> {
       'height': serializer.toJson<int>(height),
       'folderId': serializer.toJson<String?>(folderId),
       'analysisStatus': serializer.toJson<String>(analysisStatus),
+      'colorAnalysisStatus': serializer.toJson<String>(colorAnalysisStatus),
+      'ocrAnalysisStatus': serializer.toJson<String>(ocrAnalysisStatus),
+      'aiAnalysisStatus': serializer.toJson<String>(aiAnalysisStatus),
       'fileHash': serializer.toJson<String>(fileHash),
       'description': serializer.toJson<String?>(description),
       'createdAt': serializer.toJson<int>(createdAt),
@@ -564,6 +671,9 @@ class Meme extends DataClass implements Insertable<Meme> {
     int? height,
     Value<String?> folderId = const Value.absent(),
     String? analysisStatus,
+    String? colorAnalysisStatus,
+    String? ocrAnalysisStatus,
+    String? aiAnalysisStatus,
     String? fileHash,
     Value<String?> description = const Value.absent(),
     int? createdAt,
@@ -581,6 +691,9 @@ class Meme extends DataClass implements Insertable<Meme> {
     height: height ?? this.height,
     folderId: folderId.present ? folderId.value : this.folderId,
     analysisStatus: analysisStatus ?? this.analysisStatus,
+    colorAnalysisStatus: colorAnalysisStatus ?? this.colorAnalysisStatus,
+    ocrAnalysisStatus: ocrAnalysisStatus ?? this.ocrAnalysisStatus,
+    aiAnalysisStatus: aiAnalysisStatus ?? this.aiAnalysisStatus,
     fileHash: fileHash ?? this.fileHash,
     description: description.present ? description.value : this.description,
     createdAt: createdAt ?? this.createdAt,
@@ -602,6 +715,15 @@ class Meme extends DataClass implements Insertable<Meme> {
       analysisStatus: data.analysisStatus.present
           ? data.analysisStatus.value
           : this.analysisStatus,
+      colorAnalysisStatus: data.colorAnalysisStatus.present
+          ? data.colorAnalysisStatus.value
+          : this.colorAnalysisStatus,
+      ocrAnalysisStatus: data.ocrAnalysisStatus.present
+          ? data.ocrAnalysisStatus.value
+          : this.ocrAnalysisStatus,
+      aiAnalysisStatus: data.aiAnalysisStatus.present
+          ? data.aiAnalysisStatus.value
+          : this.aiAnalysisStatus,
       fileHash: data.fileHash.present ? data.fileHash.value : this.fileHash,
       description: data.description.present
           ? data.description.value
@@ -628,6 +750,9 @@ class Meme extends DataClass implements Insertable<Meme> {
           ..write('height: $height, ')
           ..write('folderId: $folderId, ')
           ..write('analysisStatus: $analysisStatus, ')
+          ..write('colorAnalysisStatus: $colorAnalysisStatus, ')
+          ..write('ocrAnalysisStatus: $ocrAnalysisStatus, ')
+          ..write('aiAnalysisStatus: $aiAnalysisStatus, ')
           ..write('fileHash: $fileHash, ')
           ..write('description: $description, ')
           ..write('createdAt: $createdAt, ')
@@ -650,6 +775,9 @@ class Meme extends DataClass implements Insertable<Meme> {
     height,
     folderId,
     analysisStatus,
+    colorAnalysisStatus,
+    ocrAnalysisStatus,
+    aiAnalysisStatus,
     fileHash,
     description,
     createdAt,
@@ -671,6 +799,9 @@ class Meme extends DataClass implements Insertable<Meme> {
           other.height == this.height &&
           other.folderId == this.folderId &&
           other.analysisStatus == this.analysisStatus &&
+          other.colorAnalysisStatus == this.colorAnalysisStatus &&
+          other.ocrAnalysisStatus == this.ocrAnalysisStatus &&
+          other.aiAnalysisStatus == this.aiAnalysisStatus &&
           other.fileHash == this.fileHash &&
           other.description == this.description &&
           other.createdAt == this.createdAt &&
@@ -690,6 +821,9 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
   final Value<int> height;
   final Value<String?> folderId;
   final Value<String> analysisStatus;
+  final Value<String> colorAnalysisStatus;
+  final Value<String> ocrAnalysisStatus;
+  final Value<String> aiAnalysisStatus;
   final Value<String> fileHash;
   final Value<String?> description;
   final Value<int> createdAt;
@@ -708,6 +842,9 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     this.height = const Value.absent(),
     this.folderId = const Value.absent(),
     this.analysisStatus = const Value.absent(),
+    this.colorAnalysisStatus = const Value.absent(),
+    this.ocrAnalysisStatus = const Value.absent(),
+    this.aiAnalysisStatus = const Value.absent(),
     this.fileHash = const Value.absent(),
     this.description = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -727,6 +864,9 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     required int height,
     this.folderId = const Value.absent(),
     this.analysisStatus = const Value.absent(),
+    this.colorAnalysisStatus = const Value.absent(),
+    this.ocrAnalysisStatus = const Value.absent(),
+    this.aiAnalysisStatus = const Value.absent(),
     required String fileHash,
     this.description = const Value.absent(),
     required int createdAt,
@@ -756,6 +896,9 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     Expression<int>? height,
     Expression<String>? folderId,
     Expression<String>? analysisStatus,
+    Expression<String>? colorAnalysisStatus,
+    Expression<String>? ocrAnalysisStatus,
+    Expression<String>? aiAnalysisStatus,
     Expression<String>? fileHash,
     Expression<String>? description,
     Expression<int>? createdAt,
@@ -775,6 +918,10 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
       if (height != null) 'height': height,
       if (folderId != null) 'folder_id': folderId,
       if (analysisStatus != null) 'analysis_status': analysisStatus,
+      if (colorAnalysisStatus != null)
+        'color_analysis_status': colorAnalysisStatus,
+      if (ocrAnalysisStatus != null) 'ocr_analysis_status': ocrAnalysisStatus,
+      if (aiAnalysisStatus != null) 'ai_analysis_status': aiAnalysisStatus,
       if (fileHash != null) 'file_hash': fileHash,
       if (description != null) 'description': description,
       if (createdAt != null) 'created_at': createdAt,
@@ -796,6 +943,9 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     Value<int>? height,
     Value<String?>? folderId,
     Value<String>? analysisStatus,
+    Value<String>? colorAnalysisStatus,
+    Value<String>? ocrAnalysisStatus,
+    Value<String>? aiAnalysisStatus,
     Value<String>? fileHash,
     Value<String?>? description,
     Value<int>? createdAt,
@@ -815,6 +965,9 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
       height: height ?? this.height,
       folderId: folderId ?? this.folderId,
       analysisStatus: analysisStatus ?? this.analysisStatus,
+      colorAnalysisStatus: colorAnalysisStatus ?? this.colorAnalysisStatus,
+      ocrAnalysisStatus: ocrAnalysisStatus ?? this.ocrAnalysisStatus,
+      aiAnalysisStatus: aiAnalysisStatus ?? this.aiAnalysisStatus,
       fileHash: fileHash ?? this.fileHash,
       description: description ?? this.description,
       createdAt: createdAt ?? this.createdAt,
@@ -856,6 +1009,17 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     if (analysisStatus.present) {
       map['analysis_status'] = Variable<String>(analysisStatus.value);
     }
+    if (colorAnalysisStatus.present) {
+      map['color_analysis_status'] = Variable<String>(
+        colorAnalysisStatus.value,
+      );
+    }
+    if (ocrAnalysisStatus.present) {
+      map['ocr_analysis_status'] = Variable<String>(ocrAnalysisStatus.value);
+    }
+    if (aiAnalysisStatus.present) {
+      map['ai_analysis_status'] = Variable<String>(aiAnalysisStatus.value);
+    }
     if (fileHash.present) {
       map['file_hash'] = Variable<String>(fileHash.value);
     }
@@ -895,6 +1059,9 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
           ..write('height: $height, ')
           ..write('folderId: $folderId, ')
           ..write('analysisStatus: $analysisStatus, ')
+          ..write('colorAnalysisStatus: $colorAnalysisStatus, ')
+          ..write('ocrAnalysisStatus: $ocrAnalysisStatus, ')
+          ..write('aiAnalysisStatus: $aiAnalysisStatus, ')
           ..write('fileHash: $fileHash, ')
           ..write('description: $description, ')
           ..write('createdAt: $createdAt, ')
@@ -2588,6 +2755,1682 @@ class AnalysisQueueTableCompanion extends UpdateCompanion<AnalysisQueueItem> {
   }
 }
 
+class $ColorAnalysisQueueTableTable extends ColorAnalysisQueueTable
+    with TableInfo<$ColorAnalysisQueueTableTable, ColorAnalysisQueueItem> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ColorAnalysisQueueTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _memeIdMeta = const VerificationMeta('memeId');
+  @override
+  late final GeneratedColumn<String> memeId = GeneratedColumn<String>(
+    'meme_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES memes_table (id)',
+    ),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _priorityMeta = const VerificationMeta(
+    'priority',
+  );
+  @override
+  late final GeneratedColumn<int> priority = GeneratedColumn<int>(
+    'priority',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _retryCountMeta = const VerificationMeta(
+    'retryCount',
+  );
+  @override
+  late final GeneratedColumn<int> retryCount = GeneratedColumn<int>(
+    'retry_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _errorMsgMeta = const VerificationMeta(
+    'errorMsg',
+  );
+  @override
+  late final GeneratedColumn<String> errorMsg = GeneratedColumn<String>(
+    'error_msg',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startedAtMeta = const VerificationMeta(
+    'startedAt',
+  );
+  @override
+  late final GeneratedColumn<int> startedAt = GeneratedColumn<int>(
+    'started_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _doneAtMeta = const VerificationMeta('doneAt');
+  @override
+  late final GeneratedColumn<int> doneAt = GeneratedColumn<int>(
+    'done_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    memeId,
+    status,
+    priority,
+    retryCount,
+    errorMsg,
+    createdAt,
+    startedAt,
+    doneAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'color_analysis_queue_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ColorAnalysisQueueItem> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('meme_id')) {
+      context.handle(
+        _memeIdMeta,
+        memeId.isAcceptableOrUnknown(data['meme_id']!, _memeIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_memeIdMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('priority')) {
+      context.handle(
+        _priorityMeta,
+        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
+      );
+    }
+    if (data.containsKey('retry_count')) {
+      context.handle(
+        _retryCountMeta,
+        retryCount.isAcceptableOrUnknown(data['retry_count']!, _retryCountMeta),
+      );
+    }
+    if (data.containsKey('error_msg')) {
+      context.handle(
+        _errorMsgMeta,
+        errorMsg.isAcceptableOrUnknown(data['error_msg']!, _errorMsgMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('started_at')) {
+      context.handle(
+        _startedAtMeta,
+        startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta),
+      );
+    }
+    if (data.containsKey('done_at')) {
+      context.handle(
+        _doneAtMeta,
+        doneAt.isAcceptableOrUnknown(data['done_at']!, _doneAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ColorAnalysisQueueItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ColorAnalysisQueueItem(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      memeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}meme_id'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      priority: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}priority'],
+      )!,
+      retryCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}retry_count'],
+      )!,
+      errorMsg: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_msg'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      startedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}started_at'],
+      ),
+      doneAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}done_at'],
+      ),
+    );
+  }
+
+  @override
+  $ColorAnalysisQueueTableTable createAlias(String alias) {
+    return $ColorAnalysisQueueTableTable(attachedDatabase, alias);
+  }
+}
+
+class ColorAnalysisQueueItem extends DataClass
+    implements Insertable<ColorAnalysisQueueItem> {
+  final String id;
+  final String memeId;
+  final String status;
+  final int priority;
+  final int retryCount;
+  final String? errorMsg;
+  final int createdAt;
+  final int? startedAt;
+  final int? doneAt;
+  const ColorAnalysisQueueItem({
+    required this.id,
+    required this.memeId,
+    required this.status,
+    required this.priority,
+    required this.retryCount,
+    this.errorMsg,
+    required this.createdAt,
+    this.startedAt,
+    this.doneAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['meme_id'] = Variable<String>(memeId);
+    map['status'] = Variable<String>(status);
+    map['priority'] = Variable<int>(priority);
+    map['retry_count'] = Variable<int>(retryCount);
+    if (!nullToAbsent || errorMsg != null) {
+      map['error_msg'] = Variable<String>(errorMsg);
+    }
+    map['created_at'] = Variable<int>(createdAt);
+    if (!nullToAbsent || startedAt != null) {
+      map['started_at'] = Variable<int>(startedAt);
+    }
+    if (!nullToAbsent || doneAt != null) {
+      map['done_at'] = Variable<int>(doneAt);
+    }
+    return map;
+  }
+
+  ColorAnalysisQueueTableCompanion toCompanion(bool nullToAbsent) {
+    return ColorAnalysisQueueTableCompanion(
+      id: Value(id),
+      memeId: Value(memeId),
+      status: Value(status),
+      priority: Value(priority),
+      retryCount: Value(retryCount),
+      errorMsg: errorMsg == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorMsg),
+      createdAt: Value(createdAt),
+      startedAt: startedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startedAt),
+      doneAt: doneAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(doneAt),
+    );
+  }
+
+  factory ColorAnalysisQueueItem.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ColorAnalysisQueueItem(
+      id: serializer.fromJson<String>(json['id']),
+      memeId: serializer.fromJson<String>(json['memeId']),
+      status: serializer.fromJson<String>(json['status']),
+      priority: serializer.fromJson<int>(json['priority']),
+      retryCount: serializer.fromJson<int>(json['retryCount']),
+      errorMsg: serializer.fromJson<String?>(json['errorMsg']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      startedAt: serializer.fromJson<int?>(json['startedAt']),
+      doneAt: serializer.fromJson<int?>(json['doneAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'memeId': serializer.toJson<String>(memeId),
+      'status': serializer.toJson<String>(status),
+      'priority': serializer.toJson<int>(priority),
+      'retryCount': serializer.toJson<int>(retryCount),
+      'errorMsg': serializer.toJson<String?>(errorMsg),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'startedAt': serializer.toJson<int?>(startedAt),
+      'doneAt': serializer.toJson<int?>(doneAt),
+    };
+  }
+
+  ColorAnalysisQueueItem copyWith({
+    String? id,
+    String? memeId,
+    String? status,
+    int? priority,
+    int? retryCount,
+    Value<String?> errorMsg = const Value.absent(),
+    int? createdAt,
+    Value<int?> startedAt = const Value.absent(),
+    Value<int?> doneAt = const Value.absent(),
+  }) => ColorAnalysisQueueItem(
+    id: id ?? this.id,
+    memeId: memeId ?? this.memeId,
+    status: status ?? this.status,
+    priority: priority ?? this.priority,
+    retryCount: retryCount ?? this.retryCount,
+    errorMsg: errorMsg.present ? errorMsg.value : this.errorMsg,
+    createdAt: createdAt ?? this.createdAt,
+    startedAt: startedAt.present ? startedAt.value : this.startedAt,
+    doneAt: doneAt.present ? doneAt.value : this.doneAt,
+  );
+  ColorAnalysisQueueItem copyWithCompanion(
+    ColorAnalysisQueueTableCompanion data,
+  ) {
+    return ColorAnalysisQueueItem(
+      id: data.id.present ? data.id.value : this.id,
+      memeId: data.memeId.present ? data.memeId.value : this.memeId,
+      status: data.status.present ? data.status.value : this.status,
+      priority: data.priority.present ? data.priority.value : this.priority,
+      retryCount: data.retryCount.present
+          ? data.retryCount.value
+          : this.retryCount,
+      errorMsg: data.errorMsg.present ? data.errorMsg.value : this.errorMsg,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
+      doneAt: data.doneAt.present ? data.doneAt.value : this.doneAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ColorAnalysisQueueItem(')
+          ..write('id: $id, ')
+          ..write('memeId: $memeId, ')
+          ..write('status: $status, ')
+          ..write('priority: $priority, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('errorMsg: $errorMsg, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('doneAt: $doneAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    memeId,
+    status,
+    priority,
+    retryCount,
+    errorMsg,
+    createdAt,
+    startedAt,
+    doneAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ColorAnalysisQueueItem &&
+          other.id == this.id &&
+          other.memeId == this.memeId &&
+          other.status == this.status &&
+          other.priority == this.priority &&
+          other.retryCount == this.retryCount &&
+          other.errorMsg == this.errorMsg &&
+          other.createdAt == this.createdAt &&
+          other.startedAt == this.startedAt &&
+          other.doneAt == this.doneAt);
+}
+
+class ColorAnalysisQueueTableCompanion
+    extends UpdateCompanion<ColorAnalysisQueueItem> {
+  final Value<String> id;
+  final Value<String> memeId;
+  final Value<String> status;
+  final Value<int> priority;
+  final Value<int> retryCount;
+  final Value<String?> errorMsg;
+  final Value<int> createdAt;
+  final Value<int?> startedAt;
+  final Value<int?> doneAt;
+  final Value<int> rowid;
+  const ColorAnalysisQueueTableCompanion({
+    this.id = const Value.absent(),
+    this.memeId = const Value.absent(),
+    this.status = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.errorMsg = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.doneAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ColorAnalysisQueueTableCompanion.insert({
+    required String id,
+    required String memeId,
+    this.status = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.errorMsg = const Value.absent(),
+    required int createdAt,
+    this.startedAt = const Value.absent(),
+    this.doneAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       memeId = Value(memeId),
+       createdAt = Value(createdAt);
+  static Insertable<ColorAnalysisQueueItem> custom({
+    Expression<String>? id,
+    Expression<String>? memeId,
+    Expression<String>? status,
+    Expression<int>? priority,
+    Expression<int>? retryCount,
+    Expression<String>? errorMsg,
+    Expression<int>? createdAt,
+    Expression<int>? startedAt,
+    Expression<int>? doneAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (memeId != null) 'meme_id': memeId,
+      if (status != null) 'status': status,
+      if (priority != null) 'priority': priority,
+      if (retryCount != null) 'retry_count': retryCount,
+      if (errorMsg != null) 'error_msg': errorMsg,
+      if (createdAt != null) 'created_at': createdAt,
+      if (startedAt != null) 'started_at': startedAt,
+      if (doneAt != null) 'done_at': doneAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ColorAnalysisQueueTableCompanion copyWith({
+    Value<String>? id,
+    Value<String>? memeId,
+    Value<String>? status,
+    Value<int>? priority,
+    Value<int>? retryCount,
+    Value<String?>? errorMsg,
+    Value<int>? createdAt,
+    Value<int?>? startedAt,
+    Value<int?>? doneAt,
+    Value<int>? rowid,
+  }) {
+    return ColorAnalysisQueueTableCompanion(
+      id: id ?? this.id,
+      memeId: memeId ?? this.memeId,
+      status: status ?? this.status,
+      priority: priority ?? this.priority,
+      retryCount: retryCount ?? this.retryCount,
+      errorMsg: errorMsg ?? this.errorMsg,
+      createdAt: createdAt ?? this.createdAt,
+      startedAt: startedAt ?? this.startedAt,
+      doneAt: doneAt ?? this.doneAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (memeId.present) {
+      map['meme_id'] = Variable<String>(memeId.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (priority.present) {
+      map['priority'] = Variable<int>(priority.value);
+    }
+    if (retryCount.present) {
+      map['retry_count'] = Variable<int>(retryCount.value);
+    }
+    if (errorMsg.present) {
+      map['error_msg'] = Variable<String>(errorMsg.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (startedAt.present) {
+      map['started_at'] = Variable<int>(startedAt.value);
+    }
+    if (doneAt.present) {
+      map['done_at'] = Variable<int>(doneAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ColorAnalysisQueueTableCompanion(')
+          ..write('id: $id, ')
+          ..write('memeId: $memeId, ')
+          ..write('status: $status, ')
+          ..write('priority: $priority, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('errorMsg: $errorMsg, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('doneAt: $doneAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $OcrAnalysisQueueTableTable extends OcrAnalysisQueueTable
+    with TableInfo<$OcrAnalysisQueueTableTable, OcrAnalysisQueueItem> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $OcrAnalysisQueueTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _memeIdMeta = const VerificationMeta('memeId');
+  @override
+  late final GeneratedColumn<String> memeId = GeneratedColumn<String>(
+    'meme_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES memes_table (id)',
+    ),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _priorityMeta = const VerificationMeta(
+    'priority',
+  );
+  @override
+  late final GeneratedColumn<int> priority = GeneratedColumn<int>(
+    'priority',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _retryCountMeta = const VerificationMeta(
+    'retryCount',
+  );
+  @override
+  late final GeneratedColumn<int> retryCount = GeneratedColumn<int>(
+    'retry_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _errorMsgMeta = const VerificationMeta(
+    'errorMsg',
+  );
+  @override
+  late final GeneratedColumn<String> errorMsg = GeneratedColumn<String>(
+    'error_msg',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startedAtMeta = const VerificationMeta(
+    'startedAt',
+  );
+  @override
+  late final GeneratedColumn<int> startedAt = GeneratedColumn<int>(
+    'started_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _doneAtMeta = const VerificationMeta('doneAt');
+  @override
+  late final GeneratedColumn<int> doneAt = GeneratedColumn<int>(
+    'done_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    memeId,
+    status,
+    priority,
+    retryCount,
+    errorMsg,
+    createdAt,
+    startedAt,
+    doneAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'ocr_analysis_queue_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<OcrAnalysisQueueItem> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('meme_id')) {
+      context.handle(
+        _memeIdMeta,
+        memeId.isAcceptableOrUnknown(data['meme_id']!, _memeIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_memeIdMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('priority')) {
+      context.handle(
+        _priorityMeta,
+        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
+      );
+    }
+    if (data.containsKey('retry_count')) {
+      context.handle(
+        _retryCountMeta,
+        retryCount.isAcceptableOrUnknown(data['retry_count']!, _retryCountMeta),
+      );
+    }
+    if (data.containsKey('error_msg')) {
+      context.handle(
+        _errorMsgMeta,
+        errorMsg.isAcceptableOrUnknown(data['error_msg']!, _errorMsgMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('started_at')) {
+      context.handle(
+        _startedAtMeta,
+        startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta),
+      );
+    }
+    if (data.containsKey('done_at')) {
+      context.handle(
+        _doneAtMeta,
+        doneAt.isAcceptableOrUnknown(data['done_at']!, _doneAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  OcrAnalysisQueueItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return OcrAnalysisQueueItem(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      memeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}meme_id'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      priority: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}priority'],
+      )!,
+      retryCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}retry_count'],
+      )!,
+      errorMsg: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_msg'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      startedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}started_at'],
+      ),
+      doneAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}done_at'],
+      ),
+    );
+  }
+
+  @override
+  $OcrAnalysisQueueTableTable createAlias(String alias) {
+    return $OcrAnalysisQueueTableTable(attachedDatabase, alias);
+  }
+}
+
+class OcrAnalysisQueueItem extends DataClass
+    implements Insertable<OcrAnalysisQueueItem> {
+  final String id;
+  final String memeId;
+  final String status;
+  final int priority;
+  final int retryCount;
+  final String? errorMsg;
+  final int createdAt;
+  final int? startedAt;
+  final int? doneAt;
+  const OcrAnalysisQueueItem({
+    required this.id,
+    required this.memeId,
+    required this.status,
+    required this.priority,
+    required this.retryCount,
+    this.errorMsg,
+    required this.createdAt,
+    this.startedAt,
+    this.doneAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['meme_id'] = Variable<String>(memeId);
+    map['status'] = Variable<String>(status);
+    map['priority'] = Variable<int>(priority);
+    map['retry_count'] = Variable<int>(retryCount);
+    if (!nullToAbsent || errorMsg != null) {
+      map['error_msg'] = Variable<String>(errorMsg);
+    }
+    map['created_at'] = Variable<int>(createdAt);
+    if (!nullToAbsent || startedAt != null) {
+      map['started_at'] = Variable<int>(startedAt);
+    }
+    if (!nullToAbsent || doneAt != null) {
+      map['done_at'] = Variable<int>(doneAt);
+    }
+    return map;
+  }
+
+  OcrAnalysisQueueTableCompanion toCompanion(bool nullToAbsent) {
+    return OcrAnalysisQueueTableCompanion(
+      id: Value(id),
+      memeId: Value(memeId),
+      status: Value(status),
+      priority: Value(priority),
+      retryCount: Value(retryCount),
+      errorMsg: errorMsg == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorMsg),
+      createdAt: Value(createdAt),
+      startedAt: startedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startedAt),
+      doneAt: doneAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(doneAt),
+    );
+  }
+
+  factory OcrAnalysisQueueItem.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return OcrAnalysisQueueItem(
+      id: serializer.fromJson<String>(json['id']),
+      memeId: serializer.fromJson<String>(json['memeId']),
+      status: serializer.fromJson<String>(json['status']),
+      priority: serializer.fromJson<int>(json['priority']),
+      retryCount: serializer.fromJson<int>(json['retryCount']),
+      errorMsg: serializer.fromJson<String?>(json['errorMsg']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      startedAt: serializer.fromJson<int?>(json['startedAt']),
+      doneAt: serializer.fromJson<int?>(json['doneAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'memeId': serializer.toJson<String>(memeId),
+      'status': serializer.toJson<String>(status),
+      'priority': serializer.toJson<int>(priority),
+      'retryCount': serializer.toJson<int>(retryCount),
+      'errorMsg': serializer.toJson<String?>(errorMsg),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'startedAt': serializer.toJson<int?>(startedAt),
+      'doneAt': serializer.toJson<int?>(doneAt),
+    };
+  }
+
+  OcrAnalysisQueueItem copyWith({
+    String? id,
+    String? memeId,
+    String? status,
+    int? priority,
+    int? retryCount,
+    Value<String?> errorMsg = const Value.absent(),
+    int? createdAt,
+    Value<int?> startedAt = const Value.absent(),
+    Value<int?> doneAt = const Value.absent(),
+  }) => OcrAnalysisQueueItem(
+    id: id ?? this.id,
+    memeId: memeId ?? this.memeId,
+    status: status ?? this.status,
+    priority: priority ?? this.priority,
+    retryCount: retryCount ?? this.retryCount,
+    errorMsg: errorMsg.present ? errorMsg.value : this.errorMsg,
+    createdAt: createdAt ?? this.createdAt,
+    startedAt: startedAt.present ? startedAt.value : this.startedAt,
+    doneAt: doneAt.present ? doneAt.value : this.doneAt,
+  );
+  OcrAnalysisQueueItem copyWithCompanion(OcrAnalysisQueueTableCompanion data) {
+    return OcrAnalysisQueueItem(
+      id: data.id.present ? data.id.value : this.id,
+      memeId: data.memeId.present ? data.memeId.value : this.memeId,
+      status: data.status.present ? data.status.value : this.status,
+      priority: data.priority.present ? data.priority.value : this.priority,
+      retryCount: data.retryCount.present
+          ? data.retryCount.value
+          : this.retryCount,
+      errorMsg: data.errorMsg.present ? data.errorMsg.value : this.errorMsg,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
+      doneAt: data.doneAt.present ? data.doneAt.value : this.doneAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OcrAnalysisQueueItem(')
+          ..write('id: $id, ')
+          ..write('memeId: $memeId, ')
+          ..write('status: $status, ')
+          ..write('priority: $priority, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('errorMsg: $errorMsg, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('doneAt: $doneAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    memeId,
+    status,
+    priority,
+    retryCount,
+    errorMsg,
+    createdAt,
+    startedAt,
+    doneAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is OcrAnalysisQueueItem &&
+          other.id == this.id &&
+          other.memeId == this.memeId &&
+          other.status == this.status &&
+          other.priority == this.priority &&
+          other.retryCount == this.retryCount &&
+          other.errorMsg == this.errorMsg &&
+          other.createdAt == this.createdAt &&
+          other.startedAt == this.startedAt &&
+          other.doneAt == this.doneAt);
+}
+
+class OcrAnalysisQueueTableCompanion
+    extends UpdateCompanion<OcrAnalysisQueueItem> {
+  final Value<String> id;
+  final Value<String> memeId;
+  final Value<String> status;
+  final Value<int> priority;
+  final Value<int> retryCount;
+  final Value<String?> errorMsg;
+  final Value<int> createdAt;
+  final Value<int?> startedAt;
+  final Value<int?> doneAt;
+  final Value<int> rowid;
+  const OcrAnalysisQueueTableCompanion({
+    this.id = const Value.absent(),
+    this.memeId = const Value.absent(),
+    this.status = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.errorMsg = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.doneAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  OcrAnalysisQueueTableCompanion.insert({
+    required String id,
+    required String memeId,
+    this.status = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.errorMsg = const Value.absent(),
+    required int createdAt,
+    this.startedAt = const Value.absent(),
+    this.doneAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       memeId = Value(memeId),
+       createdAt = Value(createdAt);
+  static Insertable<OcrAnalysisQueueItem> custom({
+    Expression<String>? id,
+    Expression<String>? memeId,
+    Expression<String>? status,
+    Expression<int>? priority,
+    Expression<int>? retryCount,
+    Expression<String>? errorMsg,
+    Expression<int>? createdAt,
+    Expression<int>? startedAt,
+    Expression<int>? doneAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (memeId != null) 'meme_id': memeId,
+      if (status != null) 'status': status,
+      if (priority != null) 'priority': priority,
+      if (retryCount != null) 'retry_count': retryCount,
+      if (errorMsg != null) 'error_msg': errorMsg,
+      if (createdAt != null) 'created_at': createdAt,
+      if (startedAt != null) 'started_at': startedAt,
+      if (doneAt != null) 'done_at': doneAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  OcrAnalysisQueueTableCompanion copyWith({
+    Value<String>? id,
+    Value<String>? memeId,
+    Value<String>? status,
+    Value<int>? priority,
+    Value<int>? retryCount,
+    Value<String?>? errorMsg,
+    Value<int>? createdAt,
+    Value<int?>? startedAt,
+    Value<int?>? doneAt,
+    Value<int>? rowid,
+  }) {
+    return OcrAnalysisQueueTableCompanion(
+      id: id ?? this.id,
+      memeId: memeId ?? this.memeId,
+      status: status ?? this.status,
+      priority: priority ?? this.priority,
+      retryCount: retryCount ?? this.retryCount,
+      errorMsg: errorMsg ?? this.errorMsg,
+      createdAt: createdAt ?? this.createdAt,
+      startedAt: startedAt ?? this.startedAt,
+      doneAt: doneAt ?? this.doneAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (memeId.present) {
+      map['meme_id'] = Variable<String>(memeId.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (priority.present) {
+      map['priority'] = Variable<int>(priority.value);
+    }
+    if (retryCount.present) {
+      map['retry_count'] = Variable<int>(retryCount.value);
+    }
+    if (errorMsg.present) {
+      map['error_msg'] = Variable<String>(errorMsg.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (startedAt.present) {
+      map['started_at'] = Variable<int>(startedAt.value);
+    }
+    if (doneAt.present) {
+      map['done_at'] = Variable<int>(doneAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OcrAnalysisQueueTableCompanion(')
+          ..write('id: $id, ')
+          ..write('memeId: $memeId, ')
+          ..write('status: $status, ')
+          ..write('priority: $priority, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('errorMsg: $errorMsg, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('doneAt: $doneAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AiAnalysisQueueTableTable extends AiAnalysisQueueTable
+    with TableInfo<$AiAnalysisQueueTableTable, AiAnalysisQueueItem> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AiAnalysisQueueTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _memeIdMeta = const VerificationMeta('memeId');
+  @override
+  late final GeneratedColumn<String> memeId = GeneratedColumn<String>(
+    'meme_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES memes_table (id)',
+    ),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _priorityMeta = const VerificationMeta(
+    'priority',
+  );
+  @override
+  late final GeneratedColumn<int> priority = GeneratedColumn<int>(
+    'priority',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _retryCountMeta = const VerificationMeta(
+    'retryCount',
+  );
+  @override
+  late final GeneratedColumn<int> retryCount = GeneratedColumn<int>(
+    'retry_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _errorMsgMeta = const VerificationMeta(
+    'errorMsg',
+  );
+  @override
+  late final GeneratedColumn<String> errorMsg = GeneratedColumn<String>(
+    'error_msg',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startedAtMeta = const VerificationMeta(
+    'startedAt',
+  );
+  @override
+  late final GeneratedColumn<int> startedAt = GeneratedColumn<int>(
+    'started_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _doneAtMeta = const VerificationMeta('doneAt');
+  @override
+  late final GeneratedColumn<int> doneAt = GeneratedColumn<int>(
+    'done_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    memeId,
+    status,
+    priority,
+    retryCount,
+    errorMsg,
+    createdAt,
+    startedAt,
+    doneAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'ai_analysis_queue_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AiAnalysisQueueItem> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('meme_id')) {
+      context.handle(
+        _memeIdMeta,
+        memeId.isAcceptableOrUnknown(data['meme_id']!, _memeIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_memeIdMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('priority')) {
+      context.handle(
+        _priorityMeta,
+        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
+      );
+    }
+    if (data.containsKey('retry_count')) {
+      context.handle(
+        _retryCountMeta,
+        retryCount.isAcceptableOrUnknown(data['retry_count']!, _retryCountMeta),
+      );
+    }
+    if (data.containsKey('error_msg')) {
+      context.handle(
+        _errorMsgMeta,
+        errorMsg.isAcceptableOrUnknown(data['error_msg']!, _errorMsgMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('started_at')) {
+      context.handle(
+        _startedAtMeta,
+        startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta),
+      );
+    }
+    if (data.containsKey('done_at')) {
+      context.handle(
+        _doneAtMeta,
+        doneAt.isAcceptableOrUnknown(data['done_at']!, _doneAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AiAnalysisQueueItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AiAnalysisQueueItem(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      memeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}meme_id'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      priority: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}priority'],
+      )!,
+      retryCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}retry_count'],
+      )!,
+      errorMsg: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_msg'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      startedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}started_at'],
+      ),
+      doneAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}done_at'],
+      ),
+    );
+  }
+
+  @override
+  $AiAnalysisQueueTableTable createAlias(String alias) {
+    return $AiAnalysisQueueTableTable(attachedDatabase, alias);
+  }
+}
+
+class AiAnalysisQueueItem extends DataClass
+    implements Insertable<AiAnalysisQueueItem> {
+  final String id;
+  final String memeId;
+  final String status;
+  final int priority;
+  final int retryCount;
+  final String? errorMsg;
+  final int createdAt;
+  final int? startedAt;
+  final int? doneAt;
+  const AiAnalysisQueueItem({
+    required this.id,
+    required this.memeId,
+    required this.status,
+    required this.priority,
+    required this.retryCount,
+    this.errorMsg,
+    required this.createdAt,
+    this.startedAt,
+    this.doneAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['meme_id'] = Variable<String>(memeId);
+    map['status'] = Variable<String>(status);
+    map['priority'] = Variable<int>(priority);
+    map['retry_count'] = Variable<int>(retryCount);
+    if (!nullToAbsent || errorMsg != null) {
+      map['error_msg'] = Variable<String>(errorMsg);
+    }
+    map['created_at'] = Variable<int>(createdAt);
+    if (!nullToAbsent || startedAt != null) {
+      map['started_at'] = Variable<int>(startedAt);
+    }
+    if (!nullToAbsent || doneAt != null) {
+      map['done_at'] = Variable<int>(doneAt);
+    }
+    return map;
+  }
+
+  AiAnalysisQueueTableCompanion toCompanion(bool nullToAbsent) {
+    return AiAnalysisQueueTableCompanion(
+      id: Value(id),
+      memeId: Value(memeId),
+      status: Value(status),
+      priority: Value(priority),
+      retryCount: Value(retryCount),
+      errorMsg: errorMsg == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorMsg),
+      createdAt: Value(createdAt),
+      startedAt: startedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startedAt),
+      doneAt: doneAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(doneAt),
+    );
+  }
+
+  factory AiAnalysisQueueItem.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AiAnalysisQueueItem(
+      id: serializer.fromJson<String>(json['id']),
+      memeId: serializer.fromJson<String>(json['memeId']),
+      status: serializer.fromJson<String>(json['status']),
+      priority: serializer.fromJson<int>(json['priority']),
+      retryCount: serializer.fromJson<int>(json['retryCount']),
+      errorMsg: serializer.fromJson<String?>(json['errorMsg']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      startedAt: serializer.fromJson<int?>(json['startedAt']),
+      doneAt: serializer.fromJson<int?>(json['doneAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'memeId': serializer.toJson<String>(memeId),
+      'status': serializer.toJson<String>(status),
+      'priority': serializer.toJson<int>(priority),
+      'retryCount': serializer.toJson<int>(retryCount),
+      'errorMsg': serializer.toJson<String?>(errorMsg),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'startedAt': serializer.toJson<int?>(startedAt),
+      'doneAt': serializer.toJson<int?>(doneAt),
+    };
+  }
+
+  AiAnalysisQueueItem copyWith({
+    String? id,
+    String? memeId,
+    String? status,
+    int? priority,
+    int? retryCount,
+    Value<String?> errorMsg = const Value.absent(),
+    int? createdAt,
+    Value<int?> startedAt = const Value.absent(),
+    Value<int?> doneAt = const Value.absent(),
+  }) => AiAnalysisQueueItem(
+    id: id ?? this.id,
+    memeId: memeId ?? this.memeId,
+    status: status ?? this.status,
+    priority: priority ?? this.priority,
+    retryCount: retryCount ?? this.retryCount,
+    errorMsg: errorMsg.present ? errorMsg.value : this.errorMsg,
+    createdAt: createdAt ?? this.createdAt,
+    startedAt: startedAt.present ? startedAt.value : this.startedAt,
+    doneAt: doneAt.present ? doneAt.value : this.doneAt,
+  );
+  AiAnalysisQueueItem copyWithCompanion(AiAnalysisQueueTableCompanion data) {
+    return AiAnalysisQueueItem(
+      id: data.id.present ? data.id.value : this.id,
+      memeId: data.memeId.present ? data.memeId.value : this.memeId,
+      status: data.status.present ? data.status.value : this.status,
+      priority: data.priority.present ? data.priority.value : this.priority,
+      retryCount: data.retryCount.present
+          ? data.retryCount.value
+          : this.retryCount,
+      errorMsg: data.errorMsg.present ? data.errorMsg.value : this.errorMsg,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
+      doneAt: data.doneAt.present ? data.doneAt.value : this.doneAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AiAnalysisQueueItem(')
+          ..write('id: $id, ')
+          ..write('memeId: $memeId, ')
+          ..write('status: $status, ')
+          ..write('priority: $priority, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('errorMsg: $errorMsg, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('doneAt: $doneAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    memeId,
+    status,
+    priority,
+    retryCount,
+    errorMsg,
+    createdAt,
+    startedAt,
+    doneAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AiAnalysisQueueItem &&
+          other.id == this.id &&
+          other.memeId == this.memeId &&
+          other.status == this.status &&
+          other.priority == this.priority &&
+          other.retryCount == this.retryCount &&
+          other.errorMsg == this.errorMsg &&
+          other.createdAt == this.createdAt &&
+          other.startedAt == this.startedAt &&
+          other.doneAt == this.doneAt);
+}
+
+class AiAnalysisQueueTableCompanion
+    extends UpdateCompanion<AiAnalysisQueueItem> {
+  final Value<String> id;
+  final Value<String> memeId;
+  final Value<String> status;
+  final Value<int> priority;
+  final Value<int> retryCount;
+  final Value<String?> errorMsg;
+  final Value<int> createdAt;
+  final Value<int?> startedAt;
+  final Value<int?> doneAt;
+  final Value<int> rowid;
+  const AiAnalysisQueueTableCompanion({
+    this.id = const Value.absent(),
+    this.memeId = const Value.absent(),
+    this.status = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.errorMsg = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.doneAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AiAnalysisQueueTableCompanion.insert({
+    required String id,
+    required String memeId,
+    this.status = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.errorMsg = const Value.absent(),
+    required int createdAt,
+    this.startedAt = const Value.absent(),
+    this.doneAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       memeId = Value(memeId),
+       createdAt = Value(createdAt);
+  static Insertable<AiAnalysisQueueItem> custom({
+    Expression<String>? id,
+    Expression<String>? memeId,
+    Expression<String>? status,
+    Expression<int>? priority,
+    Expression<int>? retryCount,
+    Expression<String>? errorMsg,
+    Expression<int>? createdAt,
+    Expression<int>? startedAt,
+    Expression<int>? doneAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (memeId != null) 'meme_id': memeId,
+      if (status != null) 'status': status,
+      if (priority != null) 'priority': priority,
+      if (retryCount != null) 'retry_count': retryCount,
+      if (errorMsg != null) 'error_msg': errorMsg,
+      if (createdAt != null) 'created_at': createdAt,
+      if (startedAt != null) 'started_at': startedAt,
+      if (doneAt != null) 'done_at': doneAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AiAnalysisQueueTableCompanion copyWith({
+    Value<String>? id,
+    Value<String>? memeId,
+    Value<String>? status,
+    Value<int>? priority,
+    Value<int>? retryCount,
+    Value<String?>? errorMsg,
+    Value<int>? createdAt,
+    Value<int?>? startedAt,
+    Value<int?>? doneAt,
+    Value<int>? rowid,
+  }) {
+    return AiAnalysisQueueTableCompanion(
+      id: id ?? this.id,
+      memeId: memeId ?? this.memeId,
+      status: status ?? this.status,
+      priority: priority ?? this.priority,
+      retryCount: retryCount ?? this.retryCount,
+      errorMsg: errorMsg ?? this.errorMsg,
+      createdAt: createdAt ?? this.createdAt,
+      startedAt: startedAt ?? this.startedAt,
+      doneAt: doneAt ?? this.doneAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (memeId.present) {
+      map['meme_id'] = Variable<String>(memeId.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (priority.present) {
+      map['priority'] = Variable<int>(priority.value);
+    }
+    if (retryCount.present) {
+      map['retry_count'] = Variable<int>(retryCount.value);
+    }
+    if (errorMsg.present) {
+      map['error_msg'] = Variable<String>(errorMsg.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (startedAt.present) {
+      map['started_at'] = Variable<int>(startedAt.value);
+    }
+    if (doneAt.present) {
+      map['done_at'] = Variable<int>(doneAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AiAnalysisQueueTableCompanion(')
+          ..write('id: $id, ')
+          ..write('memeId: $memeId, ')
+          ..write('status: $status, ')
+          ..write('priority: $priority, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('errorMsg: $errorMsg, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('doneAt: $doneAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $SyncStateTableTable extends SyncStateTable
     with TableInfo<$SyncStateTableTable, SyncStateEntry> {
   @override
@@ -3974,6 +5817,12 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $AnalysisQueueTableTable analysisQueueTable =
       $AnalysisQueueTableTable(this);
+  late final $ColorAnalysisQueueTableTable colorAnalysisQueueTable =
+      $ColorAnalysisQueueTableTable(this);
+  late final $OcrAnalysisQueueTableTable ocrAnalysisQueueTable =
+      $OcrAnalysisQueueTableTable(this);
+  late final $AiAnalysisQueueTableTable aiAnalysisQueueTable =
+      $AiAnalysisQueueTableTable(this);
   late final $SyncStateTableTable syncStateTable = $SyncStateTableTable(this);
   late final $AlbumsTableTable albumsTable = $AlbumsTableTable(this);
   late final $MemeAlbumsTableTable memeAlbumsTable = $MemeAlbumsTableTable(
@@ -3990,6 +5839,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     colorsTable,
     embeddingsTable,
     analysisQueueTable,
+    colorAnalysisQueueTable,
+    ocrAnalysisQueueTable,
+    aiAnalysisQueueTable,
     syncStateTable,
     albumsTable,
     memeAlbumsTable,
@@ -4008,6 +5860,9 @@ typedef $$MemesTableTableCreateCompanionBuilder =
       required int height,
       Value<String?> folderId,
       Value<String> analysisStatus,
+      Value<String> colorAnalysisStatus,
+      Value<String> ocrAnalysisStatus,
+      Value<String> aiAnalysisStatus,
       required String fileHash,
       Value<String?> description,
       required int createdAt,
@@ -4028,6 +5883,9 @@ typedef $$MemesTableTableUpdateCompanionBuilder =
       Value<int> height,
       Value<String?> folderId,
       Value<String> analysisStatus,
+      Value<String> colorAnalysisStatus,
+      Value<String> ocrAnalysisStatus,
+      Value<String> aiAnalysisStatus,
       Value<String> fileHash,
       Value<String?> description,
       Value<int> createdAt,
@@ -4096,6 +5954,90 @@ final class $$MemesTableTableReferences
 
     final cache = $_typedResult.readTableOrNull(
       _analysisQueueTableRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $ColorAnalysisQueueTableTable,
+    List<ColorAnalysisQueueItem>
+  >
+  _colorAnalysisQueueTableRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.colorAnalysisQueueTable,
+        aliasName: $_aliasNameGenerator(
+          db.memesTable.id,
+          db.colorAnalysisQueueTable.memeId,
+        ),
+      );
+
+  $$ColorAnalysisQueueTableTableProcessedTableManager
+  get colorAnalysisQueueTableRefs {
+    final manager = $$ColorAnalysisQueueTableTableTableManager(
+      $_db,
+      $_db.colorAnalysisQueueTable,
+    ).filter((f) => f.memeId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _colorAnalysisQueueTableRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $OcrAnalysisQueueTableTable,
+    List<OcrAnalysisQueueItem>
+  >
+  _ocrAnalysisQueueTableRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.ocrAnalysisQueueTable,
+        aliasName: $_aliasNameGenerator(
+          db.memesTable.id,
+          db.ocrAnalysisQueueTable.memeId,
+        ),
+      );
+
+  $$OcrAnalysisQueueTableTableProcessedTableManager
+  get ocrAnalysisQueueTableRefs {
+    final manager = $$OcrAnalysisQueueTableTableTableManager(
+      $_db,
+      $_db.ocrAnalysisQueueTable,
+    ).filter((f) => f.memeId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _ocrAnalysisQueueTableRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $AiAnalysisQueueTableTable,
+    List<AiAnalysisQueueItem>
+  >
+  _aiAnalysisQueueTableRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.aiAnalysisQueueTable,
+        aliasName: $_aliasNameGenerator(
+          db.memesTable.id,
+          db.aiAnalysisQueueTable.memeId,
+        ),
+      );
+
+  $$AiAnalysisQueueTableTableProcessedTableManager
+  get aiAnalysisQueueTableRefs {
+    final manager = $$AiAnalysisQueueTableTableTableManager(
+      $_db,
+      $_db.aiAnalysisQueueTable,
+    ).filter((f) => f.memeId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _aiAnalysisQueueTableRefsTable($_db),
     );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
@@ -4177,6 +6119,21 @@ class $$MemesTableTableFilterComposer
 
   ColumnFilters<String> get analysisStatus => $composableBuilder(
     column: $table.analysisStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get colorAnalysisStatus => $composableBuilder(
+    column: $table.colorAnalysisStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ocrAnalysisStatus => $composableBuilder(
+    column: $table.ocrAnalysisStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get aiAnalysisStatus => $composableBuilder(
+    column: $table.aiAnalysisStatus,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4290,6 +6247,83 @@ class $$MemesTableTableFilterComposer
     return f(composer);
   }
 
+  Expression<bool> colorAnalysisQueueTableRefs(
+    Expression<bool> Function($$ColorAnalysisQueueTableTableFilterComposer f) f,
+  ) {
+    final $$ColorAnalysisQueueTableTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.colorAnalysisQueueTable,
+          getReferencedColumn: (t) => t.memeId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ColorAnalysisQueueTableTableFilterComposer(
+                $db: $db,
+                $table: $db.colorAnalysisQueueTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<bool> ocrAnalysisQueueTableRefs(
+    Expression<bool> Function($$OcrAnalysisQueueTableTableFilterComposer f) f,
+  ) {
+    final $$OcrAnalysisQueueTableTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.ocrAnalysisQueueTable,
+          getReferencedColumn: (t) => t.memeId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$OcrAnalysisQueueTableTableFilterComposer(
+                $db: $db,
+                $table: $db.ocrAnalysisQueueTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<bool> aiAnalysisQueueTableRefs(
+    Expression<bool> Function($$AiAnalysisQueueTableTableFilterComposer f) f,
+  ) {
+    final $$AiAnalysisQueueTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.aiAnalysisQueueTable,
+      getReferencedColumn: (t) => t.memeId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AiAnalysisQueueTableTableFilterComposer(
+            $db: $db,
+            $table: $db.aiAnalysisQueueTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<bool> memeAlbumsTableRefs(
     Expression<bool> Function($$MemeAlbumsTableTableFilterComposer f) f,
   ) {
@@ -4370,6 +6404,21 @@ class $$MemesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get colorAnalysisStatus => $composableBuilder(
+    column: $table.colorAnalysisStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ocrAnalysisStatus => $composableBuilder(
+    column: $table.ocrAnalysisStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get aiAnalysisStatus => $composableBuilder(
+    column: $table.aiAnalysisStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get fileHash => $composableBuilder(
     column: $table.fileHash,
     builder: (column) => ColumnOrderings(column),
@@ -4441,6 +6490,21 @@ class $$MemesTableTableAnnotationComposer
 
   GeneratedColumn<String> get analysisStatus => $composableBuilder(
     column: $table.analysisStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get colorAnalysisStatus => $composableBuilder(
+    column: $table.colorAnalysisStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get ocrAnalysisStatus => $composableBuilder(
+    column: $table.ocrAnalysisStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get aiAnalysisStatus => $composableBuilder(
+    column: $table.aiAnalysisStatus,
     builder: (column) => column,
   );
 
@@ -4545,6 +6609,85 @@ class $$MemesTableTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> colorAnalysisQueueTableRefs<T extends Object>(
+    Expression<T> Function($$ColorAnalysisQueueTableTableAnnotationComposer a)
+    f,
+  ) {
+    final $$ColorAnalysisQueueTableTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.colorAnalysisQueueTable,
+          getReferencedColumn: (t) => t.memeId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ColorAnalysisQueueTableTableAnnotationComposer(
+                $db: $db,
+                $table: $db.colorAnalysisQueueTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> ocrAnalysisQueueTableRefs<T extends Object>(
+    Expression<T> Function($$OcrAnalysisQueueTableTableAnnotationComposer a) f,
+  ) {
+    final $$OcrAnalysisQueueTableTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.ocrAnalysisQueueTable,
+          getReferencedColumn: (t) => t.memeId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$OcrAnalysisQueueTableTableAnnotationComposer(
+                $db: $db,
+                $table: $db.ocrAnalysisQueueTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> aiAnalysisQueueTableRefs<T extends Object>(
+    Expression<T> Function($$AiAnalysisQueueTableTableAnnotationComposer a) f,
+  ) {
+    final $$AiAnalysisQueueTableTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.aiAnalysisQueueTable,
+          getReferencedColumn: (t) => t.memeId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$AiAnalysisQueueTableTableAnnotationComposer(
+                $db: $db,
+                $table: $db.aiAnalysisQueueTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
   Expression<T> memeAlbumsTableRefs<T extends Object>(
     Expression<T> Function($$MemeAlbumsTableTableAnnotationComposer a) f,
   ) {
@@ -4588,6 +6731,9 @@ class $$MemesTableTableTableManager
             bool tagsTableRefs,
             bool colorsTableRefs,
             bool analysisQueueTableRefs,
+            bool colorAnalysisQueueTableRefs,
+            bool ocrAnalysisQueueTableRefs,
+            bool aiAnalysisQueueTableRefs,
             bool memeAlbumsTableRefs,
           })
         > {
@@ -4613,6 +6759,9 @@ class $$MemesTableTableTableManager
                 Value<int> height = const Value.absent(),
                 Value<String?> folderId = const Value.absent(),
                 Value<String> analysisStatus = const Value.absent(),
+                Value<String> colorAnalysisStatus = const Value.absent(),
+                Value<String> ocrAnalysisStatus = const Value.absent(),
+                Value<String> aiAnalysisStatus = const Value.absent(),
                 Value<String> fileHash = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
@@ -4631,6 +6780,9 @@ class $$MemesTableTableTableManager
                 height: height,
                 folderId: folderId,
                 analysisStatus: analysisStatus,
+                colorAnalysisStatus: colorAnalysisStatus,
+                ocrAnalysisStatus: ocrAnalysisStatus,
+                aiAnalysisStatus: aiAnalysisStatus,
                 fileHash: fileHash,
                 description: description,
                 createdAt: createdAt,
@@ -4651,6 +6803,9 @@ class $$MemesTableTableTableManager
                 required int height,
                 Value<String?> folderId = const Value.absent(),
                 Value<String> analysisStatus = const Value.absent(),
+                Value<String> colorAnalysisStatus = const Value.absent(),
+                Value<String> ocrAnalysisStatus = const Value.absent(),
+                Value<String> aiAnalysisStatus = const Value.absent(),
                 required String fileHash,
                 Value<String?> description = const Value.absent(),
                 required int createdAt,
@@ -4669,6 +6824,9 @@ class $$MemesTableTableTableManager
                 height: height,
                 folderId: folderId,
                 analysisStatus: analysisStatus,
+                colorAnalysisStatus: colorAnalysisStatus,
+                ocrAnalysisStatus: ocrAnalysisStatus,
+                aiAnalysisStatus: aiAnalysisStatus,
                 fileHash: fileHash,
                 description: description,
                 createdAt: createdAt,
@@ -4691,6 +6849,9 @@ class $$MemesTableTableTableManager
                 tagsTableRefs = false,
                 colorsTableRefs = false,
                 analysisQueueTableRefs = false,
+                colorAnalysisQueueTableRefs = false,
+                ocrAnalysisQueueTableRefs = false,
+                aiAnalysisQueueTableRefs = false,
                 memeAlbumsTableRefs = false,
               }) {
                 return PrefetchHooks(
@@ -4699,6 +6860,9 @@ class $$MemesTableTableTableManager
                     if (tagsTableRefs) db.tagsTable,
                     if (colorsTableRefs) db.colorsTable,
                     if (analysisQueueTableRefs) db.analysisQueueTable,
+                    if (colorAnalysisQueueTableRefs) db.colorAnalysisQueueTable,
+                    if (ocrAnalysisQueueTableRefs) db.ocrAnalysisQueueTable,
+                    if (aiAnalysisQueueTableRefs) db.aiAnalysisQueueTable,
                     if (memeAlbumsTableRefs) db.memeAlbumsTable,
                   ],
                   addJoins: null,
@@ -4767,6 +6931,69 @@ class $$MemesTableTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (colorAnalysisQueueTableRefs)
+                        await $_getPrefetchedData<
+                          Meme,
+                          $MemesTableTable,
+                          ColorAnalysisQueueItem
+                        >(
+                          currentTable: table,
+                          referencedTable: $$MemesTableTableReferences
+                              ._colorAnalysisQueueTableRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$MemesTableTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).colorAnalysisQueueTableRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.memeId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (ocrAnalysisQueueTableRefs)
+                        await $_getPrefetchedData<
+                          Meme,
+                          $MemesTableTable,
+                          OcrAnalysisQueueItem
+                        >(
+                          currentTable: table,
+                          referencedTable: $$MemesTableTableReferences
+                              ._ocrAnalysisQueueTableRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$MemesTableTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).ocrAnalysisQueueTableRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.memeId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (aiAnalysisQueueTableRefs)
+                        await $_getPrefetchedData<
+                          Meme,
+                          $MemesTableTable,
+                          AiAnalysisQueueItem
+                        >(
+                          currentTable: table,
+                          referencedTable: $$MemesTableTableReferences
+                              ._aiAnalysisQueueTableRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$MemesTableTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).aiAnalysisQueueTableRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.memeId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (memeAlbumsTableRefs)
                         await $_getPrefetchedData<
                           Meme,
@@ -4812,6 +7039,9 @@ typedef $$MemesTableTableProcessedTableManager =
         bool tagsTableRefs,
         bool colorsTableRefs,
         bool analysisQueueTableRefs,
+        bool colorAnalysisQueueTableRefs,
+        bool ocrAnalysisQueueTableRefs,
+        bool aiAnalysisQueueTableRefs,
         bool memeAlbumsTableRefs,
       })
     >;
@@ -6091,6 +8321,1263 @@ typedef $$AnalysisQueueTableTableProcessedTableManager =
       AnalysisQueueItem,
       PrefetchHooks Function({bool memeId})
     >;
+typedef $$ColorAnalysisQueueTableTableCreateCompanionBuilder =
+    ColorAnalysisQueueTableCompanion Function({
+      required String id,
+      required String memeId,
+      Value<String> status,
+      Value<int> priority,
+      Value<int> retryCount,
+      Value<String?> errorMsg,
+      required int createdAt,
+      Value<int?> startedAt,
+      Value<int?> doneAt,
+      Value<int> rowid,
+    });
+typedef $$ColorAnalysisQueueTableTableUpdateCompanionBuilder =
+    ColorAnalysisQueueTableCompanion Function({
+      Value<String> id,
+      Value<String> memeId,
+      Value<String> status,
+      Value<int> priority,
+      Value<int> retryCount,
+      Value<String?> errorMsg,
+      Value<int> createdAt,
+      Value<int?> startedAt,
+      Value<int?> doneAt,
+      Value<int> rowid,
+    });
+
+final class $$ColorAnalysisQueueTableTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $ColorAnalysisQueueTableTable,
+          ColorAnalysisQueueItem
+        > {
+  $$ColorAnalysisQueueTableTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $MemesTableTable _memeIdTable(_$AppDatabase db) =>
+      db.memesTable.createAlias(
+        $_aliasNameGenerator(
+          db.colorAnalysisQueueTable.memeId,
+          db.memesTable.id,
+        ),
+      );
+
+  $$MemesTableTableProcessedTableManager get memeId {
+    final $_column = $_itemColumn<String>('meme_id')!;
+
+    final manager = $$MemesTableTableTableManager(
+      $_db,
+      $_db.memesTable,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_memeIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ColorAnalysisQueueTableTableFilterComposer
+    extends Composer<_$AppDatabase, $ColorAnalysisQueueTableTable> {
+  $$ColorAnalysisQueueTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorMsg => $composableBuilder(
+    column: $table.errorMsg,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get doneAt => $composableBuilder(
+    column: $table.doneAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$MemesTableTableFilterComposer get memeId {
+    final $$MemesTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.memeId,
+      referencedTable: $db.memesTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemesTableTableFilterComposer(
+            $db: $db,
+            $table: $db.memesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ColorAnalysisQueueTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $ColorAnalysisQueueTableTable> {
+  $$ColorAnalysisQueueTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorMsg => $composableBuilder(
+    column: $table.errorMsg,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get doneAt => $composableBuilder(
+    column: $table.doneAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$MemesTableTableOrderingComposer get memeId {
+    final $$MemesTableTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.memeId,
+      referencedTable: $db.memesTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemesTableTableOrderingComposer(
+            $db: $db,
+            $table: $db.memesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ColorAnalysisQueueTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ColorAnalysisQueueTableTable> {
+  $$ColorAnalysisQueueTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
+
+  GeneratedColumn<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get errorMsg =>
+      $composableBuilder(column: $table.errorMsg, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get doneAt =>
+      $composableBuilder(column: $table.doneAt, builder: (column) => column);
+
+  $$MemesTableTableAnnotationComposer get memeId {
+    final $$MemesTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.memeId,
+      referencedTable: $db.memesTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemesTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.memesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ColorAnalysisQueueTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ColorAnalysisQueueTableTable,
+          ColorAnalysisQueueItem,
+          $$ColorAnalysisQueueTableTableFilterComposer,
+          $$ColorAnalysisQueueTableTableOrderingComposer,
+          $$ColorAnalysisQueueTableTableAnnotationComposer,
+          $$ColorAnalysisQueueTableTableCreateCompanionBuilder,
+          $$ColorAnalysisQueueTableTableUpdateCompanionBuilder,
+          (ColorAnalysisQueueItem, $$ColorAnalysisQueueTableTableReferences),
+          ColorAnalysisQueueItem,
+          PrefetchHooks Function({bool memeId})
+        > {
+  $$ColorAnalysisQueueTableTableTableManager(
+    _$AppDatabase db,
+    $ColorAnalysisQueueTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ColorAnalysisQueueTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$ColorAnalysisQueueTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$ColorAnalysisQueueTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> memeId = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> priority = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<String?> errorMsg = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int?> startedAt = const Value.absent(),
+                Value<int?> doneAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ColorAnalysisQueueTableCompanion(
+                id: id,
+                memeId: memeId,
+                status: status,
+                priority: priority,
+                retryCount: retryCount,
+                errorMsg: errorMsg,
+                createdAt: createdAt,
+                startedAt: startedAt,
+                doneAt: doneAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String memeId,
+                Value<String> status = const Value.absent(),
+                Value<int> priority = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<String?> errorMsg = const Value.absent(),
+                required int createdAt,
+                Value<int?> startedAt = const Value.absent(),
+                Value<int?> doneAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ColorAnalysisQueueTableCompanion.insert(
+                id: id,
+                memeId: memeId,
+                status: status,
+                priority: priority,
+                retryCount: retryCount,
+                errorMsg: errorMsg,
+                createdAt: createdAt,
+                startedAt: startedAt,
+                doneAt: doneAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ColorAnalysisQueueTableTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({memeId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (memeId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.memeId,
+                                referencedTable:
+                                    $$ColorAnalysisQueueTableTableReferences
+                                        ._memeIdTable(db),
+                                referencedColumn:
+                                    $$ColorAnalysisQueueTableTableReferences
+                                        ._memeIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ColorAnalysisQueueTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ColorAnalysisQueueTableTable,
+      ColorAnalysisQueueItem,
+      $$ColorAnalysisQueueTableTableFilterComposer,
+      $$ColorAnalysisQueueTableTableOrderingComposer,
+      $$ColorAnalysisQueueTableTableAnnotationComposer,
+      $$ColorAnalysisQueueTableTableCreateCompanionBuilder,
+      $$ColorAnalysisQueueTableTableUpdateCompanionBuilder,
+      (ColorAnalysisQueueItem, $$ColorAnalysisQueueTableTableReferences),
+      ColorAnalysisQueueItem,
+      PrefetchHooks Function({bool memeId})
+    >;
+typedef $$OcrAnalysisQueueTableTableCreateCompanionBuilder =
+    OcrAnalysisQueueTableCompanion Function({
+      required String id,
+      required String memeId,
+      Value<String> status,
+      Value<int> priority,
+      Value<int> retryCount,
+      Value<String?> errorMsg,
+      required int createdAt,
+      Value<int?> startedAt,
+      Value<int?> doneAt,
+      Value<int> rowid,
+    });
+typedef $$OcrAnalysisQueueTableTableUpdateCompanionBuilder =
+    OcrAnalysisQueueTableCompanion Function({
+      Value<String> id,
+      Value<String> memeId,
+      Value<String> status,
+      Value<int> priority,
+      Value<int> retryCount,
+      Value<String?> errorMsg,
+      Value<int> createdAt,
+      Value<int?> startedAt,
+      Value<int?> doneAt,
+      Value<int> rowid,
+    });
+
+final class $$OcrAnalysisQueueTableTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $OcrAnalysisQueueTableTable,
+          OcrAnalysisQueueItem
+        > {
+  $$OcrAnalysisQueueTableTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $MemesTableTable _memeIdTable(_$AppDatabase db) =>
+      db.memesTable.createAlias(
+        $_aliasNameGenerator(db.ocrAnalysisQueueTable.memeId, db.memesTable.id),
+      );
+
+  $$MemesTableTableProcessedTableManager get memeId {
+    final $_column = $_itemColumn<String>('meme_id')!;
+
+    final manager = $$MemesTableTableTableManager(
+      $_db,
+      $_db.memesTable,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_memeIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$OcrAnalysisQueueTableTableFilterComposer
+    extends Composer<_$AppDatabase, $OcrAnalysisQueueTableTable> {
+  $$OcrAnalysisQueueTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorMsg => $composableBuilder(
+    column: $table.errorMsg,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get doneAt => $composableBuilder(
+    column: $table.doneAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$MemesTableTableFilterComposer get memeId {
+    final $$MemesTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.memeId,
+      referencedTable: $db.memesTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemesTableTableFilterComposer(
+            $db: $db,
+            $table: $db.memesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OcrAnalysisQueueTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $OcrAnalysisQueueTableTable> {
+  $$OcrAnalysisQueueTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorMsg => $composableBuilder(
+    column: $table.errorMsg,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get doneAt => $composableBuilder(
+    column: $table.doneAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$MemesTableTableOrderingComposer get memeId {
+    final $$MemesTableTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.memeId,
+      referencedTable: $db.memesTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemesTableTableOrderingComposer(
+            $db: $db,
+            $table: $db.memesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OcrAnalysisQueueTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $OcrAnalysisQueueTableTable> {
+  $$OcrAnalysisQueueTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
+
+  GeneratedColumn<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get errorMsg =>
+      $composableBuilder(column: $table.errorMsg, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get doneAt =>
+      $composableBuilder(column: $table.doneAt, builder: (column) => column);
+
+  $$MemesTableTableAnnotationComposer get memeId {
+    final $$MemesTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.memeId,
+      referencedTable: $db.memesTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemesTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.memesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OcrAnalysisQueueTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $OcrAnalysisQueueTableTable,
+          OcrAnalysisQueueItem,
+          $$OcrAnalysisQueueTableTableFilterComposer,
+          $$OcrAnalysisQueueTableTableOrderingComposer,
+          $$OcrAnalysisQueueTableTableAnnotationComposer,
+          $$OcrAnalysisQueueTableTableCreateCompanionBuilder,
+          $$OcrAnalysisQueueTableTableUpdateCompanionBuilder,
+          (OcrAnalysisQueueItem, $$OcrAnalysisQueueTableTableReferences),
+          OcrAnalysisQueueItem,
+          PrefetchHooks Function({bool memeId})
+        > {
+  $$OcrAnalysisQueueTableTableTableManager(
+    _$AppDatabase db,
+    $OcrAnalysisQueueTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$OcrAnalysisQueueTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$OcrAnalysisQueueTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$OcrAnalysisQueueTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> memeId = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> priority = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<String?> errorMsg = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int?> startedAt = const Value.absent(),
+                Value<int?> doneAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => OcrAnalysisQueueTableCompanion(
+                id: id,
+                memeId: memeId,
+                status: status,
+                priority: priority,
+                retryCount: retryCount,
+                errorMsg: errorMsg,
+                createdAt: createdAt,
+                startedAt: startedAt,
+                doneAt: doneAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String memeId,
+                Value<String> status = const Value.absent(),
+                Value<int> priority = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<String?> errorMsg = const Value.absent(),
+                required int createdAt,
+                Value<int?> startedAt = const Value.absent(),
+                Value<int?> doneAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => OcrAnalysisQueueTableCompanion.insert(
+                id: id,
+                memeId: memeId,
+                status: status,
+                priority: priority,
+                retryCount: retryCount,
+                errorMsg: errorMsg,
+                createdAt: createdAt,
+                startedAt: startedAt,
+                doneAt: doneAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$OcrAnalysisQueueTableTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({memeId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (memeId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.memeId,
+                                referencedTable:
+                                    $$OcrAnalysisQueueTableTableReferences
+                                        ._memeIdTable(db),
+                                referencedColumn:
+                                    $$OcrAnalysisQueueTableTableReferences
+                                        ._memeIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$OcrAnalysisQueueTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $OcrAnalysisQueueTableTable,
+      OcrAnalysisQueueItem,
+      $$OcrAnalysisQueueTableTableFilterComposer,
+      $$OcrAnalysisQueueTableTableOrderingComposer,
+      $$OcrAnalysisQueueTableTableAnnotationComposer,
+      $$OcrAnalysisQueueTableTableCreateCompanionBuilder,
+      $$OcrAnalysisQueueTableTableUpdateCompanionBuilder,
+      (OcrAnalysisQueueItem, $$OcrAnalysisQueueTableTableReferences),
+      OcrAnalysisQueueItem,
+      PrefetchHooks Function({bool memeId})
+    >;
+typedef $$AiAnalysisQueueTableTableCreateCompanionBuilder =
+    AiAnalysisQueueTableCompanion Function({
+      required String id,
+      required String memeId,
+      Value<String> status,
+      Value<int> priority,
+      Value<int> retryCount,
+      Value<String?> errorMsg,
+      required int createdAt,
+      Value<int?> startedAt,
+      Value<int?> doneAt,
+      Value<int> rowid,
+    });
+typedef $$AiAnalysisQueueTableTableUpdateCompanionBuilder =
+    AiAnalysisQueueTableCompanion Function({
+      Value<String> id,
+      Value<String> memeId,
+      Value<String> status,
+      Value<int> priority,
+      Value<int> retryCount,
+      Value<String?> errorMsg,
+      Value<int> createdAt,
+      Value<int?> startedAt,
+      Value<int?> doneAt,
+      Value<int> rowid,
+    });
+
+final class $$AiAnalysisQueueTableTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $AiAnalysisQueueTableTable,
+          AiAnalysisQueueItem
+        > {
+  $$AiAnalysisQueueTableTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $MemesTableTable _memeIdTable(_$AppDatabase db) =>
+      db.memesTable.createAlias(
+        $_aliasNameGenerator(db.aiAnalysisQueueTable.memeId, db.memesTable.id),
+      );
+
+  $$MemesTableTableProcessedTableManager get memeId {
+    final $_column = $_itemColumn<String>('meme_id')!;
+
+    final manager = $$MemesTableTableTableManager(
+      $_db,
+      $_db.memesTable,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_memeIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$AiAnalysisQueueTableTableFilterComposer
+    extends Composer<_$AppDatabase, $AiAnalysisQueueTableTable> {
+  $$AiAnalysisQueueTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorMsg => $composableBuilder(
+    column: $table.errorMsg,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get doneAt => $composableBuilder(
+    column: $table.doneAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$MemesTableTableFilterComposer get memeId {
+    final $$MemesTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.memeId,
+      referencedTable: $db.memesTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemesTableTableFilterComposer(
+            $db: $db,
+            $table: $db.memesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AiAnalysisQueueTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $AiAnalysisQueueTableTable> {
+  $$AiAnalysisQueueTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorMsg => $composableBuilder(
+    column: $table.errorMsg,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get doneAt => $composableBuilder(
+    column: $table.doneAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$MemesTableTableOrderingComposer get memeId {
+    final $$MemesTableTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.memeId,
+      referencedTable: $db.memesTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemesTableTableOrderingComposer(
+            $db: $db,
+            $table: $db.memesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AiAnalysisQueueTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AiAnalysisQueueTableTable> {
+  $$AiAnalysisQueueTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
+
+  GeneratedColumn<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get errorMsg =>
+      $composableBuilder(column: $table.errorMsg, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get doneAt =>
+      $composableBuilder(column: $table.doneAt, builder: (column) => column);
+
+  $$MemesTableTableAnnotationComposer get memeId {
+    final $$MemesTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.memeId,
+      referencedTable: $db.memesTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MemesTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.memesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AiAnalysisQueueTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AiAnalysisQueueTableTable,
+          AiAnalysisQueueItem,
+          $$AiAnalysisQueueTableTableFilterComposer,
+          $$AiAnalysisQueueTableTableOrderingComposer,
+          $$AiAnalysisQueueTableTableAnnotationComposer,
+          $$AiAnalysisQueueTableTableCreateCompanionBuilder,
+          $$AiAnalysisQueueTableTableUpdateCompanionBuilder,
+          (AiAnalysisQueueItem, $$AiAnalysisQueueTableTableReferences),
+          AiAnalysisQueueItem,
+          PrefetchHooks Function({bool memeId})
+        > {
+  $$AiAnalysisQueueTableTableTableManager(
+    _$AppDatabase db,
+    $AiAnalysisQueueTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AiAnalysisQueueTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AiAnalysisQueueTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$AiAnalysisQueueTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> memeId = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> priority = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<String?> errorMsg = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int?> startedAt = const Value.absent(),
+                Value<int?> doneAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AiAnalysisQueueTableCompanion(
+                id: id,
+                memeId: memeId,
+                status: status,
+                priority: priority,
+                retryCount: retryCount,
+                errorMsg: errorMsg,
+                createdAt: createdAt,
+                startedAt: startedAt,
+                doneAt: doneAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String memeId,
+                Value<String> status = const Value.absent(),
+                Value<int> priority = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<String?> errorMsg = const Value.absent(),
+                required int createdAt,
+                Value<int?> startedAt = const Value.absent(),
+                Value<int?> doneAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AiAnalysisQueueTableCompanion.insert(
+                id: id,
+                memeId: memeId,
+                status: status,
+                priority: priority,
+                retryCount: retryCount,
+                errorMsg: errorMsg,
+                createdAt: createdAt,
+                startedAt: startedAt,
+                doneAt: doneAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$AiAnalysisQueueTableTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({memeId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (memeId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.memeId,
+                                referencedTable:
+                                    $$AiAnalysisQueueTableTableReferences
+                                        ._memeIdTable(db),
+                                referencedColumn:
+                                    $$AiAnalysisQueueTableTableReferences
+                                        ._memeIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$AiAnalysisQueueTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AiAnalysisQueueTableTable,
+      AiAnalysisQueueItem,
+      $$AiAnalysisQueueTableTableFilterComposer,
+      $$AiAnalysisQueueTableTableOrderingComposer,
+      $$AiAnalysisQueueTableTableAnnotationComposer,
+      $$AiAnalysisQueueTableTableCreateCompanionBuilder,
+      $$AiAnalysisQueueTableTableUpdateCompanionBuilder,
+      (AiAnalysisQueueItem, $$AiAnalysisQueueTableTableReferences),
+      AiAnalysisQueueItem,
+      PrefetchHooks Function({bool memeId})
+    >;
 typedef $$SyncStateTableTableCreateCompanionBuilder =
     SyncStateTableCompanion Function({
       required String id,
@@ -7206,6 +10693,15 @@ class $AppDatabaseManager {
       $$EmbeddingsTableTableTableManager(_db, _db.embeddingsTable);
   $$AnalysisQueueTableTableTableManager get analysisQueueTable =>
       $$AnalysisQueueTableTableTableManager(_db, _db.analysisQueueTable);
+  $$ColorAnalysisQueueTableTableTableManager get colorAnalysisQueueTable =>
+      $$ColorAnalysisQueueTableTableTableManager(
+        _db,
+        _db.colorAnalysisQueueTable,
+      );
+  $$OcrAnalysisQueueTableTableTableManager get ocrAnalysisQueueTable =>
+      $$OcrAnalysisQueueTableTableTableManager(_db, _db.ocrAnalysisQueueTable);
+  $$AiAnalysisQueueTableTableTableManager get aiAnalysisQueueTable =>
+      $$AiAnalysisQueueTableTableTableManager(_db, _db.aiAnalysisQueueTable);
   $$SyncStateTableTableTableManager get syncStateTable =>
       $$SyncStateTableTableTableManager(_db, _db.syncStateTable);
   $$AlbumsTableTableTableManager get albumsTable =>
