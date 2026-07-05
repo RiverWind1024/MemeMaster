@@ -9,8 +9,10 @@ import 'package:image/image.dart' as img;
 import '../../services/log_service.dart';
 import '../database/database.dart';
 import '../repositories/meme_repository.dart';
+import 'local_service.dart';
 import 'llm_service.dart';
 import 'models.dart';
+import 'openai_service.dart';
 
 /// 多模态 LLM 驱动的图片标签生成器
 ///
@@ -20,9 +22,14 @@ class VisionLlmEnricher {
   final LlmService _llm;
   final MemeRepository _repo;
   final LogService _log;
+  final bool _isLocalLlm;
+
+  /// 获取底层的 LLM 服务（用于检查模型加载状态）
+  LlmService get llm => _llm;
 
   /// 图片最大边长（超过此尺寸会被压缩以节省 token）
-  static const int _maxImageDimension = 768;
+  /// 本地 LLM 缩到 384px（减少 vision encoder 计算量），远程 API 保持 768px（节省 token）
+  int get _maxImageDimension => _isLocalLlm ? 384 : 768;
 
   /// JPEG 编码质量（1-100）
   static const int _jpgQuality = 85;
@@ -30,13 +37,14 @@ class VisionLlmEnricher {
   /// 原始文件超过此大小才触发重编码（字节）
   static const int _reencodeThreshold = 200 * 1024;
 
-  const VisionLlmEnricher({
+  VisionLlmEnricher({
     required LlmService llm,
     required MemeRepository repo,
     required LogService log,
   })  : _llm = llm,
         _repo = repo,
-        _log = log;
+        _log = log,
+        _isLocalLlm = llm is LocalLlmService;
 
   /// 对单张 meme 执行多模态分析
   ///
@@ -56,8 +64,8 @@ class VisionLlmEnricher {
       final base64Image = base64Encode(imageBytes);
       _log.info('VisionLLM', '图片 base64: ${base64Image.length} 字节');
 
-      // 2. 调用多模态 LLM
-      final result = await _analyzeImage(base64Image, effectiveLocale);
+      // 2. 调用多模态 LLM（带超时保护）
+      final result = await _analyzeImageWithTimeout(base64Image, effectiveLocale);
 
       if (result == null) {
         _log.warning('VisionLLM', 'LLM 返回空结果');
@@ -83,9 +91,29 @@ class VisionLlmEnricher {
         await _repo.updateDescription(memeId, result.description);
         _log.info('VisionLLM', '保存描述: ${result.description}');
       }
+    } on LlmException catch (e) {
+      _log.error('VisionLLM', 'LLM API 错误: $e');
+      rethrow;  // 让上层知道是API错误
     } catch (e) {
       _log.error('VisionLLM', '多模态分析失败: $e');
+      rethrow;  // 重新抛出，让上层处理
     }
+  }
+
+  /// 带超时的图片分析
+  Future<_AnalysisResult?> _analyzeImageWithTimeout(String base64Image, Locale locale) async {
+    if (_isLocalLlm) {
+      // 本地 LLM：不在此处设超时，由 _multimodalComplete 内部处理超时 + isolate 清理
+      // （外层的 Future.timeout 无法停止正在运行的 FFI 调用，会导致 CPU 持续空转）
+      return await _analyzeImage(base64Image, locale);
+    }
+    // 远程 API 设置较短超时，避免请求无限挂起
+    return await _analyzeImage(base64Image, locale).timeout(
+      const Duration(seconds: 60),
+      onTimeout: () {
+        throw LlmException('AI分析超时（60秒）');
+      },
+    );
   }
 
   Future<_AnalysisResult?> _analyzeImage(String base64Image, Locale locale) async {
@@ -129,8 +157,13 @@ class VisionLlmEnricher {
   }
 
   _AnalysisResult? _parseResponse(String raw) {
-    // 剥离 markdown 代码块包裹（模型有时返回 ```json ... ```）
     var text = raw.trim();
+
+    // 1. 剥离推理模型的 <think>...</think> 块（Qwen3 / DeepSeek-R1 等会先输出思考）
+    text = text.replaceAll(RegExp(r'<think>[\s\S]*?</think>', caseSensitive: false), '');
+    text = text.trim();
+
+    // 2. 剥离 markdown 代码块包裹（模型有时返回 ```json ... ```）
     if (text.startsWith('```')) {
       text = text.replaceFirst(RegExp(r'^```\w*\n?'), '');
       text = text.replaceFirst(RegExp(r'\n?```$'), '');
@@ -171,40 +204,49 @@ class VisionLlmEnricher {
       return bytes;
     }
 
-    int w = original.width;
-    int h = original.height;
+    try {
+      int w = original.width;
+      int h = original.height;
 
-    // 如果尺寸超出阈值，等比缩放
-    if (w > _maxImageDimension || h > _maxImageDimension) {
-      if (w > h) {
-        h = (h * _maxImageDimension / w).round();
-        w = _maxImageDimension;
-      } else {
-        w = (w * _maxImageDimension / h).round();
-        h = _maxImageDimension;
+      // 如果尺寸超出阈值，等比缩放
+      if (w > _maxImageDimension || h > _maxImageDimension) {
+        if (w > h) {
+          h = (h * _maxImageDimension / w).round();
+          w = _maxImageDimension;
+        } else {
+          w = (w * _maxImageDimension / h).round();
+          h = _maxImageDimension;
+        }
+        final resized = img.copyResize(original, width: w, height: h);
+        try {
+          final jpeg = img.encodeJpg(resized, quality: _jpgQuality);
+          _log.info(
+            'VisionLLM',
+            '图片压缩: $originalSize -> ${jpeg.length} 字节, '
+                '尺寸: ${original.width}x${original.height} -> ${w}x$h',
+          );
+          return Uint8List.fromList(jpeg);
+        } finally {
+          // 释放resized图片内存
+        }
       }
-      final resized = img.copyResize(original, width: w, height: h);
-      final jpeg = img.encodeJpg(resized, quality: _jpgQuality);
-      _log.info(
-        'VisionLLM',
-        '图片压缩: $originalSize -> ${jpeg.length} 字节, '
-            '尺寸: ${original.width}x${original.height} -> ${w}x$h',
-      );
-      return Uint8List.fromList(jpeg);
-    }
 
-    // 尺寸没超但文件较大 → 重编码为 JPEG 减体积
-    if (originalSize > _reencodeThreshold) {
-      final jpeg = img.encodeJpg(original, quality: _jpgQuality);
-      _log.info(
-        'VisionLLM',
-        '图片重编码: $originalSize -> ${jpeg.length} 字节',
-      );
-      return Uint8List.fromList(jpeg);
-    }
+      // 尺寸没超但文件较大 → 重编码为 JPEG 减体积
+      if (originalSize > _reencodeThreshold) {
+        final jpeg = img.encodeJpg(original, quality: _jpgQuality);
+        _log.info(
+          'VisionLLM',
+          '图片重编码: $originalSize -> ${jpeg.length} 字节',
+        );
+        return Uint8List.fromList(jpeg);
+      }
 
-    _log.info('VisionLLM', '图片无需压缩: ${w}x$h, $originalSize 字节');
-    return bytes;
+      _log.info('VisionLLM', '图片无需压缩: ${w}x$h, $originalSize 字节');
+      return bytes;
+    } finally {
+      // 释放原始解码图片内存
+      // image包的Image对象会在垃圾回收时自动释放
+    }
   }
 
 }

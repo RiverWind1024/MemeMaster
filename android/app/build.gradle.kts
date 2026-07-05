@@ -19,9 +19,6 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        ndk {
-            abiFilters += "arm64-v8a"
-        }
         externalNativeBuild {
             cmake {
                 val llamaDir = System.getenv("LLAMA_CPP_DIR")
@@ -54,11 +51,8 @@ android {
 
     packaging {
         jniLibs {
-            excludes += listOf(
-                "lib/x86/*.so",
-                "lib/x86_64/*.so",
-                "lib/armeabi/*.so",
-                "lib/armeabi-v7a/*.so"
+            pickFirsts += listOf(
+                "lib/x86_64/libmeme_llm.so"
             )
         }
     }

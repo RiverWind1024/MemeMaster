@@ -2,4 +2,14 @@
 <paths>
     <!-- 缓存目录：用于临时共享剪贴板图片 -->
     <cache-path name="cache" path="/" />
+    <!-- Flutter 标准 files 目录模型路径：getApplicationDocumentsDirectory() -> files/ -->
+    <files-path name="models" path="models/" />
+    <!-- Flutter app_flutter 引擎数据目录模型路径：
+         在部分 Android 版本上 getApplicationDocumentsDirectory() 返回的是
+         /data/data/<pkg>/app_flutter/ 而非 /data/data/<pkg>/files/，
+         用 root-path 覆盖该路径以确保 FileProvider 能找到模型文件 -->
+    <root-path name="app_flutter_models" path="data/data/com.memehelper.app/app_flutter/models/" />
+    <!-- 外部 app 专属存储：getExternalStorageDirectory()/models
+         即 /storage/emulated/0/Android/data/<pkg>/files/models -->
+    <external-files-path name="external_models" path="models/" />
 </paths>

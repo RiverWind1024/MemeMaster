@@ -92,6 +92,7 @@ class OpenAiLlmService implements LlmService {
       'messages': _buildMessages(messages),
     };
 
+    // 设置30秒超时，防止请求无限挂起
     final response = await _client.post(
       _endpoint,
       headers: {
@@ -99,6 +100,11 @@ class OpenAiLlmService implements LlmService {
         if (_apiKey.isNotEmpty) 'Authorization': 'Bearer $_apiKey',
       },
       body: jsonEncode(body),
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () {
+        throw LlmException('API请求超时（30秒）');
+      },
     );
 
     if (response.statusCode != 200) {
