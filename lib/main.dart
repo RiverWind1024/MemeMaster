@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
+import 'core/llm/local_service.dart';
 import 'features/gallery/gallery_provider.dart';
 
 void main() async {
@@ -19,17 +20,21 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   debugPrint('[Startup] SharedPreferences: ${DateTime.now().difference(t0).inMilliseconds}ms');
 
-  // 初始化日志持久化路径（LogService 通过此路径恢复上次会话的日志）
+  // 应用内部目录：数据库、缓存、配置导出、模型文件、日志
   final docsDir = await getApplicationDocumentsDirectory();
   initLogFilePath('${docsDir.path}/logs/app.log');
-  debugPrint('[Startup] docsDir: ${DateTime.now().difference(t0).inMilliseconds}ms');
-
-  // 初始化模型存储目录
   final modelsDir = Directory('${docsDir.path}/models');
   if (!await modelsDir.exists()) {
     await modelsDir.create(recursive: true);
   }
   debugPrint('[Startup] models dir: ${modelsDir.path}');
+
+  // C++ 端 mllm_init 的日志输出文件
+  final mllmLogDir = Directory('${docsDir.path}/logs');
+  if (!await mllmLogDir.exists()) {
+    await mllmLogDir.create(recursive: true);
+  }
+  setMllmLogFilePath('${mllmLogDir.path}/mllm.log');
 
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
