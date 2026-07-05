@@ -21,7 +21,7 @@ class GalleryScreen extends ConsumerStatefulWidget {
 }
 
 class _GalleryScreenState extends ConsumerState<GalleryScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   TabController? _tabController;
   int _selectedTab = 0;
   bool _selectionMode = false;
@@ -37,6 +37,11 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
   void _syncTabController(int tabCount) {
     if (_tabController != null && _tabController!.length == tabCount) return;
+    if (tabCount == 0) {
+      _tabController?.dispose();
+      _tabController = null;
+      return;
+    }
     final oldIndex = _tabController?.index ?? 0;
     _tabController?.dispose();
     _tabController = TabController(
@@ -222,7 +227,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final colorScheme = theme.colorScheme;
     final albumsAsync = ref.watch(albumsProvider);
     final albums = albumsAsync.asData?.value ?? [];
-    final tabCount = albums.length + 1;
+    final nonDefaultAlbums = albums.where((a) => a.isDefault != 1).toList();
+    final tabCount = nonDefaultAlbums.length + 1;
 
     _syncTabController(tabCount);
 
@@ -250,10 +256,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
             Scaffold(
               appBar: _selectionMode
                   ? _buildSelectionAppBar()
-                  : _buildNormalAppBar(tabCount),
+                  : _buildNormalAppBar(tabCount, nonDefaultAlbums),
               body: _selectionMode
                   ? _buildSelectionGrid(memeListAsync)
-                  : _buildTabbedBody(memeListAsync, albums),
+                  : _buildTabbedBody(memeListAsync, nonDefaultAlbums),
               floatingActionButton: _selectionMode ? null : _buildFab(),
               // 点击页面内容也关闭径向菜单
               onDrawerChanged: (_) => _closeRadial(),
@@ -285,25 +291,25 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     );
   }
 
-  PreferredSizeWidget _buildNormalAppBar(int tabCount) {
+  PreferredSizeWidget _buildNormalAppBar(int tabCount, List<Album> nonDefaultAlbums) {
     // 构建 TabBar（不含专辑时居中显示「全部图片」）
+    final tabs = <Widget>[
+      Tab(text: S.of(context).allImages),
+      ...nonDefaultAlbums.map((a) => Tab(text: a.name)),
+    ];
+    final actualTabCount = tabs.length;
+
     final tabBar = TabBar(
       controller: _tabController,
-      isScrollable: tabCount > 1,
-      tabAlignment: tabCount > 1 ? null : TabAlignment.center,
-      tabs: [
-        Tab(text: S.of(context).allImages),
-        ...ref.watch(albumsProvider).asData?.value
-                .where((a) => a.isDefault != 1)
-                .map((a) => Tab(text: a.name)) ??
-            [],
-      ],
+      isScrollable: actualTabCount > 1,
+      tabAlignment: actualTabCount > 1 ? null : TabAlignment.center,
+      tabs: tabs,
     );
 
     final sortMode = ref.watch(memeSortModeProvider);
     const sortBarHeight = 36.0;
     const tabBarHeight = 48.0;
-    final totalBottomHeight = (tabCount > 1 ? tabBarHeight : 0.0) + sortBarHeight;
+    final totalBottomHeight = (actualTabCount > 1 ? tabBarHeight : 0.0) + sortBarHeight;
 
     return AppBar(
       toolbarHeight: 0,
@@ -312,7 +318,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (tabCount > 1) tabBar,
+            if (actualTabCount > 1) tabBar,
             // 排序栏
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -381,9 +387,17 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
   Widget _buildTabbedBody(
     AsyncValue<List<Meme>> memeListAsync,
-    List<Album> albums,
+    List<Album> nonDefaultAlbums,
   ) {
     if (_tabController == null) return const SizedBox();
+
+    final children = <Widget>[
+      _buildMemeGrid(memeListAsync),
+      ...nonDefaultAlbums.map((a) {
+        final albumMemes = ref.watch(memesByAlbumProvider(a.id));
+        return _buildMemeGrid(albumMemes);
+      }),
+    ];
 
     return Column(
       children: [
@@ -393,13 +407,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         Expanded(
           child: TabBarView(
             controller: _tabController,
-              children: [
-                _buildMemeGrid(memeListAsync),
-                ...albums.where((a) => a.isDefault != 1).map((a) {
-                final albumMemes = ref.watch(memesByAlbumProvider(a.id));
-                return _buildMemeGrid(albumMemes);
-              }),
-            ],
+            children: children,
           ),
         ),
       ],

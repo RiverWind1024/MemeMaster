@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,7 +20,7 @@ import '../../core/llm/model_manager.dart';
 import '../../core/llm/ollama_service.dart';
 import '../../core/llm/openai_service.dart';
 import '../../core/llm/vision_enricher.dart';
-import '../../services/analysis_queue_scheduler.dart';
+import '../../services/parallel_analysis_scheduler.dart';
 import '../../services/file_storage_service.dart';
 import '../../services/log_service.dart';
 import '../../services/s3_config.dart';
@@ -61,6 +62,18 @@ final queueDaoProvider = Provider((ref) {
   return ref.read(databaseProvider).analysisQueueDao;
 });
 
+final colorAnalysisQueueDaoProvider = Provider((ref) {
+  return ref.read(databaseProvider).colorAnalysisQueueDao;
+});
+
+final ocrAnalysisQueueDaoProvider = Provider((ref) {
+  return ref.read(databaseProvider).ocrAnalysisQueueDao;
+});
+
+final aiAnalysisQueueDaoProvider = Provider((ref) {
+  return ref.read(databaseProvider).aiAnalysisQueueDao;
+});
+
 final albumDaoProvider = Provider((ref) {
   return ref.read(databaseProvider).albumDao;
 });
@@ -96,7 +109,7 @@ void initLogFilePath(String path) {
 }
 
 final logServiceProvider = Provider<LogService>((ref) {
-  return LogService(logFilePath: _logFilePath);
+  return LogService(logFilePath: _logFilePath, mllmLogPath: getMllmLogFilePath());
 });
 
 final importServiceProvider = Provider<ImportService>((ref) {
@@ -145,11 +158,14 @@ final colorExtractionConfigProvider =
   ColorExtractionConfigNotifier.new,
 );
 
-final analysisSchedulerProvider = Provider<AnalysisQueueScheduler>((ref) {
+final analysisSchedulerProvider = Provider<ParallelAnalysisScheduler>((ref) {
   final t0 = DateTime.now();
   final config = ref.watch(colorExtractionConfigProvider);
-  final scheduler = AnalysisQueueScheduler(
-    queueDao: ref.read(queueDaoProvider),
+  final scheduler = ParallelAnalysisScheduler(
+    colorQueueDao: ref.read(colorAnalysisQueueDaoProvider),
+    ocrQueueDao: ref.read(ocrAnalysisQueueDaoProvider),
+    aiQueueDao: ref.read(aiAnalysisQueueDaoProvider),
+    analysisQueueDao: ref.read(queueDaoProvider),
     memeRepo: ref.read(memeRepositoryProvider),
     colorExtractor: ColorExtractor(defaultConfig: config),
     storage: ref.read(fileStorageServiceProvider),
@@ -247,17 +263,45 @@ final llmConfigProvider =
 // ---- 本地 LLM 配置 ----
 
 class LocalLlmConfigNotifier extends Notifier<LocalLlmConfig> {
+  static final _oldPathMarker = '/data/user/0/com.memehelper.app/app_flutter/';
+
   @override
   LocalLlmConfig build() {
     try {
       final prefs = ref.read(sharedPreferencesProvider);
       final jsonStr = prefs.getString('local_llm_config');
       if (jsonStr != null) {
-        return LocalLlmConfig.fromJson(
+        final cfg = LocalLlmConfig.fromJson(
             jsonDecode(jsonStr) as Map<String, dynamic>);
+        // 兼容旧版：路径如果指向内部 app 私有目录，自动改写到当前 storageDir
+        return _migrateFromOldPath(cfg);
       }
     } catch (_) {}
     return const LocalLlmConfig();
+  }
+
+  /// 把旧路径（内部 app 私有目录）下的 .gguf 路径改写到新路径（外部 app 专属目录）
+  LocalLlmConfig _migrateFromOldPath(LocalLlmConfig cfg) {
+    final storageDir = ref.read(storageDirProvider);
+    String? rewrite(String? path) {
+      if (path == null) return null;
+      if (!path.startsWith(_oldPathMarker)) return path;
+      final fileName = path.substring(_oldPathMarker.length);
+      final newPath = '$storageDir/$fileName';
+      // 如果新路径下文件已存在（迁移完成了），改写；否则保持旧值（文件没迁移成功）
+      if (File(newPath).existsSync()) return newPath;
+      return path;
+    }
+
+    final migrated = cfg.copyWith(
+      modelPath: rewrite(cfg.modelPath),
+      mmprojPath: rewrite(cfg.mmprojPath),
+    );
+    if (migrated.modelPath != cfg.modelPath ||
+        migrated.mmprojPath != cfg.mmprojPath) {
+      update(migrated); // 持久化改写后的值
+    }
+    return migrated;
   }
 
   void update(LocalLlmConfig config) {
@@ -283,6 +327,58 @@ final localLlmLoadedProvider = StateProvider<bool>((ref) => false);
 
 /// 本地 LLM 模型是否正在加载中
 final localLlmLoadingProvider = StateProvider<bool>((ref) => false);
+
+/// 已启用模型 ID 集合（管理页「启用/禁用」开关控制）
+///
+/// 持久化到 SharedPreferences。只有已启用的模型才会出现在 AI 设置页的模型选择器中。
+final enabledModelsProvider = NotifierProvider<EnabledModelsNotifier, Set<String>>(
+  EnabledModelsNotifier.new,
+);
+
+class EnabledModelsNotifier extends Notifier<Set<String>> {
+  @override
+  Set<String> build() {
+    try {
+      final prefs = ref.read(sharedPreferencesProvider);
+      final stored = prefs.getString('enabled_models');
+      if (stored != null && stored.isNotEmpty) {
+        return stored.split(',').toSet();
+      }
+    } catch (_) {}
+    return {};
+  }
+
+  void toggle(String modelId) {
+    final updated = Set<String>.from(state);
+    if (updated.contains(modelId)) {
+      updated.remove(modelId);
+    } else {
+      updated.add(modelId);
+    }
+    state = updated;
+    _persist(updated);
+  }
+
+  void enable(String modelId) {
+    if (state.contains(modelId)) return;
+    final updated = Set<String>.from(state)..add(modelId);
+    state = updated;
+    _persist(updated);
+  }
+
+  void disable(String modelId) {
+    if (!state.contains(modelId)) return;
+    final updated = Set<String>.from(state)..remove(modelId);
+    state = updated;
+    _persist(updated);
+  }
+
+  void _persist(Set<String> models) {
+    try {
+      ref.read(sharedPreferencesProvider).setString('enabled_models', models.join(','));
+    } catch (_) {}
+  }
+}
 
 // ---- LLM 服务（按模式创建） ----
 
@@ -348,6 +444,25 @@ final visionEnricherProvider = Provider<VisionLlmEnricher?>((ref) {
 
 // ---- 模型下载状态 ----
 
+/// 单个下载任务需要的上下文（用于 resume 重启协程、cancel 清理临时文件）
+class _DownloadTask {
+  final String taskId;
+  final ModelInfo modelInfo;
+  final String tempFilePath;
+  final ModelManager manager;
+  final void Function(String taskId)? onComplete;
+  final void Function(String taskId, Object error)? onError;
+
+  _DownloadTask({
+    required this.taskId,
+    required this.modelInfo,
+    required this.tempFilePath,
+    required this.manager,
+    this.onComplete,
+    this.onError,
+  });
+}
+
 /// 下载状态跟踪 Notifier
 ///
 /// 使用 [downloadTaskId] 作为key，格式为 "{modelId}#{fileType}"，
@@ -358,18 +473,35 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
   /// 每个下载任务对应的取消令牌（用于暂停/取消）
   final Map<String, CancelToken> _cancelTokens = {};
 
+  /// 每个下载任务的完整上下文（resume 时用来重启协程）
+  final Map<String, _DownloadTask> _tasks = {};
+
   /// 生成唯一的下载任务ID
   static String makeTaskId(String modelId, String fileType) => '$modelId#$fileType';
 
-  /// 获取指定下载任务当前的取消令牌
-  CancelToken? getCancelToken(String taskId) => _cancelTokens[taskId];
-
-  void startDownload(String taskId) {
+  /// 启动一个新下载任务（notifier 内部 spawn 协程并接管生命周期）
+  void startDownload({
+    required String taskId,
+    required ModelInfo modelInfo,
+    required String tempFilePath,
+    required ModelManager manager,
+    void Function(String taskId)? onComplete,
+    void Function(String taskId, Object error)? onError,
+  }) {
     _cancelTokens[taskId] = CancelToken();
+    _tasks[taskId] = _DownloadTask(
+      taskId: taskId,
+      modelInfo: modelInfo,
+      tempFilePath: tempFilePath,
+      manager: manager,
+      onComplete: onComplete,
+      onError: onError,
+    );
     state = {
       ...state,
       taskId: DownloadState(modelId: taskId, status: DownloadStatus.downloading),
     };
+    _runDownload(taskId);
   }
 
   void updateProgress(String taskId, double progress) {
@@ -380,6 +512,7 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
     };
   }
 
+  /// 暂停当前任务：仅置 flag，正在跑的协程下次循环检测到会抛 PauseException 退出
   void pauseDownload(String taskId) {
     _cancelTokens[taskId]?.pause();
     state = {
@@ -389,16 +522,46 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
     };
   }
 
+  /// 恢复任务：置 flag + 重新启动 downloadModel 协程（断点续传）
   void resumeDownload(String taskId) {
+    final task = _tasks[taskId];
+    if (task == null) return;
     _cancelTokens[taskId]?.resume();
     state = {
       ...state,
       taskId: state[taskId]?.copyWith(status: DownloadStatus.downloading) ??
           DownloadState(modelId: taskId, status: DownloadStatus.downloading),
     };
+    _runDownload(taskId);
   }
 
+  /// 取消任务：取消 token + 清理上下文和临时文件 + 隐藏 UI 卡片
+  ///
+  /// 临时文件由调用方直接清理（不让协程负责），因为用户期望点 ❌ 后立即生效：
+  /// - 协程可能还在写文件：协程内不主动清理（避免与正在的 IO 竞争）
+  /// - 协程可能已退出（PauseException）：catchError 不会再跑
+  void cancelDownload(String taskId) {
+    final token = _cancelTokens[taskId];
+    final task = _tasks[taskId];
+    token?.cancel();
+    _cancelTokens.remove(taskId);
+    _tasks.remove(taskId);
+    if (task != null) _deleteTempFile(task.tempFilePath);
+    final map = Map<String, DownloadState>.from(state);
+    map.remove(taskId);
+    state = map;
+  }
+
+  /// 兼容旧 API：删除模型时调用，等价于 [cancelDownload]
+  void removeState(String taskId) => cancelDownload(taskId);
+
   void failDownload(String taskId, String error) {
+    final task = _tasks[taskId];
+    if (task != null) {
+      _deleteTempFile(task.tempFilePath);
+      _tasks.remove(taskId);
+      _cancelTokens.remove(taskId);
+    }
     state = {
       ...state,
       taskId: state[taskId]?.copyWith(status: DownloadStatus.failed, errorMessage: error) ??
@@ -408,6 +571,7 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
 
   void completeDownload(String taskId) {
     _cancelTokens.remove(taskId);
+    _tasks.remove(taskId);
     state = {
       ...state,
       taskId: state[taskId]?.copyWith(status: DownloadStatus.completed, progress: 1.0) ??
@@ -415,11 +579,39 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
     };
   }
 
-  void removeState(String taskId) {
-    _cancelTokens.remove(taskId);
-    final map = Map<String, DownloadState>.from(state);
-    map.remove(taskId);
-    state = map;
+  /// 后台跑一次 downloadModel，失败/暂停/cancel 都正确处理
+  void _runDownload(String taskId) {
+    final task = _tasks[taskId];
+    if (task == null) return;
+    final token = _cancelTokens[taskId];
+    if (token == null) return;
+
+    task.manager
+        .downloadModel(
+      task.modelInfo,
+      onProgress: (p) => updateProgress(taskId, p),
+      cancelToken: token,
+    )
+        .then((_) {
+      completeDownload(taskId);
+      task.onComplete?.call(taskId);
+    }).catchError((e) {
+      // 暂停不算失败（用户后续会 resume）
+      if (e is PauseException) return;
+      // 取消：cancelDownload 已经清理过所有东西，这里什么都不做
+      if (token.isCancelled) return;
+      failDownload(taskId, e.toString());
+      task.onError?.call(taskId, e);
+    });
+  }
+
+  static void _deleteTempFile(String path) {
+    try {
+      final f = File(path);
+      if (f.existsSync()) f.deleteSync();
+    } catch (_) {
+      // 删不掉不影响取消语义
+    }
   }
 }
 
@@ -754,11 +946,22 @@ class AnalysisProgress {
 final analysisProgressProvider = StreamProvider<AnalysisProgress>((ref) async* {
   while (true) {
     await Future.delayed(const Duration(seconds: 3));
-    final queueDao = ref.read(queueDaoProvider);
+    final colorDao = ref.read(colorAnalysisQueueDaoProvider);
+    final ocrDao = ref.read(ocrAnalysisQueueDaoProvider);
+    final aiDao = ref.read(aiAnalysisQueueDaoProvider);
     try {
-      final queued = await queueDao.countQueued();
-      final running = (await queueDao.getRunning()).length;
-      yield AnalysisProgress(queued: queued, running: running);
+      final total = await Future.wait([
+        colorDao.getPendingCount(),
+        colorDao.getRunningCount(),
+        ocrDao.getPendingCount(),
+        ocrDao.getRunningCount(),
+        aiDao.getPendingCount(),
+        aiDao.getRunningCount(),
+      ]);
+      yield AnalysisProgress(
+        queued: total[0] + total[2] + total[4],
+        running: total[1] + total[3] + total[5],
+      );
     } catch (_) {
       yield const AnalysisProgress();
     }

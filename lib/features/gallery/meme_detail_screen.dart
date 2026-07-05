@@ -264,7 +264,7 @@ class _MemeDetailPageState extends ConsumerState<_MemeDetailPage> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      _StatusChip(status: widget.meme.analysisStatus),
+                      _StatusChip(status: widget.meme.colorAnalysisStatus),
                       const SizedBox(width: 16),
                       _OcrChip(memeId: widget.memeId),
                       const SizedBox(width: 16),
