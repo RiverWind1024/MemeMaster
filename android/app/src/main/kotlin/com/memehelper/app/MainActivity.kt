@@ -1,12 +1,17 @@
 package com.memehelper.app
 
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
 import android.provider.DocumentsContract
+import android.provider.MediaStore
 import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -18,6 +23,7 @@ import java.io.FileOutputStream
 private const val CHANNEL_CLIPBOARD = "com.memehelper.app/clipboard"
 private const val CHANNEL_SHARE = "com.memehelper.app/share"
 private const val CHANNEL_STORAGE = "com.memehelper.app/storage"
+private const val CHANNEL_FILE = "com.memehelper.app/file"
 
 class MainActivity : FlutterActivity() {
     companion object {
@@ -135,6 +141,41 @@ class MainActivity : FlutterActivity() {
                             result.error("LIST_FAILED", e.message, null)
                         }
                     }.start()
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            CHANNEL_FILE
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "writeToDownloads" -> {
+                    val srcPath = call.argument<String>("srcPath")
+                    val subDir = call.argument<String>("subDir") ?: ""
+                    val displayName = call.argument<String>("displayName")
+                    if (srcPath == null) {
+                        result.error("INVALID_ARG", "srcPath required", null)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        val finalName = displayName ?: File(srcPath).name
+                        writeToDownloads(File(srcPath), subDir, finalName)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        android.util.Log.e(tag, "writeToDownloads failed", e)
+                        result.error("WRITE_FAILED", e.message, null)
+                    }
+                }
+                "openDownloadsFolder" -> {
+                    try {
+                        openDownloadsFolder()
+                        result.success(true)
+                    } catch (e: Exception) {
+                        android.util.Log.e(tag, "openDownloadsFolder failed", e)
+                        result.error("OPEN_FAILED", e.message, null)
+                    }
                 }
                 else -> result.notImplemented()
             }
@@ -398,6 +439,77 @@ class MainActivity : FlutterActivity() {
 
         android.util.Log.d(tag, "getClipboardImage: no image found in clipboard")
         return null
+    }
+
+    /// 把文件复制到公共 Downloads/MemeHelper/<subDir>/<displayName>，返回最终路径
+    ///
+    /// Android 11+ 受限于 scoped storage，必须走 MediaStore API 写入公共 Downloads；
+    /// 这能让任何文件管理器（Files、Google Files）看到用户的模型/图片
+    private fun writeToDownloads(src: File, subDir: String, displayName: String) {
+        if (!src.exists()) throw IllegalStateException("文件不存在: ${src.absolutePath}")
+        if (!src.isFile) throw IllegalStateException("不是文件: ${src.absolutePath}")
+
+        val relPath = if (subDir.isEmpty()) displayName
+                      else "${subDir.trim('/')}/$displayName"
+        val mimeType = guessMimeType(displayName)
+
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.MediaColumns.RELATIVE_PATH,
+                    Environment.DIRECTORY_DOWNLOADS + "/MemeHelper/$relPath".substringBeforeLast('/'))
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+        }
+
+        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        } else {
+            MediaStore.Files.getContentUri("external")
+        }
+
+        val itemUri = contentResolver.insert(collection, values)
+            ?: throw IllegalStateException("无法创建下载条目")
+        try {
+            contentResolver.openOutputStream(itemUri)?.use { output ->
+                src.inputStream().use { input ->
+                    input.copyTo(output)
+                }
+            } ?: throw IllegalStateException("无法打开输出流")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                values.clear()
+                values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                contentResolver.update(itemUri, values, null, null)
+            }
+        } catch (e: Exception) {
+            contentResolver.delete(itemUri, null, null)
+            throw e
+        }
+    }
+
+    private fun guessMimeType(name: String): String {
+        val ext = name.substringAfterLast('.', "").lowercase()
+        return when (ext) {
+            "png" -> "image/png"
+            "jpg", "jpeg" -> "image/jpeg"
+            "webp" -> "image/webp"
+            "gif" -> "image/gif"
+            "json" -> "application/json"
+            else -> "application/octet-stream"
+        }
+    }
+
+    /// 启动 SAF picker 让用户手动浏览 Downloads/MemeHelper/（public location）
+    private fun openDownloadsFolder() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            startActivity(Intent.createChooser(intent, "浏览 Downloads/MemeHelper"))
+        } catch (e: ActivityNotFoundException) {
+            throw IllegalStateException("未找到文件管理器应用")
+        }
     }
 
     private fun copyImageToClipboard(bytes: ByteArray, mimeType: String) {

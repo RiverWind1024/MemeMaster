@@ -2,8 +2,8 @@ import 'dart:ffi';
 import 'dart:io';
 import 'package:ffi/ffi.dart';
 
-typedef MllmInitC = Pointer<Void> Function(Pointer<Utf8>, Pointer<Utf8>, Int32, Int32);
-typedef MllmInitDart = Pointer<Void> Function(Pointer<Utf8>, Pointer<Utf8>, int, int);
+typedef MllmInitC = Pointer<Void> Function(Pointer<Utf8>, Pointer<Utf8>, Int32, Int32, Int32, Int32, Pointer<Utf8>);
+typedef MllmInitDart = Pointer<Void> Function(Pointer<Utf8>, Pointer<Utf8>, int, int, int, int, Pointer<Utf8>);
 
 typedef MllmCompleteC = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>, Int32, Float);
 typedef MllmCompleteDart = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>, int, double);
@@ -20,44 +20,61 @@ typedef MllmFreeStringC = Void Function(Pointer<Utf8>);
 typedef MllmFreeStringDart = void Function(Pointer<Utf8>);
 
 class NativeLlmBindings {
-  late final DynamicLibrary _dylib;
+  DynamicLibrary? _dylib;
 
-  late final MllmInitDart mllmInit;
-  late final MllmCompleteDart mllmComplete;
-  late final MllmMultimodalCompleteDart mllmMultimodalComplete;
-  late final MllmCloseDart mllmClose;
-  late final MllmFreeStringDart mllmFreeString;
+  MllmInitDart? mllmInit;
+  MllmCompleteDart? mllmComplete;
+  MllmMultimodalCompleteDart? mllmMultimodalComplete;
+  MllmCloseDart? mllmClose;
+  MllmFreeStringDart? mllmFreeString;
 
+  /// 构造函数尝试加载动态库，捕获异常避免闪退
   NativeLlmBindings() {
-    _dylib = Platform.isAndroid
-        ? DynamicLibrary.open('libmeme_llm.so')
-        : DynamicLibrary.open('libmeme_llm.so');
-
-    mllmInit = _dylib.lookupFunction<MllmInitC, MllmInitDart>('mllm_init');
-    mllmComplete = _dylib.lookupFunction<MllmCompleteC, MllmCompleteDart>('mllm_complete');
-    mllmMultimodalComplete =
-        _dylib.lookupFunction<MllmMultimodalCompleteC, MllmMultimodalCompleteDart>(
-            'mllm_multimodal_complete');
-    mllmClose = _dylib.lookupFunction<MllmCloseC, MllmCloseDart>('mllm_close');
-    mllmFreeString = _dylib.lookupFunction<MllmFreeStringC, MllmFreeStringDart>('mllm_free_string');
+    try {
+      _dylib = DynamicLibrary.open('libmeme_llm.so');
+      mllmInit = _dylib!.lookupFunction<MllmInitC, MllmInitDart>('mllm_init');
+      mllmComplete = _dylib!.lookupFunction<MllmCompleteC, MllmCompleteDart>('mllm_complete');
+      mllmMultimodalComplete =
+          _dylib!.lookupFunction<MllmMultimodalCompleteC, MllmMultimodalCompleteDart>(
+              'mllm_multimodal_complete');
+      mllmClose = _dylib!.lookupFunction<MllmCloseC, MllmCloseDart>('mllm_close');
+      mllmFreeString = _dylib!.lookupFunction<MllmFreeStringC, MllmFreeStringDart>('mllm_free_string');
+    } catch (e) {
+      // 加载失败时不抛异常，后续调用通过 mllmInit==null 判断不可用
+      // 防止因 ABI 不匹配或 .so 缺失导致 app 启动时直接闪退
+    }
   }
 
-  Pointer<Void> init(String modelPath, String? mmprojPath, int threads, int ctxSize) {
+  bool get isLoaded => _dylib != null;
+
+  Pointer<Void> init(
+    String modelPath,
+    String? mmprojPath,
+    int threads,
+    int ctxSize, {
+    int useGpu = 1,
+    int nGpuLayers = -1,
+    String? logFilePath,
+  }) {
+    final fn = mllmInit!;
     final modelPtr = modelPath.toNativeUtf8();
     final mmprojPtr = mmprojPath?.toNativeUtf8() ?? nullptr;
-    final handle = mllmInit(modelPtr, mmprojPtr, threads, ctxSize);
+    final logPtr = logFilePath?.toNativeUtf8() ?? nullptr;
+    final handle = fn(modelPtr, mmprojPtr, threads, ctxSize, useGpu, nGpuLayers, logPtr);
     malloc.free(modelPtr);
     if (mmprojPath != null) malloc.free(mmprojPtr);
+    if (logFilePath != null) malloc.free(logPtr);
     return handle;
   }
 
   String? complete(Pointer<Void> handle, String prompt, int maxTokens, double temperature) {
+    final fn = mllmComplete!;
     final promptPtr = prompt.toNativeUtf8();
-    final resultPtr = mllmComplete(handle, promptPtr, maxTokens, temperature);
+    final resultPtr = fn(handle, promptPtr, maxTokens, temperature);
     malloc.free(promptPtr);
     if (resultPtr == nullptr) return null;
     final result = resultPtr.toDartString();
-    mllmFreeString(resultPtr);
+    mllmFreeString!(resultPtr);
     return result;
   }
 
@@ -71,17 +88,18 @@ class NativeLlmBindings {
     int maxTokens,
     double temperature,
   ) {
+    final fn = mllmMultimodalComplete!;
     final promptPtr = prompt.toNativeUtf8();
-    final resultPtr = mllmMultimodalComplete(
+    final resultPtr = fn(
         handle, promptPtr, imageData, imageDataSize, imageWidth, imageHeight, maxTokens, temperature);
     malloc.free(promptPtr);
     if (resultPtr == nullptr) return null;
     final result = resultPtr.toDartString();
-    mllmFreeString(resultPtr);
+    mllmFreeString!(resultPtr);
     return result;
   }
 
   void close(Pointer<Void> handle) {
-    mllmClose(handle);
+    mllmClose!(handle);
   }
 }

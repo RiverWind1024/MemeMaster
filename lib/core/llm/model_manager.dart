@@ -1,8 +1,10 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
+
+const _fileChannel = MethodChannel('com.memehelper.app/file');
 
 /// 模型下载源
 enum DownloadSource { huggingface, modelscope }
@@ -157,6 +159,11 @@ class ModelManager {
   /// 模型存储目录
   String get storageDir => _storageDir;
 
+  /// 净化模型 ID，确保可安全用作文件名（替换 / 等路径分隔符）
+  static String sanitizeId(String id) {
+    return id.replaceAll('/', '_');
+  }
+
   /// 下载模型（带进度回调与取消支持）
   ///
   /// 返回下载的文件路径，用于UI更新。
@@ -165,25 +172,28 @@ class ModelManager {
     void Function(double progress)? onProgress,
     CancelToken? cancelToken,
   }) async {
+    final safeId = sanitizeId(info.id);
+    final mainPath = p.join(_storageDir, '$safeId.gguf');
     // 下载主模型文件
     await _downloadFile(
       url: info.ggufUrl,
-      destPath: p.join(_storageDir, '${info.id}.gguf'),
+      destPath: mainPath,
       onProgress: onProgress,
       cancelToken: cancelToken,
     );
 
     // 下载 mmproj 文件（如果有）
     if (info.mmprojUrl != null) {
+      final mmprojPath = p.join(_storageDir, 'mmproj-$safeId.gguf');
       await _downloadFile(
         url: info.mmprojUrl!,
-        destPath: p.join(_storageDir, 'mmproj-${info.id}.gguf'),
+        destPath: mmprojPath,
         onProgress: onProgress,
         cancelToken: cancelToken,
       );
     }
-    
-    return p.join(_storageDir, '${info.id}.gguf');
+
+    return mainPath;
   }
 
   /// 单个文件的断点续传下载
@@ -195,6 +205,12 @@ class ModelManager {
   }) async {
     final tempPath = '$destPath.download';
     final tempFile = File(tempPath);
+
+    // 确保父目录存在
+    final parentDir = tempFile.parent;
+    if (!await parentDir.exists()) {
+      await parentDir.create(recursive: true);
+    }
 
     // 检查已有临时文件大小
     int downloadedBytes = 0;
@@ -259,6 +275,11 @@ class ModelManager {
     try {
       await for (final chunk in response.stream) {
         if (cancelToken?.isCancelled == true) {
+          // 取消：先关 sink 释放 fd，再抛错
+          if (sink != null) {
+            try { await sink!.close(); } catch (_) {}
+            sink = null;
+          }
           throw Exception('下载已取消');
         }
         if (cancelToken?.isPaused == true) {
@@ -325,55 +346,38 @@ class ModelManager {
 
   /// 删除模型
   Future<void> deleteModel(String modelId) async {
-    final modelFile = File(p.join(_storageDir, '$modelId.gguf'));
+    final safeId = sanitizeId(modelId);
+    final modelFile = File(p.join(_storageDir, '$safeId.gguf'));
     if (await modelFile.exists()) await modelFile.delete();
 
-    final mmprojFile = File(p.join(_storageDir, 'mmproj-$modelId.gguf'));
+    final mmprojFile = File(p.join(_storageDir, 'mmproj-$safeId.gguf'));
     if (await mmprojFile.exists()) await mmprojFile.delete();
 
     // 清理残留的临时文件
-    final tempFile = File(p.join(_storageDir, '$modelId.gguf.download'));
+    final tempFile = File(p.join(_storageDir, '$safeId.gguf.download'));
     if (await tempFile.exists()) await tempFile.delete();
   }
 
-  /// 在文件管理器中打开模型所在目录
-  ///
-  /// Android 上尝试打开模型所在的父目录（应用私有目录），
-  /// 如果无法打开目录则回退到打开 GGUF 文件本身。
-  /// 返回 open_filex 的结果，调用方可据此显示提示。
-  Future<OpenResult> showModelInFolder(String modelId) async {
-    final file = File(p.join(_storageDir, '$modelId.gguf'));
-    if (!await file.exists()) {
-      return OpenResult(type: ResultType.error, message: '文件不存在');
+  /// 列出指定模型在存储目录中的所有相关文件
+  /// （主模型 .gguf、mmproj、临时 .download 等）
+  Future<List<File>> listModelFiles(String modelId) async {
+    final safeId = sanitizeId(modelId);
+    final candidates = [
+      File(p.join(_storageDir, '$safeId.gguf')),
+      File(p.join(_storageDir, 'mmproj-$safeId.gguf')),
+      File(p.join(_storageDir, '$safeId.gguf.download')),
+    ];
+    final result = <File>[];
+    for (final f in candidates) {
+      if (await f.exists()) result.add(f);
     }
+    return result;
+  }
 
-    final dir = file.parent;
-
-    if (Platform.isAndroid) {
-      // 先尝试打开目录
-      final dirResult = await OpenFilex.open(dir.path);
-      if (dirResult.type == ResultType.done) {
-        return dirResult;
-      }
-      // 如果目录打不开，回退到打开文件本身
-      return await OpenFilex.open(file.path);
-    } else {
-      try {
-        final result = await Process.run('xdg-open', [dir.path]);
-        if (result.exitCode != 0) {
-          return OpenResult(
-            type: ResultType.error,
-            message: 'xdg-open 失败: ${result.stderr}',
-          );
-        }
-        return OpenResult(type: ResultType.done, message: dir.path);
-      } catch (e) {
-        return OpenResult(
-          type: ResultType.error,
-          message: '无法打开目录: $e',
-        );
-      }
-    }
+/// 启动 SAF picker 让用户浏览 Downloads/MemeHelper
+  Future<void> openDownloadsFolder() async {
+    if (!Platform.isAndroid) return;
+    await _fileChannel.invokeMethod('openDownloadsFolder');
   }
 
   /// 获取存储占用（字节）
