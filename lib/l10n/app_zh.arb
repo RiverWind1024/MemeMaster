@@ -212,6 +212,9 @@
   "logViewer": "运行日志",
   "logCopied": "日志已复制到剪贴板",
   "noLogs": "暂无日志",
+  "logSearchHint": "搜索日志 (支持 message / tag / level)",
+  "logNoMatch": "无匹配日志",
+  "logFilteredCount": "{count}/{total} 条",
 
   "importComplete": "导入完成",
   "importImages": "导入图片",

@@ -607,6 +607,17 @@ class SEn extends S {
   String get noLogs => 'No logs';
 
   @override
+  String get logSearchHint => 'Search logs (matches message / tag / level)';
+
+  @override
+  String get logNoMatch => 'No matching logs';
+
+  @override
+  String logFilteredCount(Object count, Object total) {
+    return '$count/$total';
+  }
+
+  @override
   String get importComplete => 'Import Complete';
 
   @override

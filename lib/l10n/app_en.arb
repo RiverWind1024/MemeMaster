@@ -188,6 +188,9 @@
   "logViewer": "Run Logs",
   "logCopied": "Logs copied to clipboard",
   "noLogs": "No logs",
+  "logSearchHint": "Search logs (matches message / tag / level)",
+  "logNoMatch": "No matching logs",
+  "logFilteredCount": "{count}/{total}",
 
   "importComplete": "Import Complete",
   "importImages": "Import Images",
