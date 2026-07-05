@@ -57,8 +57,12 @@ class LogService {
   /// 持久化文件路径，null = 不持久化（纯内存）
   String? logFilePath;
 
-  LogService({this.logFilePath}) {
+  /// C++ 端 mllm_init 写入的日志文件路径（plain 格式）
+  String? mllmLogPath;
+
+  LogService({this.logFilePath, this.mllmLogPath}) {
     _loadFromFile();
+    loadMllmLog(mllmLogPath);
   }
 
   // ---- 持久化 ----
@@ -137,5 +141,84 @@ class LogService {
         File(path).writeAsStringSync('');
       } catch (_) {}
     }
+    // 同时清空 C++ 端 mllm.log，方便重新观察新一轮启动日志
+    final mllmPath = mllmLogPath;
+    if (mllmPath != null) {
+      try {
+        File(mllmPath).writeAsStringSync('');
+      } catch (_) {}
+    }
+  }
+
+  /// 只重新加载 mllm.log（不清空 LogService 自身的 app.log 内存项）
+  void reloadMllmLog() {
+    if (mllmLogPath == null) return;
+    loadMllmLog(mllmLogPath);
+  }
+
+  // ---- C++ mllm.log 读取 ----
+
+  /// 从 C++ 端写入的 mllm.log 文件加载历史日志。
+  /// 文件格式（每行）：I/W/E HH:MM:SS.mmm <msg>
+  /// 追加到 _entries 末尾，不去重（保证完整历史）。
+  void loadMllmLog(String? mllmLogPath) {
+    if (mllmLogPath == null) return;
+    final file = File(mllmLogPath);
+    if (!file.existsSync()) return;
+    try {
+      final lines = file.readAsLinesSync();
+      // 从尾部加载，保留最新 maxEntries 条
+      for (int i = lines.length - 1; i >= 0; i--) {
+        if (_entries.length >= maxEntries) break;
+        final entry = _parseMllmLogLine(lines[i]);
+        if (entry != null) _entries.addFirst(entry);
+      }
+    } catch (_) {
+      // 文件读取失败不影响其他日志
+    }
+  }
+
+  /// 解析一行 mllm.log，格式 "I/W/E HH:MM:SS.mmm <msg>"，无法解析返回 null。
+  /// 若行以 "=== " 开头（session 分隔），作为 info 级别返回。
+  static LogEntry? _parseMllmLogLine(String line) {
+    if (line.isEmpty) return null;
+    LogLevel level;
+    int prefixLen;
+    if (line.startsWith('E ')) {
+      level = LogLevel.error;
+      prefixLen = 2;
+    } else if (line.startsWith('W ')) {
+      level = LogLevel.warning;
+      prefixLen = 2;
+    } else if (line.startsWith('I ')) {
+      level = LogLevel.info;
+      prefixLen = 2;
+    } else if (line.startsWith('=== ')) {
+      level = LogLevel.info;
+      prefixLen = 0;
+    } else {
+      return null;
+    }
+    final rest = line.substring(prefixLen);
+    // rest 形如 "HH:MM:SS.mmm <msg>" 或 "<msg>"
+    final spaceIdx = rest.indexOf(' ');
+    final tsPart = spaceIdx > 0 ? rest.substring(0, spaceIdx) : '';
+    final msg = spaceIdx > 0 ? rest.substring(spaceIdx + 1) : rest;
+    DateTime ts;
+    final parsed = DateTime.tryParse('1970-01-01T$tsPart');
+    if (parsed != null) {
+      // 用 1970-01-01 作占位日期，只保留时间部分
+      final now = DateTime.now();
+      ts = DateTime(now.year, now.month, now.day,
+          parsed.hour, parsed.minute, parsed.second, parsed.millisecond);
+    } else {
+      ts = DateTime.now();
+    }
+    return LogEntry(
+      timestamp: ts,
+      level: level,
+      tag: 'mllm',
+      message: msg,
+    );
   }
 }

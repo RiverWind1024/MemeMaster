@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:open_filex/open_filex.dart';
+import 'package:path/path.dart' as p;
 
 import '../../core/llm/local_config.dart';
 import '../../core/llm/model_manager.dart';
@@ -30,6 +33,7 @@ class ModelManagerScreen extends ConsumerStatefulWidget {
 class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ModelSearchService _searchService = ModelSearchService();
+  final Set<String> _autoCompletedTasks = {};
 
   @override
   void dispose() {
@@ -226,6 +230,22 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
 
   Widget _buildDownloadingSection(ThemeData theme) {
     final downloadStates = ref.watch(downloadStatesProvider);
+    final manager = ref.read(modelManagerProvider);
+    final notifier = ref.read(downloadStatesProvider.notifier);
+
+    // 兜底检测：对 progress >= 1.0 但状态仍为 downloading 的卡住下载做自动完成
+    for (final entry in downloadStates.entries) {
+      if (entry.value.progress >= 1.0 &&
+          entry.value.status == DownloadStatus.downloading &&
+          !_autoCompletedTasks.contains(entry.key)) {
+        final modelId = entry.key.split('#').first;
+        if (manager.getDownloadedModels().any((d) => d.id == modelId)) {
+          _autoCompletedTasks.add(entry.key);
+          Future.microtask(() => notifier.completeDownload(entry.key));
+        }
+      }
+    }
+
     final downloading = downloadStates.entries
         .where((e) => e.value.status == DownloadStatus.downloading || e.value.status == DownloadStatus.paused)
         .toList();
@@ -323,27 +343,33 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
 
       // Show file selection dialog
       if (!mounted) return;
+      final maxH = MediaQuery.of(context).size.height * 0.6;
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text('选择要下载的文件'),
           content: SizedBox(
             width: double.infinity,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: files.map((file) {
-                final fileName = file.path.split('/').last;
-                final isMmproj = fileName.toLowerCase().contains('mmproj');
-                return ListTile(
-                  title: Text(fileName),
-                  subtitle: Text(_formatBytes(file.size)),
-                  trailing: const Icon(Icons.download),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _startDownloadFromSearch(model, file, isMmproj: isMmproj);
-                  },
-                );
-              }).toList(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxH),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: files.map((file) {
+                    final fileName = file.path.split('/').last;
+                    final isMmproj = fileName.toLowerCase().contains('mmproj');
+                    return ListTile(
+                      title: Text(fileName),
+                      subtitle: Text(_formatBytes(file.size)),
+                      trailing: const Icon(Icons.download),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _startDownloadFromSearch(model, file, isMmproj: isMmproj);
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
             ),
           ),
         ),
@@ -371,44 +397,43 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
     final source = ref.read(selectedSourceProvider);
     final fileType = isMmproj ? 'mmproj' : 'gguf';
     final taskId = DownloadStatesNotifier.makeTaskId(model.id, fileType);
-    
+    final safeId = ModelManager.sanitizeId(model.id);
+    final manager = ref.read(modelManagerProvider);
+
     final modelInfo = ModelInfo(
       id: model.id,
       name: model.name,
       description: model.description ?? '',
       source: source,
-      ggufUrl: file.downloadUrl,
+      ggufUrl: isMmproj ? '' : file.downloadUrl,
+      mmprojUrl: isMmproj ? file.downloadUrl : null,
       sizeLabel: _formatBytes(file.size),
     );
 
-    final notifier = ref.read(downloadStatesProvider.notifier);
-    notifier.startDownload(taskId);
-    final cancelToken = notifier.getCancelToken(taskId);
+    final fileName = isMmproj ? 'mmproj-$safeId.gguf' : '$safeId.gguf';
+    final tempFilePath = '${manager.storageDir}/$fileName.download';
 
-    final manager = ref.read(modelManagerProvider);
-    manager.downloadModel(
-      modelInfo,
-      onProgress: (p) => notifier.updateProgress(taskId, p),
-      cancelToken: cancelToken,
-    ).then((_) {
-      notifier.completeDownload(taskId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${model.name} ${isMmproj ? "mmproj" : "gguf"} 下载完成')),
-        );
-      }
-    }).catchError((e) {
-      // 暂停不算失败
-      if (e is PauseException) {
-        return;
-      }
-      notifier.failDownload(taskId, e.toString());
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('下载失败: $e')),
-        );
-      }
-    });
+    final notifier = ref.read(downloadStatesProvider.notifier);
+    notifier.startDownload(
+      taskId: taskId,
+      modelInfo: modelInfo,
+      tempFilePath: tempFilePath,
+      manager: manager,
+      onComplete: (id) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${model.name} ${isMmproj ? "mmproj" : "gguf"} 下载完成')),
+          );
+        }
+      },
+      onError: (id, e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('下载失败: $e')),
+          );
+        }
+      },
+    );
   }
 
   String _formatBytes(int bytes) {
@@ -417,6 +442,14 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
     if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
+}
+
+/// 顶层字节格式化工具（多个 widget 类共用）
+String formatBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
 }
 
 /// 搜索结果卡片
@@ -579,21 +612,15 @@ class _ModelCard extends ConsumerWidget {
     final manager = ref.read(modelManagerProvider);
     final notifier = ref.read(downloadStatesProvider.notifier);
     final taskId = DownloadStatesNotifier.makeTaskId(model.id, 'gguf');
+    final safeId = ModelManager.sanitizeId(model.id);
+    final tempFilePath = '${manager.storageDir}/$safeId.gguf.download';
 
-    notifier.startDownload(taskId);
-    final cancelToken = notifier.getCancelToken(taskId);
-    manager.downloadModel(
-      model,
-      onProgress: (p) => notifier.updateProgress(taskId, p),
-      cancelToken: cancelToken,
-    ).then((_) {
-      notifier.completeDownload(taskId);
-    }).catchError((e) {
-      if (e is PauseException) {
-        return;
-      }
-      notifier.failDownload(taskId, e.toString());
-    });
+    notifier.startDownload(
+      taskId: taskId,
+      modelInfo: model,
+      tempFilePath: tempFilePath,
+      manager: manager,
+    );
   }
 }
 
@@ -641,7 +668,9 @@ class _DownloadingCard extends ConsumerWidget {
                       ),
                     IconButton(
                       icon: const Icon(Icons.close),
-                      onPressed: () => ref.read(downloadStatesProvider.notifier).removeState(modelId),
+                      tooltip: '取消下载',
+                      onPressed: () =>
+                          ref.read(downloadStatesProvider.notifier).cancelDownload(modelId),
                     ),
                   ],
                 ),
@@ -654,7 +683,7 @@ class _DownloadingCard extends ConsumerWidget {
   }
 }
 
-/// 已下载模型卡片（复用现有逻辑）
+/// 已下载模型卡片
 class _DownloadedModelCard extends ConsumerWidget {
   final DownloadedModel model;
 
@@ -666,6 +695,8 @@ class _DownloadedModelCard extends ConsumerWidget {
     final sizeMB = (model.fileSizeBytes / (1024 * 1024)).toStringAsFixed(1);
     final localConfig = ref.watch(localLlmConfigProvider);
     final isLoaded = localConfig.modelPath == model.modelPath;
+    final enabledModels = ref.watch(enabledModelsProvider);
+    final isEnabled = enabledModels.contains(model.id);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -673,7 +704,29 @@ class _DownloadedModelCard extends ConsumerWidget {
         leading: isLoaded
             ? const Icon(Icons.check_circle, color: Colors.green)
             : const Icon(Icons.model_training),
-        title: Text(model.id, style: theme.textTheme.bodyMedium),
+        title: Row(
+          children: [
+            Text(model.id, style: theme.textTheme.bodyMedium),
+            if (isLoaded)
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withAlpha(30),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '已加载',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.green.shade700,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
         subtitle: Text(
           '$sizeMB MB',
           style: theme.textTheme.bodySmall,
@@ -681,36 +734,41 @@ class _DownloadedModelCard extends ConsumerWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (!isLoaded)
-              TextButton(
-                onPressed: () {
+            // 启用/禁用切换开关
+            Switch(
+              value: isEnabled,
+              onChanged: (v) {
+                ref.read(enabledModelsProvider.notifier).toggle(model.id);
+                if (!v && isLoaded) {
+                  // 禁用当前已加载的模型时，清除配置
                   ref.read(localLlmConfigProvider.notifier).update(
-                    LocalLlmConfig(
-                      modelPath: model.modelPath,
-                      mmprojPath: model.mmprojPath,
-                    ),
+                    const LocalLlmConfig(),
                   );
-                },
-                child: const Text('加载'),
-              ),
-            IconButton(
-              icon: const Icon(Icons.folder_open),
-              onPressed: () async {
-                final manager = ref.read(modelManagerProvider);
-                final result = await manager.showModelInFolder(model.id);
-                if (result.type != ResultType.done) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('打开失败: ${result.message}')),
-                    );
-                  }
+                  ref.read(localLlmLoadedProvider.notifier).state = false;
                 }
               },
             ),
+            // 文件夹按钮：弹 in-app 文件列表（避免第三方文件管理器跳转到无关目录）
+            IconButton(
+              icon: const Icon(Icons.folder_open),
+              tooltip: '查看模型文件',
+              onPressed: () => _showModelFilesDialog(context, ref),
+            ),
+            // 删除按钮
             IconButton(
               icon: const Icon(Icons.delete_outline),
+              tooltip: '删除模型',
               onPressed: () async {
                 await ref.read(modelManagerProvider).deleteModel(model.id);
+                // 从已启用列表中移除
+                ref.read(enabledModelsProvider.notifier).disable(model.id);
+                // 如果删除的是当前已加载模型，清除配置
+                if (isLoaded) {
+                  ref.read(localLlmConfigProvider.notifier).update(
+                    const LocalLlmConfig(),
+                  );
+                  ref.read(localLlmLoadedProvider.notifier).state = false;
+                }
                 // 清理该模型的所有下载状态
                 final notifier = ref.read(downloadStatesProvider.notifier);
                 notifier.removeState(DownloadStatesNotifier.makeTaskId(model.id, 'gguf'));
@@ -719,6 +777,107 @@ class _DownloadedModelCard extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _showModelFilesDialog(
+      BuildContext context, WidgetRef ref) async {
+    final manager = ref.read(modelManagerProvider);
+    final files = await manager.listModelFiles(model.id);
+    final dirPath = File(model.modelPath).parent.path;
+
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('模型文件'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SelectableText(
+                dirPath,
+                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(ctx).colorScheme.outline,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              if (files.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text('该模型目录下没有文件'),
+                )
+              else
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(ctx).size.height * 0.5,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: files.map((f) {
+                        final name = p.basename(f.path);
+                        final isTemp = name.endsWith('.download');
+                        return ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            isTemp ? Icons.downloading : Icons.description,
+                            size: 20,
+                          ),
+                          title: Text(name,
+                              style: const TextStyle(fontSize: 13)),
+                          subtitle: FutureBuilder<int>(
+                            future: f.length(),
+                            builder: (c, s) => Text(
+                              s.hasData ? formatBytes(s.data!) : '...',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          ),
+                          trailing: const Icon(Icons.open_in_new, size: 16),
+                          onTap: () async {
+                            Navigator.pop(ctx);
+                            try {
+                              await manager.openDownloadsFolder();
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('打开失败: $e')),
+                              );
+                            }
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.folder_open, size: 18),
+            label: const Text('打开所在文件夹'),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await manager.openDownloadsFolder();
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('打开失败: $e')),
+                );
+              }
+            },
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('关闭'),
+          ),
+        ],
       ),
     );
   }

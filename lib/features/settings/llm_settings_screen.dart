@@ -26,6 +26,10 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
     final mode = ref.watch(llmModeProvider);
     final llmConfig = ref.watch(llmConfigProvider);
     final localConfig = ref.watch(localLlmConfigProvider);
+    final enabledModels = ref.watch(enabledModelsProvider);
+    final enabledDownloaded = ref.read(modelManagerProvider).getDownloadedModels()
+        .where((d) => enabledModels.contains(d.id))
+        .toList();
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -159,6 +163,41 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
+                    // 模型选择器：从已启用的模型中选取当前使用的模型
+                    if (enabledDownloaded.isNotEmpty) ...[
+                      DropdownButtonFormField<String>(
+                        value: localConfig.modelPath != null
+                            ? (enabledDownloaded.where((d) => d.modelPath == localConfig.modelPath).isNotEmpty
+                                ? enabledDownloaded.firstWhere((d) => d.modelPath == localConfig.modelPath).id
+                                : null)
+                            : null,
+                        decoration: InputDecoration(
+                          labelText: '选择模型',
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                        items: enabledDownloaded.map((d) {
+                          final sizeMB = (d.fileSizeBytes / (1024 * 1024)).toStringAsFixed(1);
+                          return DropdownMenuItem(
+                            value: d.id,
+                            child: Text('${d.id} ($sizeMB MB)'),
+                          );
+                        }).toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            final selected = enabledDownloaded.firstWhere((d) => d.id == v);
+                            ref.read(localLlmConfigProvider.notifier).update(
+                              LocalLlmConfig(
+                                modelPath: selected.modelPath,
+                                mmprojPath: selected.mmprojPath,
+                              ),
+                            );
+                            ref.read(localLlmLoadedProvider.notifier).state = false;
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     if (localConfig.modelPath != null) ...[
                       ListTile(
                         contentPadding: EdgeInsets.zero,
@@ -211,9 +250,20 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                       SwitchListTile(
                         title: Text(S.of(context).gpuAcceleration),
                         value: localConfig.useGpu,
-                        onChanged: (v) => ref.read(localLlmConfigProvider.notifier).update(
-                          localConfig.copyWith(useGpu: v),
-                        ),
+                        onChanged: (v) {
+                          ref.read(localLlmConfigProvider.notifier).update(
+                            localConfig.copyWith(useGpu: v),
+                          );
+                          // GPU 设置修改后也需要重新加载模型才能生效
+                          if (ref.read(localLlmLoadedProvider)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('GPU 设置已修改，请点击「加载模型」重新加载以生效'),
+                                duration: Duration(seconds: 3),
+                              ),
+                            );
+                          }
+                        },
                         secondary: const Icon(Icons.memory),
                       ),
                       ListTile(
@@ -231,6 +281,15 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                               ref.read(localLlmConfigProvider.notifier).update(
                                 localConfig.copyWith(contextSize: v),
                               );
+                              // 如果模型已加载，提示用户需要重新加载才能生效
+                              if (ref.read(localLlmLoadedProvider)) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('上下文长度已修改，请点击「加载模型」重新加载以生效'),
+                                    duration: Duration(seconds: 3),
+                                  ),
+                                );
+                              }
                             }
                           },
                         ),
@@ -240,7 +299,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.science_outlined),
                         title: Text('测试推理'),
-                        subtitle: Text('运行快速测试验证模型加载和推理是否正常',
+                        subtitle: Text('将发送 "Who are you?" 验证模型加载和推理是否正常',
                             style: theme.textTheme.bodySmall),
                         trailing: FilledButton.tonalIcon(
                           onPressed: () => _runTestInference(),
@@ -299,18 +358,13 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
     await Future.delayed(const Duration(milliseconds: 50));
 
     try {
-      debugPrint('[LoadModel] 调用 runTestInference...');
-      final result = runTestInference(
-        modelPath: config.modelPath!,
-        mmprojPath: config.mmprojPath,
-        threads: config.threads,
-        contextSize: config.contextSize,
-        prompt: 'Answer with one word: hello',
-        maxTokens: 8,
-        temperature: 0.7,
-      );
-
-      if (result != null) {
+      // 获取实际的 LocalLlmService 实例并将模型加载到其中
+      // 与 runTestInference 不同：后者创建独立实例加载后立即释放，
+      // 这里直接让分析调度器使用的服务持有模型句柄
+      final service = ref.read(llmServiceProvider);
+      if (service is LocalLlmService) {
+        debugPrint('[LoadModel] 调用 service.ensureLoaded...');
+        await service.ensureLoaded();
         ref.read(localLlmLoadedProvider.notifier).state = true;
         debugPrint('[LoadModel] 模型加载成功');
         if (mounted) {
@@ -319,15 +373,16 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
           );
         }
       } else {
-        debugPrint('[LoadModel] 模型加载失败：返回空指针');
+        debugPrint('[LoadModel] 当前 LLM 模式不是本地模式');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('模型加载失败：返回空指针，请用 adb logcat 查看日志')),
+            const SnackBar(content: Text('请先切换到本地模型模式')),
           );
         }
       }
     } catch (e) {
-      debugPrint('[LoadModel] 模型加载异常: $e');
+      debugPrint('[LoadModel] 模型加载失败: $e');
+      ref.read(localLlmLoadedProvider.notifier).state = false;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('模型加载失败: $e')),
@@ -348,14 +403,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('正在执行推理测试…（约 5-30 秒）\n如果闪退请用 adb logcat 查看崩溃日志'),
-          ],
-        ),
+        child: CircularProgressIndicator(),
       ),
     );
 
@@ -363,12 +411,12 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
     await Future.delayed(const Duration(milliseconds: 100));
 
     try {
-      final result = runTestInference(
+      final result = await runTestInferenceAsync(
         modelPath: config.modelPath!,
         mmprojPath: config.mmprojPath,
-        threads: config.threads,
+        threads: config.effectiveThreads,
         contextSize: config.contextSize,
-        prompt: 'Answer with one word: say hello',
+        prompt: 'Who are you?',
         maxTokens: 32,
         temperature: 0.7,
       );
@@ -381,7 +429,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('推理测试失败'),
-            content: const Text('模型加载返回空指针，请检查模型文件是否损坏。\n\n用 adb logcat | grep mllm 查看详细日志。'),
+            content: const Text('模型加载返回空指针，请检查模型文件是否损坏。'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
@@ -413,7 +461,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('推理测试失败'),
-          content: Text('错误: $e\n\n请检查模型文件是否正确或查看日志。'),
+          content: Text('错误: $e\n\n请检查模型文件是否正确。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
