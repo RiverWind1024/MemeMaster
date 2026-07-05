@@ -4,6 +4,9 @@ import '../database/daos/meme_dao.dart';
 import '../database/daos/tag_dao.dart';
 import '../database/daos/color_dao.dart';
 import '../database/daos/analysis_queue_dao.dart';
+import '../database/daos/color_analysis_queue_dao.dart';
+import '../database/daos/ocr_analysis_queue_dao.dart';
+import '../database/daos/ai_analysis_queue_dao.dart';
 import '../database/database.dart';
 import '../../services/file_storage_service.dart';
 
@@ -13,6 +16,9 @@ class MemeRepository {
   final TagDao _tagDao;
   final ColorDao _colorDao;
   final AnalysisQueueDao _queueDao;
+  final ColorAnalysisQueueDao _colorQueueDao;
+  final OcrAnalysisQueueDao _ocrQueueDao;
+  final AiAnalysisQueueDao _aiQueueDao;
   final Uuid _uuid = const Uuid();
 
   MemeRepository({
@@ -20,7 +26,12 @@ class MemeRepository {
     required this._tagDao,
     required this._colorDao,
     required this._queueDao,
-  });
+    ColorAnalysisQueueDao? colorQueueDao,
+    OcrAnalysisQueueDao? ocrQueueDao,
+    AiAnalysisQueueDao? aiQueueDao,
+  })  : _colorQueueDao = colorQueueDao ?? ColorAnalysisQueueDao(_memeDao.database),
+        _ocrQueueDao = ocrQueueDao ?? OcrAnalysisQueueDao(_memeDao.database),
+        _aiQueueDao = aiQueueDao ?? AiAnalysisQueueDao(_memeDao.database);
 
   Future<Meme?> getById(String id) => _memeDao.getById(id);
 
@@ -61,6 +72,9 @@ class MemeRepository {
       width: width,
       height: height,
       analysisStatus: 'pending',
+      colorAnalysisStatus: 'pending',
+      ocrAnalysisStatus: 'pending',
+      aiAnalysisStatus: 'pending',
       fileHash: fileHash,
       copyCount: 0,
       createdAt: now,
@@ -137,6 +151,29 @@ class MemeRepository {
   Future<void> updateSource(String id, String source) =>
       _memeDao.updateSource(id, source);
 
+  // ---- 并行分析队列状态 ----
+
+  Future<void> updateColorAnalysisStatus(String id, String status) async {
+    await _memeDao.updateColorAnalysisStatus(id, status);
+  }
+
+  Future<void> updateOcrAnalysisStatus(String id, String status) async {
+    await _memeDao.updateOcrAnalysisStatus(id, status);
+  }
+
+  Future<void> updateAiAnalysisStatus(String id, String status) async {
+    await _memeDao.updateAiAnalysisStatus(id, status);
+  }
+
+  /// 检查图片是否所有分析都已完成
+  Future<bool> isAnalysisComplete(String id) async {
+    final meme = await _memeDao.getById(id);
+    if (meme == null) return false;
+    return meme.colorAnalysisStatus == 'done' &&
+        meme.ocrAnalysisStatus == 'done' &&
+        meme.aiAnalysisStatus == 'done';
+  }
+
   // ---- 关联数据 ----
 
   Future<List<TagEntry>> getTags(String memeId) => _tagDao.getByMemeId(memeId);
@@ -155,18 +192,38 @@ class MemeRepository {
   // ---- 分析队列 ----
 
   Future<void> enqueueAnalysis(String memeId, {int priority = 0}) async {
-    final item = AnalysisQueueItem(
-      id: _uuid.v4(),
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final uuid = _uuid.v4();
+
+    // 添加到颜色提取队列
+    await _colorQueueDao.insert(ColorAnalysisQueueItem(
+      id: '${uuid}_color',
       memeId: memeId,
-      status: 'queued',
+      status: 'pending',
       priority: priority,
       retryCount: 0,
-      errorMsg: null,
-      createdAt: DateTime.now().millisecondsSinceEpoch,
-      startedAt: null,
-      doneAt: null,
-    );
-    await _queueDao.insert(item);
+      createdAt: now,
+    ));
+
+    // 添加到 OCR 队列
+    await _ocrQueueDao.insert(OcrAnalysisQueueItem(
+      id: '${uuid}_ocr',
+      memeId: memeId,
+      status: 'pending',
+      priority: priority,
+      retryCount: 0,
+      createdAt: now,
+    ));
+
+    // 添加到 AI 分析队列
+    await _aiQueueDao.insert(AiAnalysisQueueItem(
+      id: '${uuid}_ai',
+      memeId: memeId,
+      status: 'pending',
+      priority: priority,
+      retryCount: 0,
+      createdAt: now,
+    ));
   }
 
   Future<AnalysisQueueItem?> getNextPending() => _queueDao.getNextPending();

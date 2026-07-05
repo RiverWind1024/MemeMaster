@@ -30,11 +30,11 @@ class FileStorageService {
     }
 
     final now = DateTime.now();
-    final relDir = '${now.year.toString().padLeft(4, '0')}'
+    final yearMonth = '${now.year.toString().padLeft(4, '0')}'
         '/${now.month.toString().padLeft(2, '0')}';
     final ext = p.extension(source.path).toLowerCase();
-    final relPath = '$relDir/$hash$ext';
-    final destDir = p.join(await basePath, relDir);
+    final relPath = '$yearMonth/$hash$ext';
+    final destDir = p.join(await basePath, yearMonth);
     final destPath = p.join(await basePath, relPath);
 
     // 已存在则跳过（同名 hash = 相同内容）
