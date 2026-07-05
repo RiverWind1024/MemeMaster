@@ -10,6 +10,9 @@ import 'daos/tag_dao.dart';
 import 'daos/color_dao.dart';
 import 'daos/album_dao.dart';
 import 'daos/analysis_queue_dao.dart';
+import 'daos/color_analysis_queue_dao.dart';
+import 'daos/ocr_analysis_queue_dao.dart';
+import 'daos/ai_analysis_queue_dao.dart';
 import 'daos/sync_state_dao.dart';
 import 'daos/user_stats_dao.dart';
 import 'tables/tables.dart';
@@ -23,6 +26,9 @@ part 'database.g.dart';
     ColorsTable,
     EmbeddingsTable,
     AnalysisQueueTable,
+    ColorAnalysisQueueTable,
+    OcrAnalysisQueueTable,
+    AiAnalysisQueueTable,
     SyncStateTable,
     AlbumsTable,
     MemeAlbumsTable,
@@ -33,7 +39,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -66,6 +72,16 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(userStatsTable, userStatsTable.promptTokens);
           await m.addColumn(userStatsTable, userStatsTable.completionTokens);
         }
+        if (from < 4) {
+          // 添加并行分析相关列
+          await m.addColumn(memesTable, memesTable.colorAnalysisStatus);
+          await m.addColumn(memesTable, memesTable.ocrAnalysisStatus);
+          await m.addColumn(memesTable, memesTable.aiAnalysisStatus);
+          // 创建新的队列表
+          await m.create(colorAnalysisQueueTable);
+          await m.create(ocrAnalysisQueueTable);
+          await m.create(aiAnalysisQueueTable);
+        }
       },
     );
   }
@@ -75,6 +91,9 @@ class AppDatabase extends _$AppDatabase {
   late final ColorDao colorDao = ColorDao(this);
   late final AlbumDao albumDao = AlbumDao(this);
   late final AnalysisQueueDao analysisQueueDao = AnalysisQueueDao(this);
+  late final ColorAnalysisQueueDao colorAnalysisQueueDao = ColorAnalysisQueueDao(this);
+  late final OcrAnalysisQueueDao ocrAnalysisQueueDao = OcrAnalysisQueueDao(this);
+  late final AiAnalysisQueueDao aiAnalysisQueueDao = AiAnalysisQueueDao(this);
   late final SyncStateDao syncStateDao = SyncStateDao(this);
   late final UserStatsDao userStatsDao = UserStatsDao(this);
 }

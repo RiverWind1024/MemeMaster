@@ -125,4 +125,9 @@ class AnalysisQueueDao {
           ..where((t) => t.status.equals('done')))
         .go();
   }
+
+  /// 清空所有记录（旧统一队列迁移后不再使用）
+  Future<void> deleteAll() async {
+    await _db.delete(_db.analysisQueueTable).go();
+  }
 }
