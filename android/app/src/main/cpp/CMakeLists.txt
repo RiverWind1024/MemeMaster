@@ -28,11 +28,11 @@ if(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a" OR CMAKE_ANDROID_ARCH_ABI STREQUA
 
     # GPU 加速后端（默认关闭）
     set(GGML_VULKAN ON)
-    
+
     # 设置 SPIRV-Headers 路径
     set(SPIRV-Headers_DIR "/home/jiangzifeng/下载/SPIRV-Headers-main/build/CMakeFiles/Export/7e173bd2f6c93e514e1dd3616a7ea2ca")
     list(APPEND CMAKE_PREFIX_PATH "/home/jiangzifeng/下载/SPIRV-Headers-main/build")
-    
+
     # 设置 glslc 路径（Android NDK 自带）
     set(Vulkan_GLSLC_EXECUTABLE "/home/jiangzifeng/Software/android-sdk/ndk/28.2.13676358/shader-tools/linux-x86_64/glslc")
 
