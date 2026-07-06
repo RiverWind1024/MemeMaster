@@ -19,6 +19,15 @@ typedef MllmCloseDart = void Function(Pointer<Void>);
 typedef MllmFreeStringC = Void Function(Pointer<Utf8>);
 typedef MllmFreeStringDart = void Function(Pointer<Utf8>);
 
+// Streaming API
+typedef MllmTokenCallbackC = Int32 Function(Pointer<Utf8>, Pointer<Void>);
+typedef MllmTokenCallbackDart = int Function(Pointer<Utf8>, Pointer<Void>);
+
+typedef MllmCompleteStreamC = Int32 Function(
+    Pointer<Void>, Pointer<Utf8>, Int32, Float, Pointer<NativeFunction<MllmTokenCallbackC>>, Pointer<Void>);
+typedef MllmCompleteStreamDart = int Function(
+    Pointer<Void>, Pointer<Utf8>, int, double, Pointer<NativeFunction<MllmTokenCallbackC>>, Pointer<Void>);
+
 class NativeLlmBindings {
   DynamicLibrary? _dylib;
 
@@ -27,6 +36,7 @@ class NativeLlmBindings {
   MllmMultimodalCompleteDart? mllmMultimodalComplete;
   MllmCloseDart? mllmClose;
   MllmFreeStringDart? mllmFreeString;
+  MllmCompleteStreamDart? mllmCompleteStream;
 
   /// 构造函数尝试加载动态库，捕获异常避免闪退
   NativeLlmBindings() {
@@ -39,6 +49,8 @@ class NativeLlmBindings {
               'mllm_multimodal_complete');
       mllmClose = _dylib!.lookupFunction<MllmCloseC, MllmCloseDart>('mllm_close');
       mllmFreeString = _dylib!.lookupFunction<MllmFreeStringC, MllmFreeStringDart>('mllm_free_string');
+      mllmCompleteStream =
+          _dylib!.lookupFunction<MllmCompleteStreamC, MllmCompleteStreamDart>('mllm_complete_stream');
     } catch (e) {
       // 加载失败时不抛异常，后续调用通过 mllmInit==null 判断不可用
       // 防止因 ABI 不匹配或 .so 缺失导致 app 启动时直接闪退
@@ -101,5 +113,22 @@ class NativeLlmBindings {
 
   void close(Pointer<Void> handle) {
     mllmClose!(handle);
+  }
+
+  /// 流式补全：通过 callback 逐 token 接收结果
+  /// 返回 0 成功，非 0 失败
+  int completeStream(
+    Pointer<Void> handle,
+    String prompt,
+    int maxTokens,
+    double temperature,
+    Pointer<NativeFunction<MllmTokenCallbackC>> callback,
+    Pointer<Void> userData,
+  ) {
+    final fn = mllmCompleteStream!;
+    final promptPtr = prompt.toNativeUtf8();
+    final result = fn(handle, promptPtr, maxTokens, temperature, callback, userData);
+    malloc.free(promptPtr);
+    return result;
   }
 }
