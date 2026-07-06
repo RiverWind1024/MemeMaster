@@ -1081,6 +1081,18 @@ class SZh extends S {
   }
 
   @override
+  String get aiChatTest => 'AI 对话';
+
+  @override
+  String get aiChatWelcome => '开始与 AI 对话';
+
+  @override
+  String get aiChatHint => '发送消息测试 AI 回复';
+
+  @override
+  String get typeMessage => '输入消息...';
+
+  @override
   String get copiedToClipboard => '已复制到剪贴板';
 
   @override

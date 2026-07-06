@@ -9,8 +9,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/llm/config.dart';
 import '../../core/llm/local_config.dart';
 import '../../core/llm/local_service.dart';
-import '../../core/llm/models.dart';
 import '../gallery/gallery_provider.dart';
+import '../llm/llm_chat_screen.dart';
 import '../../l10n/app_localizations.dart';
 
 class LlmSettingsScreen extends ConsumerStatefulWidget {
@@ -299,11 +299,11 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.science_outlined),
                         title: Text('测试推理'),
-                        subtitle: Text('将发送 "Who are you?" 验证模型加载和推理是否正常',
+                        subtitle: Text('打开 AI Chat 对话框自由测试',
                             style: theme.textTheme.bodySmall),
                         trailing: FilledButton.tonalIcon(
-                          onPressed: () => _runTestInference(),
-                          icon: const Icon(Icons.play_arrow, size: 18),
+                          onPressed: () => _openChatTest(),
+                          icon: const Icon(Icons.chat, size: 18),
                           label: Text('测试'),
                         ),
                       ),
@@ -406,84 +406,14 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
     }
   }
 
-  Future<void> _runTestInference() async {
-    final config = ref.read(localLlmConfigProvider);
-    if (config.modelPath == null) return;
-
-    debugPrint('[TestInference] 开始测试推理, modelPath=${config.modelPath}');
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(),
+  void _openChatTest() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LlmChatScreen(),
+        fullscreenDialog: true,
       ),
     );
-
-    // 等一帧让 loading dialog 先渲染出来，再执行同步 FFI
-    await Future.delayed(const Duration(milliseconds: 100));
-
-    try {
-      final result = await runTestInferenceAsync(
-        modelPath: config.modelPath!,
-        mmprojPath: config.mmprojPath,
-        threads: config.effectiveThreads,
-        contextSize: config.contextSize,
-        prompt: 'Who are you?',
-        maxTokens: 32,
-        temperature: 0.7,
-      );
-
-      if (!mounted) return;
-      Navigator.pop(context);
-
-      if (result == null) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('推理测试失败'),
-            content: const Text('模型加载返回空指针，请检查模型文件是否损坏。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('确定'),
-              ),
-            ],
-          ),
-        );
-      } else {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('推理测试成功'),
-            content: Text('模型返回: "$result"'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('确定'),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('[TestInference] 测试推理异常: $e');
-      if (!mounted) return;
-      Navigator.pop(context);
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('推理测试失败'),
-          content: Text('错误: $e\n\n请检查模型文件是否正确。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('确定'),
-            ),
-          ],
-        ),
-      );
-    }
   }
 
   Future<void> _pickLocalModel() async {

@@ -1095,6 +1095,18 @@ class SEn extends S {
   }
 
   @override
+  String get aiChatTest => 'AI Chat';
+
+  @override
+  String get aiChatWelcome => 'Start chatting with AI';
+
+  @override
+  String get aiChatHint => 'Send a message to test AI response';
+
+  @override
+  String get typeMessage => 'Type a message...';
+
+  @override
   String get copiedToClipboard => 'Copied to clipboard';
 
   @override

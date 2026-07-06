@@ -339,6 +339,11 @@
   "importMemePackResult": "Import complete: {success} success, {skipped} skipped, {errors} failed",
   "importMemePackFailed": "Import failed: {error}",
 
+  "aiChatTest": "AI Chat",
+  "aiChatWelcome": "Start chatting with AI",
+  "aiChatHint": "Send a message to test AI response",
+  "typeMessage": "Type a message...",
+
   "copiedToClipboard": "Copied to clipboard",
 
   "shareMeme": "Share meme",
