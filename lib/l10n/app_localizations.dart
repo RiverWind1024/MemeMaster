@@ -2017,6 +2017,30 @@ abstract class S {
   /// **'导入失败: {error}'**
   String importMemePackFailed(String error);
 
+  /// No description provided for @aiChatTest.
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 对话'**
+  String get aiChatTest;
+
+  /// No description provided for @aiChatWelcome.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始与 AI 对话'**
+  String get aiChatWelcome;
+
+  /// No description provided for @aiChatHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送消息测试 AI 回复'**
+  String get aiChatHint;
+
+  /// No description provided for @typeMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入消息...'**
+  String get typeMessage;
+
   /// No description provided for @copiedToClipboard.
   ///
   /// In zh, this message translates to:

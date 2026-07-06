@@ -389,6 +389,11 @@
   "importMemePackResult": "导入完成: 成功 {success}, 跳过 {skipped}, 失败 {errors}",
   "importMemePackFailed": "导入失败: {error}",
 
+  "aiChatTest": "AI 对话",
+  "aiChatWelcome": "开始与 AI 对话",
+  "aiChatHint": "发送消息测试 AI 回复",
+  "typeMessage": "输入消息...",
+
   "copiedToClipboard": "已复制到剪贴板",
 
   "shareMeme": "分享表情包",
