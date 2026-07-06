@@ -1,10 +1,9 @@
 import 'dart:io';
 
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
-const _fileChannel = MethodChannel('com.memehelper.app/file');
+import '../../services/log_service.dart' show LogService;
 
 /// 模型下载源
 enum DownloadSource { huggingface, modelscope }
@@ -104,10 +103,14 @@ class DownloadedModel {
 class ModelManager {
   final String _storageDir;
   final http.Client _client;
+  final LogService? _log;
 
-  ModelManager({required String storageDir, http.Client? client})
+  ModelManager({required String storageDir, http.Client? client, LogService? log})
       : _storageDir = storageDir,
-        _client = client ?? http.Client();
+        _client = client ?? http.Client(),
+        _log = log;
+
+  String get _tag => 'ModelManager';
 
   /// 预设推荐模型列表（按下载源分组）
   static const Map<DownloadSource, List<ModelInfo>> recommendedModels = {
@@ -174,6 +177,8 @@ class ModelManager {
   }) async {
     final safeId = sanitizeId(info.id);
     final mainPath = p.join(_storageDir, '$safeId.gguf');
+    _log?.info(_tag, 'downloadModel 开始: id=${info.id}, url=${info.ggufUrl}');
+
     // 下载主模型文件
     await _downloadFile(
       url: info.ggufUrl,
@@ -184,6 +189,7 @@ class ModelManager {
 
     // 下载 mmproj 文件（如果有）
     if (info.mmprojUrl != null) {
+      _log?.info(_tag, 'downloadModel 开始下载 mmproj: url=${info.mmprojUrl}');
       final mmprojPath = p.join(_storageDir, 'mmproj-$safeId.gguf');
       await _downloadFile(
         url: info.mmprojUrl!,
@@ -193,6 +199,7 @@ class ModelManager {
       );
     }
 
+    _log?.info(_tag, 'downloadModel 完成: path=$mainPath');
     return mainPath;
   }
 
@@ -206,6 +213,8 @@ class ModelManager {
     final tempPath = '$destPath.download';
     final tempFile = File(tempPath);
 
+    _log?.info(_tag, '_downloadFile 开始: url=$url, dest=$destPath');
+
     // 确保父目录存在
     final parentDir = tempFile.parent;
     if (!await parentDir.exists()) {
@@ -216,6 +225,7 @@ class ModelManager {
     int downloadedBytes = 0;
     if (await tempFile.exists()) {
       downloadedBytes = await tempFile.length();
+      _log?.info(_tag, '发现已有临时文件: ${_formatBytes(downloadedBytes)}');
     }
 
     // HEAD 请求获取总大小（部分 CDN/镜像不支持 HEAD，容错）
@@ -224,13 +234,17 @@ class ModelManager {
       final headResp = await _client.send(http.Request('HEAD', Uri.parse(url)));
       if (headResp.headers['content-length'] != null) {
         totalBytes = int.parse(headResp.headers['content-length']!);
+        _log?.info(_tag, 'HEAD 响应: content-length=$totalBytes (${_formatBytes(totalBytes)})');
+      } else {
+        _log?.info(_tag, 'HEAD 响应: 无 content-length 头');
       }
-    } catch (_) {
-      // HEAD 请求失败，继续尝试 GET
+    } catch (e) {
+      _log?.warning(_tag, 'HEAD 请求失败: $e');
     }
 
     // 如果已下载完整，直接跳过
     if (totalBytes > 0 && downloadedBytes >= totalBytes) {
+      _log?.info(_tag, '临时文件已完整，跳过下载');
       if (await File(destPath).exists()) await File(destPath).delete();
       await tempFile.rename(destPath);
       onProgress?.call(1.0);
@@ -241,26 +255,32 @@ class ModelManager {
     final request = http.Request('GET', Uri.parse(url));
     if (downloadedBytes > 0) {
       request.headers['Range'] = 'bytes=$downloadedBytes-';
+      _log?.info(_tag, '使用 Range 续传: bytes=$downloadedBytes-');
     }
     final response = await _client.send(request);
 
     // 处理响应码
     final statusCode = response.statusCode;
+    _log?.info(_tag, 'GET 响应: statusCode=$statusCode, content-length=${response.headers['content-length']}');
     if (downloadedBytes > 0 && statusCode == 206) {
       // 正常: 206 Partial Content（续传）
     } else if (downloadedBytes == 0 && statusCode == 200) {
       // 正常: 200（全新下载）
     } else if (downloadedBytes > 0 && statusCode == 200) {
       // 服务器不支持 Range，重新下载
+      _log?.warning(_tag, '服务器不支持 Range，重新从头下载');
       downloadedBytes = 0;
       if (await tempFile.exists()) await tempFile.delete();
     } else {
-      throw HttpException('下载失败: HTTP $statusCode', uri: Uri.parse(url));
+      final errMsg = '下载失败: HTTP $statusCode';
+      _log?.error(_tag, errMsg);
+      throw HttpException(errMsg, uri: Uri.parse(url));
     }
 
     // 从 GET 响应头获取 Content-Length（HEAD 未获取到时）
     if (totalBytes <= 0 && response.headers['content-length'] != null) {
       totalBytes = int.parse(response.headers['content-length']!);
+      _log?.info(_tag, '从 GET 响应获取 content-length: $totalBytes');
     }
 
     // 流式写入
@@ -268,14 +288,16 @@ class ModelManager {
     try {
       sink = tempFile.openWrite(mode: FileMode.writeOnlyAppend);
     } catch (e) {
+      _log?.error(_tag, '无法创建下载文件: $tempPath, 错误: $e');
       throw Exception('无法创建下载文件: $tempPath, 错误: $e');
     }
     
     int lastReportedProgress = -1;
+    int lastLogProgress = -1; // 每 10% 打一次日志
     try {
       await for (final chunk in response.stream) {
         if (cancelToken?.isCancelled == true) {
-          // 取消：先关 sink 释放 fd，再抛错
+          _log?.info(_tag, '下载被取消');
           if (sink != null) {
             try { await sink!.close(); } catch (_) {}
             sink = null;
@@ -283,7 +305,7 @@ class ModelManager {
           throw Exception('下载已取消');
         }
         if (cancelToken?.isPaused == true) {
-          // 暂停：关闭 sink 保存已下载部分，中断后由 resume 续传
+          _log?.info(_tag, '下载被暂停，已下载: ${_formatBytes(downloadedBytes)}');
           await sink!.close();
           sink = null;
           throw const PauseException();
@@ -292,19 +314,27 @@ class ModelManager {
         downloadedBytes += chunk.length;
         if (totalBytes > 0) {
           final p = (downloadedBytes / totalBytes).clamp(0.0, 1.0);
-          // 避免过于频繁的回调（每 0.01% 才更新）
           final pct = (p * 10000).toInt();
-          if (pct != lastReportedProgress) {
+          if (pct != lastReportedProgress && p < 1.0) {
             lastReportedProgress = pct;
             onProgress?.call(p);
           }
+          // 每 10% 记一次日志
+          final logPct = (p * 10).floor() * 10;
+          if (logPct != lastLogProgress) {
+            lastLogProgress = logPct;
+            _log?.info(_tag, '下载进度: $logPct% (${_formatBytes(downloadedBytes)} / ${_formatBytes(totalBytes)})');
+          }
         } else {
-          // 无总大小信息：用已下载字节数作为估算（单位 MB）
           final mb = downloadedBytes / (1024 * 1024);
-          // 每下载约 1MB 刷新一次界面
           if ((mb * 10).toInt() != lastReportedProgress) {
             lastReportedProgress = (mb * 10).toInt();
-            onProgress?.call(mb / 100.0); // 以 100MB 为100%
+            onProgress?.call(mb / 100.0);
+          }
+          final logMb = (mb / 10).floor() * 10;
+          if (logMb != lastLogProgress && logMb > 0) {
+            lastLogProgress = logMb;
+            _log?.info(_tag, '下载进度: ~${_formatBytes(downloadedBytes)}');
           }
         }
       }
@@ -314,14 +344,23 @@ class ModelManager {
         await sink.close();
         sink = null;
       }
+      _log?.error(_tag, '下载流异常: $e (已下载 ${_formatBytes(downloadedBytes)})');
       rethrow;
     }
     await sink.close();
 
     // 重命名完成
+    _log?.info(_tag, '下载完成，重命名: $tempPath -> $destPath');
     if (await File(destPath).exists()) await File(destPath).delete();
     await tempFile.rename(destPath);
     onProgress?.call(1.0);
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 
   /// 获取已下载的模型列表
@@ -372,12 +411,6 @@ class ModelManager {
       if (await f.exists()) result.add(f);
     }
     return result;
-  }
-
-/// 启动 SAF picker 让用户浏览 Downloads/MemeHelper
-  Future<void> openDownloadsFolder() async {
-    if (!Platform.isAndroid) return;
-    await _fileChannel.invokeMethod('openDownloadsFolder');
   }
 
   /// 获取存储占用（字节）

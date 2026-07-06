@@ -1,7 +1,4 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -26,12 +23,89 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _versionTapCount++;
     if (_versionTapCount >= 3) {
       _versionTapCount = 0;
-      context.pushNamed('user-stats');
+      _showDebugMenu();
     }
     // 3 秒内不继续点击则重置计数
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) setState(() => _versionTapCount = 0);
     });
+  }
+
+  void _showDebugMenu() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => Scaffold(
+          appBar: AppBar(title: const Text('调试菜单')),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.bar_chart),
+                  title: const Text('用户统计'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.pushNamed('user-stats'),
+                ),
+              ),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.auto_awesome),
+                  title: const Text('AI 配置'),
+                  subtitle: const Text('标签与描述生成模型设置'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.pushNamed('llm-settings'),
+                ),
+              ),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.palette_outlined),
+                  title: const Text('颜色提取算法'),
+                  subtitle: const Text('配色参数配置'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _showColorExtractionPage,
+                ),
+              ),
+              Consumer(
+                builder: (_, ref, __) {
+                  final count = ref.watch(logServiceProvider).logs.length;
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.article_outlined),
+                      title: const Text('运行日志'),
+                      trailing: const Icon(Icons.chevron_right),
+                      subtitle: Text('共 $count 条'),
+                      onTap: () => context.pushNamed('logs'),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showColorExtractionPage() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog.fullscreen(
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('颜色提取算法配置'),
+            leading: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [_ColorExtractionCard()],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _onExportConfig(BuildContext context, WidgetRef ref) async {
@@ -174,8 +248,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocrEnabled = ref.watch(ocrEnabledProvider);
-    final llmMode = ref.watch(llmModeProvider);
-    final llmEnabled = ref.watch(llmEnabledProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(S.of(context).settings)),
@@ -233,28 +305,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               secondary: const Icon(Icons.text_fields),
             ),
           ),
-          const SizedBox(height: 8),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.auto_awesome),
-              title: Text(S.of(context).aiTagsDescription),
-              subtitle: Text(
-                switch (llmMode) {
-                  LlmMode.off => S.of(context).llmOff,
-                  LlmMode.remote => S.of(context).llmRemote(ref.watch(llmConfigProvider).model),
-                  LlmMode.local => S.of(context).llmLocal,
-                },
-                style: theme.textTheme.bodySmall,
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.pushNamed('llm-settings'),
-            ),
-          ),
-
           const SizedBox(height: 24),
-
-          // 颜色提取
-          _ColorExtractionCard(),
 
           const SizedBox(height: 24),
 
@@ -282,28 +333,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       leading: const Icon(Icons.storage),
                       title: Text(S.of(context).storageSpace),
                       subtitle: Text(usedStr),
-                      trailing: const Icon(Icons.folder_open, size: 18),
-                      onTap: () async {
-                        final storage = ref.read(fileStorageServiceProvider);
-                        final dirPath = await storage.basePath;
-                        if (!context.mounted) return;
-                        try {
-                          if (Platform.isAndroid) {
-                            const channel =
-                                MethodChannel('com.memehelper.app/file');
-                            await channel.invokeMethod(
-                                'openDownloadsFolder');
-                          } else {
-                            await Process.run('xdg-open', [dirPath]);
-                          }
-                        } catch (e) {
-                          debugPrint('[OpenFolder] 打开目录异常: $e');
-                          if (context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('打开失败: $e')),
-                          );
-                        }
-                      },
                     );
                   },
 ),
@@ -327,22 +356,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
 
           const SizedBox(height: 24),
-
-          // 调试
-          Text(S.of(context).debug, style: theme.textTheme.titleSmall),
-          const SizedBox(height: 8),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.article_outlined),
-              title: Text(S.of(context).runLogs),
-              subtitle: Text(
-                S.of(context).logCount(ref.watch(logServiceProvider).logs.length),
-                style: theme.textTheme.bodySmall,
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.pushNamed('logs'),
-            ),
-          ),
 
           const SizedBox(height: 24),
 

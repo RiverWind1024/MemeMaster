@@ -27,6 +27,23 @@ class SearchableModel {
   });
 }
 
+/// 分页搜索结果
+class SearchResult {
+  final List<SearchableModel> models;
+  final int totalCount; // 所有匹配的结果总数
+  final int currentPage;
+  final int pageSize;
+
+  bool get hasMore => currentPage * pageSize < totalCount;
+
+  const SearchResult({
+    required this.models,
+    required this.totalCount,
+    required this.currentPage,
+    required this.pageSize,
+  });
+}
+
 /// 模型文件信息（GGUF 文件）
 class ModelFileInfo {
   final String path;
@@ -52,16 +69,18 @@ class ModelSearchService {
   ///
   /// [source] 下载源
   /// [query] 搜索关键词
-  /// [limit] 返回结果数量上限
-  Future<List<SearchableModel>> search({
+  /// [page] 页码，从 1 开始
+  /// [pageSize] 每页结果数量
+  Future<SearchResult> search({
     required DownloadSource source,
     required String query,
-    int limit = 20,
+    int page = 1,
+    int pageSize = 20,
   }) async {
     if (source == DownloadSource.huggingface) {
-      return _searchHuggingFace(query, limit);
+      return _searchHuggingFace(query, page, pageSize);
     } else {
-      return _searchModelScope(query, limit);
+      return _searchModelScope(query, page, pageSize);
     }
   }
 
@@ -81,14 +100,16 @@ class ModelSearchService {
 
   // ---- HuggingFace ----
 
-  Future<List<SearchableModel>> _searchHuggingFace(String query, int limit) async {
+  Future<SearchResult> _searchHuggingFace(String query, int page, int pageSize) async {
+    final offset = (page - 1) * pageSize;
     final url = Uri.parse(
       'https://huggingface.co/api/models'
       '?search=${Uri.encodeComponent(query)}'
       '&filter=gguf'
       '&sort=downloads'
       '&direction=-1'
-      '&limit=$limit',
+      '&limit=$pageSize'
+      '&offset=$offset',
     );
 
     final response = await _client.get(url);
@@ -97,7 +118,7 @@ class ModelSearchService {
     }
 
     final List<dynamic> data = jsonDecode(response.body);
-    return data.map((item) {
+    final models = data.map((item) {
       final id = item['id'] as String? ?? '';
       final parts = id.split('/');
       final author = parts.length > 1 ? parts[0] : '';
@@ -111,10 +132,21 @@ class ModelSearchService {
         description: item['description'] as String?,
         tags: (item['tags'] as List<dynamic>?)?.cast<String>() ?? [],
         source: 'huggingface',
-        // HuggingFace API 没有 params 字段，暂时不显示参数量
         parameterSize: null,
       );
     }).toList();
+
+    // 从响应头获取总数量
+    final totalCountStr = response.headers['x-total-count'];
+    final totalCount =
+        totalCountStr != null ? int.tryParse(totalCountStr) ?? models.length : models.length;
+
+    return SearchResult(
+      models: models,
+      totalCount: totalCount,
+      currentPage: page,
+      pageSize: pageSize,
+    );
   }
 
   Future<List<ModelFileInfo>> _getHuggingFaceFiles(String modelId) async {
@@ -143,13 +175,13 @@ class ModelSearchService {
 
   // ---- ModelScope ----
 
-  Future<List<SearchableModel>> _searchModelScope(String query, int limit) async {
+  Future<SearchResult> _searchModelScope(String query, int page, int pageSize) async {
     // ModelScope OpenAPI: GET /openapi/v1/models?search=...&page_number=...&page_size=...
     final url = Uri.parse(
       'https://modelscope.cn/openapi/v1/models'
       '?search=${Uri.encodeComponent(query)}'
-      '&page_number=1'
-      '&page_size=$limit',
+      '&page_number=$page'
+      '&page_size=$pageSize',
     );
 
     try {
@@ -166,7 +198,13 @@ class ModelSearchService {
       final Map<String, dynamic> resultData = data['data'] ?? {};
       final List<dynamic> models = resultData['models'] ?? [];
 
-      return models.map((item) {
+      // 从响应中获取总数（各字段名可能不同，尝试多个常见字段）
+      final totalCount = resultData['total'] as int? ??
+          resultData['total_count'] as int? ??
+          resultData['totalCount'] as int? ??
+          models.length;
+
+      final parsedModels = models.map((item) {
         final id = item['id'] as String? ?? '';
         final displayName = item['display_name'] as String?;
         final name = displayName ?? id;
@@ -192,6 +230,13 @@ class ModelSearchService {
           parameterSize: parameterSize,
         );
       }).toList();
+
+      return SearchResult(
+        models: parsedModels,
+        totalCount: totalCount,
+        currentPage: page,
+        pageSize: pageSize,
+      );
     } catch (e) {
       throw Exception('ModelScope 搜索失败: $e');
     }

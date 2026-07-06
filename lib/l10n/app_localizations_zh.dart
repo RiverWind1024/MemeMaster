@@ -1046,6 +1046,41 @@ class SZh extends S {
   String get ok => '确定';
 
   @override
+  String get exportMemes => '导出表情包';
+
+  @override
+  String get export => '导出';
+
+  @override
+  String get exportFileName => '文件名';
+
+  @override
+  String get exporting => '正在导出...';
+
+  @override
+  String exportSuccess(String path) {
+    return '导出成功: $path';
+  }
+
+  @override
+  String exportFailed(String error) {
+    return '导出失败: $error';
+  }
+
+  @override
+  String get importMemePack => '导入表情包';
+
+  @override
+  String importMemePackResult(int success, int skipped, int errors) {
+    return '导入完成: 成功 $success, 跳过 $skipped, 失败 $errors';
+  }
+
+  @override
+  String importMemePackFailed(String error) {
+    return '导入失败: $error';
+  }
+
+  @override
   String get copiedToClipboard => '已复制到剪贴板';
 
   @override

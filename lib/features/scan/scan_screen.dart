@@ -265,35 +265,35 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
             onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/Download'),
             child: ListTile(
               leading: Icon(Icons.download),
-              title: Text(S.of(context).directoryDownloads),
+              title: Text(S.of(context).directoryDownloads, overflow: TextOverflow.ellipsis),
             ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/Pictures'),
             child: ListTile(
               leading: Icon(Icons.photo_library),
-              title: Text(S.of(context).directoryPictures),
+              title: Text(S.of(context).directoryPictures, overflow: TextOverflow.ellipsis),
             ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/DCIM'),
             child: ListTile(
               leading: Icon(Icons.camera_alt),
-              title: Text(S.of(context).directoryCamera),
+              title: Text(S.of(context).directoryCamera, overflow: TextOverflow.ellipsis),
             ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/tencent/MicroMsg/Download'),
             child: ListTile(
               leading: Icon(Icons.wechat),
-              title: Text(S.of(context).directoryWechat),
+              title: Text(S.of(context).directoryWechat, overflow: TextOverflow.ellipsis),
             ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, '/storage/emulated/0'),
             child: ListTile(
               leading: Icon(Icons.storage),
-              title: Text(S.of(context).directoryStorage),
+              title: Text(S.of(context).directoryStorage, overflow: TextOverflow.ellipsis),
             ),
           ),
           const Divider(height: 1),
@@ -304,7 +304,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
             },
             child: ListTile(
               leading: Icon(Icons.edit),
-              title: Text(S.of(context).selectDirectoryEllipsis),
+              title: Text(S.of(context).selectDirectoryEllipsis, overflow: TextOverflow.ellipsis),
             ),
           ),
         ],

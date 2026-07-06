@@ -1060,6 +1060,41 @@ class SEn extends S {
   String get ok => 'OK';
 
   @override
+  String get exportMemes => 'Export Memes';
+
+  @override
+  String get export => 'Export';
+
+  @override
+  String get exportFileName => 'File name';
+
+  @override
+  String get exporting => 'Exporting...';
+
+  @override
+  String exportSuccess(String path) {
+    return 'Export successful: $path';
+  }
+
+  @override
+  String exportFailed(String error) {
+    return 'Export failed: $error';
+  }
+
+  @override
+  String get importMemePack => 'Import Meme Pack';
+
+  @override
+  String importMemePackResult(int success, int skipped, int errors) {
+    return 'Import complete: $success success, $skipped skipped, $errors failed';
+  }
+
+  @override
+  String importMemePackFailed(String error) {
+    return 'Import failed: $error';
+  }
+
+  @override
   String get copiedToClipboard => 'Copied to clipboard';
 
   @override

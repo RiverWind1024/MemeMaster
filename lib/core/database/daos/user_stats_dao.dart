@@ -27,6 +27,18 @@ class UserStatsDao {
         .get();
   }
 
+  /// 获取指定日期范围内的统计（含两端）
+  Future<List<UserStatsEntry>> getByDateRange(DateTime start, DateTime end) async {
+    final startStr =
+        '${start.year}-${start.month.toString().padLeft(2, '0')}-${start.day.toString().padLeft(2, '0')}';
+    final endStr =
+        '${end.year}-${end.month.toString().padLeft(2, '0')}-${end.day.toString().padLeft(2, '0')}';
+    return await (_db.select(_db.userStatsTable)
+          ..where((t) => t.date.isBetweenValues(startStr, endStr))
+          ..orderBy([(t) => OrderingTerm.desc(t.date)]))
+        .get();
+  }
+
   /// 获取所有统计
   Future<List<UserStatsEntry>> getAll() async {
     return await (_db.select(_db.userStatsTable)

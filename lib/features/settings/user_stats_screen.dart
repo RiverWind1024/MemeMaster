@@ -5,10 +5,7 @@ import '../../core/database/database.dart';
 import '../../l10n/app_localizations.dart';
 import '../gallery/gallery_provider.dart';
 
-/// 日期范围枚举
-enum StatsDateRange { last7, last30, last365 }
-
-/// 用户统计页面（含 Token 用量热度图）
+/// 用户统计页面（含 Meme 活跃度热度图）
 class UserStatsScreen extends ConsumerStatefulWidget {
   const UserStatsScreen({super.key});
 
@@ -17,13 +14,12 @@ class UserStatsScreen extends ConsumerStatefulWidget {
 }
 
 class _UserStatsScreenState extends ConsumerState<UserStatsScreen> {
-  StatsDateRange _dateRange = StatsDateRange.last7;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final s = S.of(context);
+    final dateRange = ref.watch(selectedDateRangeProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(s.userStatsTitle)),
@@ -32,31 +28,33 @@ class _UserStatsScreenState extends ConsumerState<UserStatsScreen> {
         children: [
           // 日期范围选择
           _DateRangeSelector(
-            selected: _dateRange,
-            onChanged: (v) => setState(() => _dateRange = v),
+            start: dateRange.start,
+            end: dateRange.end,
+            onTap: _pickDateRange,
           ),
           const SizedBox(height: 16),
 
-          // 今日统计
-          Text(s.todayStats, style: theme.textTheme.titleSmall),
+          // 统计概要（选中日期范围的汇总）
+          Text(s.totalSummary, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
-          ref.watch(todayStatsProvider).when(
+          ref.watch(rangeStatsProvider).when(
             loading: () => _cardLoading(),
             error: (e, _) => _cardError('$e'),
-            data: (stats) => _TodayStatsCard(stats: stats, theme: theme, cs: cs, s: s),
+            data: (stats) => _RangeSummaryCard(stats: stats, theme: theme, cs: cs, s: s),
           ),
 
           const SizedBox(height: 24),
 
-          // Token 用量热度图
-          Text('${s.tokenUsage} · ${s.heatmap}', style: theme.textTheme.titleSmall),
+          // Meme 活跃度热度图
+          Text('Meme 活跃度 · ${s.heatmap}', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
-          ref.watch(_statsListProvider(_dateRange)).when(
+          ref.watch(rangeStatsProvider).when(
             loading: () => _cardLoading(),
             error: (e, _) => _cardError('$e'),
             data: (stats) => _HeatmapCard(
               stats: stats,
-              days: _dateRangeDays(_dateRange),
+              startDate: dateRange.start,
+              endDate: dateRange.end,
               theme: theme,
               cs: cs,
             ),
@@ -65,9 +63,9 @@ class _UserStatsScreenState extends ConsumerState<UserStatsScreen> {
           const SizedBox(height: 24),
 
           // 每日明细趋势
-          Text(s.recent7DayTrend, style: theme.textTheme.titleSmall),
+          Text('每日明细', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
-          ref.watch(_statsListProvider(_dateRange)).when(
+          ref.watch(rangeStatsProvider).when(
             loading: () => _cardLoading(),
             error: (e, _) => _cardError('$e'),
             data: (stats) => _TrendListCard(stats: stats, theme: theme, cs: cs, s: s),
@@ -75,8 +73,8 @@ class _UserStatsScreenState extends ConsumerState<UserStatsScreen> {
 
           const SizedBox(height: 24),
 
-          // 全部汇总
-          Text(s.totalSummary, style: theme.textTheme.titleSmall),
+          // 全部汇总（累计）
+          Text('累计总计', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           ref.watch(totalStatsProvider).when(
             loading: () => _cardLoading(),
@@ -86,6 +84,23 @@ class _UserStatsScreenState extends ConsumerState<UserStatsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _pickDateRange() async {
+    final now = DateTime.now();
+    final currentRange = ref.read(selectedDateRangeProvider);
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2024),
+      lastDate: now,
+      initialDateRange: currentRange,
+      helpText: '选择统计日期范围',
+      cancelText: '取消',
+      confirmText: '确定',
+    );
+    if (picked != null) {
+      ref.read(selectedDateRangeProvider.notifier).state = picked;
+    }
   }
 
   Widget _cardLoading() => const Card(
@@ -101,70 +116,64 @@ class _UserStatsScreenState extends ConsumerState<UserStatsScreen> {
           child: Text(msg),
         ),
       );
-
-  int _dateRangeDays(StatsDateRange range) => switch (range) {
-        StatsDateRange.last7 => 7,
-        StatsDateRange.last30 => 30,
-        StatsDateRange.last365 => 365,
-      };
 }
-
-/// 根据日期范围获取统计数据
-final _statsListProvider =
-    FutureProvider.family<List<UserStatsEntry>, StatsDateRange>((ref, range) {
-  final dao = ref.read(userStatsDaoProvider);
-  final days = switch (range) {
-    StatsDateRange.last7 => 7,
-    StatsDateRange.last30 => 30,
-    StatsDateRange.last365 => 365,
-  };
-  return dao.getRecentDays(days);
-});
 
 // ─── 日期范围选择器 ────────────────────────────────────────────
 
 class _DateRangeSelector extends StatelessWidget {
-  final StatsDateRange selected;
-  final ValueChanged<StatsDateRange> onChanged;
+  final DateTime start;
+  final DateTime end;
+  final VoidCallback onTap;
 
-  const _DateRangeSelector({required this.selected, required this.onChanged});
+  const _DateRangeSelector({
+    required this.start,
+    required this.end,
+    required this.onTap,
+  });
+
+  String _formatDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
-    final s = S.of(context);
-    return Row(
-      children: [
-        Text('${s.statsDateRange}: ', style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(width: 8),
-        ...StatsDateRange.values.map((range) {
-          final label = switch (range) {
-            StatsDateRange.last7 => s.last7Days,
-            StatsDateRange.last30 => s.last30Days,
-            StatsDateRange.last365 => s.last365Days,
-          };
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Text(label),
-              selected: selected == range,
-              onSelected: (_) => onChanged(range),
-            ),
-          );
-        }),
-      ],
+    final theme = Theme.of(context);
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(Icons.date_range, color: theme.colorScheme.primary, size: 20),
+              const SizedBox(width: 12),
+              Text(
+                '${_formatDate(start)} ~ ${_formatDate(end)}',
+                style: theme.textTheme.bodyMedium,
+              ),
+              const Spacer(),
+              Text('修改', style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.primary,
+              )),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right, size: 18, color: theme.colorScheme.primary),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
 
-// ─── 今日统计卡片 ──────────────────────────────────────────────
+// ─── 统计概要卡片（选中范围）──────────────────────────────────
 
-class _TodayStatsCard extends StatelessWidget {
-  final UserStatsEntry? stats;
+class _RangeSummaryCard extends StatelessWidget {
+  final List<UserStatsEntry> stats;
   final ThemeData theme;
   final ColorScheme cs;
   final S s;
 
-  const _TodayStatsCard({
+  const _RangeSummaryCard({
     required this.stats,
     required this.theme,
     required this.cs,
@@ -173,22 +182,40 @@ class _TodayStatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entry = stats;
+    int imported = 0, copied = 0, favorited = 0, prompt = 0, completion = 0;
+    for (final e in stats) {
+      imported += e.importedCount;
+      copied += e.copiedCount;
+      favorited += e.favoritedCount;
+      prompt += e.promptTokens;
+      completion += e.completionTokens;
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-        child: Row(
+        child: Column(
           children: [
-            Expanded(child: _StatItem(icon: Icons.file_download, label: s.imported,
-                value: '${entry?.importedCount ?? 0}', color: cs.primary)),
-            Expanded(child: _StatItem(icon: Icons.copy, label: s.copied,
-                value: '${entry?.copiedCount ?? 0}', color: cs.secondary)),
-            Expanded(child: _StatItem(icon: Icons.favorite, label: s.favorited,
-                value: '${entry?.favoritedCount ?? 0}', color: Colors.pink)),
-            Expanded(child: _StatItem(icon: Icons.timer, label: s.promptTokens,
-                value: '${entry?.promptTokens ?? 0}', color: Colors.teal)),
-            Expanded(child: _StatItem(icon: Icons.done_outline, label: s.completionTokens,
-                value: '${entry?.completionTokens ?? 0}', color: Colors.indigo)),
+            Row(
+              children: [
+                Expanded(child: _StatItem(icon: Icons.file_download, label: s.imported,
+                    value: '$imported', color: cs.primary)),
+                Expanded(child: _StatItem(icon: Icons.copy, label: s.copied,
+                    value: '$copied', color: cs.secondary)),
+                Expanded(child: _StatItem(icon: Icons.favorite, label: s.favorited,
+                    value: '$favorited', color: Colors.pink)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _StatItem(icon: Icons.timer, label: s.promptTokens,
+                    value: '$prompt', color: Colors.teal)),
+                Expanded(child: _StatItem(icon: Icons.done_outline, label: s.completionTokens,
+                    value: '$completion', color: Colors.indigo)),
+                const Expanded(child: SizedBox()), // 占位对齐
+              ],
+            ),
           ],
         ),
       ),
@@ -200,13 +227,15 @@ class _TodayStatsCard extends StatelessWidget {
 
 class _HeatmapCard extends StatelessWidget {
   final List<UserStatsEntry> stats;
-  final int days;
+  final DateTime startDate;
+  final DateTime endDate;
   final ThemeData theme;
   final ColorScheme cs;
 
   const _HeatmapCard({
     required this.stats,
-    required this.days,
+    required this.startDate,
+    required this.endDate,
     required this.theme,
     required this.cs,
   });
@@ -215,10 +244,9 @@ class _HeatmapCard extends StatelessWidget {
   Widget build(BuildContext context) {
     const cellSize = 12.0;
     const cellMargin = 3.0;
-    const cellTotal = cellSize + cellMargin; // 15
+    const cellTotal = cellSize + cellMargin;
 
     final statMap = {for (final s in stats) s.date: s};
-    final now = DateTime.now();
 
     // 计算最大活跃度值用于归一化（仅含 meme 操作：导入 + 复制 + 收藏）
     int maxActivity = 0;
@@ -227,14 +255,15 @@ class _HeatmapCard extends StatelessWidget {
       if (activity > maxActivity) maxActivity = activity;
     }
 
-    // 生成日期列表（最近 days 天）
-    final dateList = List.generate(days, (i) {
-      final d = now.subtract(Duration(days: days - 1 - i));
+    // 生成日期列表（从 startDate 到 endDate，含两端）
+    final totalDays = endDate.difference(startDate).inDays + 1;
+    final dateList = List.generate(totalDays, (i) {
+      final d = startDate.add(Duration(days: i));
       final key = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
       return (date: key, weekday: d.weekday);
     });
 
-    // 每列 7 天（周一到周日），与 GitHub 热度图布局一致
+    // 按周分组（周一到周日），与 GitHub 热度图布局一致
     final weeks = <List<Map<String, dynamic>>>[];
     for (int i = 0; i < dateList.length; i += 7) {
       weeks.add(dateList.sublist(i, (i + 7) > dateList.length ? dateList.length : i + 7)
@@ -249,7 +278,7 @@ class _HeatmapCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: SizedBox(
-          height: 7 * cellTotal + 4, // 固定高度容纳 7 行
+          height: 7 * cellTotal + 4,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -276,7 +305,7 @@ class _HeatmapCard extends StatelessWidget {
                                       : cs.surfaceContainerHighest ?? Colors.grey.shade200;
 
                       return Tooltip(
-                        message: '${day['date']}: $activity',
+                        message: '${day['date']}: 导入$activity',
                         child: Container(
                           width: cellSize,
                           height: cellSize,
