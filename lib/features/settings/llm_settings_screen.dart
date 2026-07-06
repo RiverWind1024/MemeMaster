@@ -21,6 +21,9 @@ class LlmSettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
+  String _loadingLogs = '';
+  final ScrollController _logScrollController = ScrollController();
+
   @override
   Widget build(BuildContext context) {
     final mode = ref.watch(llmModeProvider);
@@ -232,11 +235,34 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                           ],
                         ),
                       ),
-                      if (ref.watch(localLlmLoadingProvider))
+                      if (ref.watch(localLlmLoadingProvider)) ...[
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           child: LinearProgressIndicator(),
                         ),
+                        // 加载日志实时显示区域
+                        Container(
+                          constraints: BoxConstraints(maxHeight: 200),
+                          margin: EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ListView(
+                            controller: _logScrollController,
+                            padding: EdgeInsets.all(8),
+                            children: [
+                              if (_loadingLogs.isEmpty)
+                                Text('等待日志…',
+                                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey))
+                              else
+                                Text(_loadingLogs,
+                                  style: TextStyle(fontFamily: 'monospace', fontSize: 11, height: 1.3),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
                       if (!ref.watch(localLlmLoadedProvider) && !ref.watch(localLlmLoadingProvider))
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -295,6 +321,131 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                         ),
                       ),
                       const Divider(),
+                      // 高级性能配置（可折叠）
+                      ExpansionTile(
+                        leading: const Icon(Icons.speed),
+                        title: Text('高级性能配置'),
+                        subtitle: Text('Flash Attention · KV 缓存 · Batch 大小',
+                            style: theme.textTheme.bodySmall),
+                        childrenPadding: EdgeInsets.only(bottom: 8, left: 16, right: 16),
+                        children: [
+                          // Flash Attention
+                          DropdownButtonFormField<FlashAttnMode>(
+                            value: localConfig.flashAttn,
+                            decoration: InputDecoration(
+                              labelText: 'Flash Attention',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            ),
+                            items: [
+                              DropdownMenuItem(value: FlashAttnMode.auto, child: Text('自动（根据 GPU 决定）')),
+                              DropdownMenuItem(value: FlashAttnMode.enabled, child: Text('启用')),
+                              DropdownMenuItem(value: FlashAttnMode.disabled, child: Text('禁用')),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) ref.read(localLlmConfigProvider.notifier).update(
+                                localConfig.copyWith(flashAttn: v),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          // KV 缓存量化类型
+                          DropdownButtonFormField<KvCacheType>(
+                            value: localConfig.kvCacheType,
+                            decoration: InputDecoration(
+                              labelText: 'KV 缓存量化',
+                              hintText: 'F16（默认）',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            ),
+                            items: [
+                              DropdownMenuItem(value: KvCacheType.f16, child: Text('F16（精度高）')),
+                              DropdownMenuItem(value: KvCacheType.q4_0, child: Text('Q4_0（省内存）')),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) ref.read(localLlmConfigProvider.notifier).update(
+                                localConfig.copyWith(kvCacheType: v),
+                              );
+                            },
+                          ),
+                          if (localConfig.kvCacheType == KvCacheType.q4_0)
+                            Padding(
+                              padding: EdgeInsets.only(top: 4),
+                              child: Text('Q4_0 可显著降低 KV 缓存内存占用，适合 4GB 以下内存设备',
+                                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange)),
+                            ),
+                          const SizedBox(height: 12),
+                          // 统一 KV 缓存
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text('统一 KV 缓存'),
+                            subtitle: Text('将 K 和 V 合并存储，减少内存碎片',
+                                style: theme.textTheme.bodySmall),
+                            value: localConfig.kvUnified,
+                            onChanged: (v) => ref.read(localLlmConfigProvider.notifier).update(
+                              localConfig.copyWith(kvUnified: v),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          // use_mmap
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text('使用 mmap 加载'),
+                            subtitle: Text('内存映射文件加载（Android 低内存设备建议关闭）',
+                                style: theme.textTheme.bodySmall),
+                            value: localConfig.useMmap,
+                            onChanged: (v) => ref.read(localLlmConfigProvider.notifier).update(
+                              localConfig.copyWith(useMmap: v),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // n_batch
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  initialValue: localConfig.nBatch.toString(),
+                                  decoration: InputDecoration(
+                                    labelText: 'Batch 大小',
+                                    hintText: '512',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                    isDense: true,
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (v) {
+                                    final n = int.tryParse(v);
+                                    if (n != null && n > 0) ref.read(localLlmConfigProvider.notifier).update(
+                                      localConfig.copyWith(nBatch: n),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextFormField(
+                                  initialValue: localConfig.nUBatch.toString(),
+                                  decoration: InputDecoration(
+                                    labelText: 'UBatch 大小',
+                                    hintText: '256',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                    isDense: true,
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (v) {
+                                    final n = int.tryParse(v);
+                                    if (n != null && n > 0) ref.read(localLlmConfigProvider.notifier).update(
+                                      localConfig.copyWith(nUBatch: n),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const Divider(),
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.science_outlined),
@@ -350,6 +501,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
     if (config.modelPath == null) return;
 
     ref.read(localLlmLoadingProvider.notifier).state = true;
+    setState(() => _loadingLogs = '');
     debugPrint('[LoadModel] 开始加载模型: ${config.modelPath}');
     final modelFile = File(config.modelPath!);
     final fileExists = modelFile.existsSync();
@@ -377,6 +529,23 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
       final service = ref.read(llmServiceProvider);
       if (service is LocalLlmService) {
         debugPrint('[LoadModel] 调用 service.ensureLoaded...');
+        service.onLoadingLog = (logLines) {
+          if (mounted) {
+            setState(() {
+              _loadingLogs += logLines;
+              // 限制日志长度，避免 OOM
+              if (_loadingLogs.length > 50000) {
+                _loadingLogs = _loadingLogs.substring(_loadingLogs.length - 40000);
+              }
+            });
+            // 滚动到底部
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_logScrollController.hasClients) {
+                _logScrollController.jumpTo(_logScrollController.position.maxScrollExtent);
+              }
+            });
+          }
+        };
         await service.ensureLoaded();
         ref.read(localLlmLoadedProvider.notifier).state = true;
         debugPrint('[LoadModel] 模型加载成功');
