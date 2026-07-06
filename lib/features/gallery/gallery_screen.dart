@@ -1,14 +1,20 @@
 import 'dart:io';
 
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/database/database.dart';
 import '../../services/clipboard_service.dart';
 import '../../services/file_storage_service.dart';
 import '../../services/import_service.dart';
+import '../../services/meme_export_service.dart';
+import '../../services/meme_import_service.dart';
 import '../../services/shared_media_handler.dart';
 import 'gallery_provider.dart';
 import '../../l10n/app_localizations.dart';
@@ -366,6 +372,11 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         onPressed: _exitSelectionMode,
       ),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.archive_outlined),
+          onPressed: _exportSelected,
+          tooltip: S.of(context).export,
+        ),
         IconButton(
           icon: const Icon(Icons.copy),
           onPressed: _copySelected,
@@ -831,6 +842,14 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               },
             ),
             ListTile(
+              leading: const Icon(Icons.archive),
+              title: Text(S.of(context).importMemePack),
+              onTap: () {
+                Navigator.pop(ctx);
+                _importMemePack();
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.photo_library),
               title: Text(S.of(context).newAlbum),
               onTap: () {
@@ -850,6 +869,184 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _exportSelected() async {
+    if (_selectedIds.isEmpty) return;
+
+    // 1. 弹出命名对话框
+    final controller = TextEditingController(
+      text: 'meme_export_${DateTime.now().millisecondsSinceEpoch}',
+    );
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(S.of(context).exportMemes),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            hintText: S.of(context).exportFileName,
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(S.of(context).cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: Text(S.of(context).export),
+          ),
+        ],
+      ),
+    );
+
+    if (name == null || name.isEmpty) return;
+
+    // 2. 获取 download 目录路径
+    String downloadPath;
+    if (Platform.isAndroid) {
+      downloadPath = await _getAndroidDownloadPath('$name.zip');
+    } else {
+      final dir = await getDownloadsDirectory();
+      if (dir != null) {
+        downloadPath = p.join(dir.path, '$name.zip');
+      } else {
+        downloadPath = '${Directory.systemTemp.path}/$name.zip';
+      }
+    }
+
+    // 3. 显示进度对话框
+    final progressNotifier = ValueNotifier<double>(0.0);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => ValueListenableBuilder<double>(
+        valueListenable: progressNotifier,
+        builder: (context, progress, _) {
+          return AlertDialog(
+            title: Text(S.of(context).exporting),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LinearProgressIndicator(value: progress > 0 ? progress : null),
+                const SizedBox(height: 16),
+                Text('${(progress * 100).toInt()}%'),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    try {
+      final exportService = MemeExportService(
+        memeRepo: ref.read(memeRepositoryProvider),
+        storage: ref.read(fileStorageServiceProvider),
+      );
+
+      await exportService.exportMemes(
+        memeIds: _selectedIds.toList(),
+        outputPath: downloadPath,
+        onProgress: (current, total) {
+          progressNotifier.value = current / total;
+        },
+      );
+
+      if (mounted) {
+        Navigator.pop(context); // 关闭进度对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(S.of(context).exportSuccess(downloadPath))),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // 关闭进度对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(S.of(context).exportFailed(e.toString()))),
+        );
+      }
+    } finally {
+      progressNotifier.dispose();
+      _exitSelectionMode();
+    }
+  }
+
+  Future<String> _getAndroidDownloadPath(String filename) async {
+    // Android 使用原生方法写入 Downloads 目录
+    // 如果没有原生方法实现，则使用缓存目录
+    try {
+      const channel = MethodChannel('com.memehelper.app/downloads');
+      final result = await channel.invokeMethod<String>('getDownloadPath', {
+        'filename': filename,
+      });
+      if (result != null) return result;
+    } catch (_) {
+      // 通道不可用
+    }
+    return '${Directory.systemTemp.path}/$filename';
+  }
+
+  Future<void> _importMemePack() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['zip'],
+    );
+
+    if (result == null || result.files.isEmpty) return;
+
+    final zipPath = result.files.first.path;
+    if (zipPath == null) return;
+
+    // 显示导入进度
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(S.of(context).importing),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('请稍候...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final importService = MemeImportService(
+        memeRepo: ref.read(memeRepositoryProvider),
+        storage: ref.read(fileStorageServiceProvider),
+      );
+
+      final importResult = await importService.importFromZip(zipPath: zipPath);
+
+      if (mounted) {
+        Navigator.pop(context); // 关闭进度对话框
+        ref.invalidate(memeListProvider);
+        ref.invalidate(memeCountProvider);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(
+            S.of(context).importMemePackResult(
+              importResult.success,
+              importResult.skipped,
+              importResult.errors.length,
+            ),
+          )),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(S.of(context).importMemePackFailed(e.toString()))),
+        );
+      }
+    }
   }
 }
 

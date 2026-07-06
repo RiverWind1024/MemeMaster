@@ -168,15 +168,6 @@ class MainActivity : FlutterActivity() {
                         result.error("WRITE_FAILED", e.message, null)
                     }
                 }
-                "openDownloadsFolder" -> {
-                    try {
-                        openDownloadsFolder()
-                        result.success(true)
-                    } catch (e: Exception) {
-                        android.util.Log.e(tag, "openDownloadsFolder failed", e)
-                        result.error("OPEN_FAILED", e.message, null)
-                    }
-                }
                 else -> result.notImplemented()
             }
         }
@@ -497,18 +488,6 @@ class MainActivity : FlutterActivity() {
             "gif" -> "image/gif"
             "json" -> "application/json"
             else -> "application/octet-stream"
-        }
-    }
-
-    /// 启动 SAF picker 让用户手动浏览 Downloads/MemeHelper/（public location）
-    private fun openDownloadsFolder() {
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        try {
-            startActivity(Intent.createChooser(intent, "浏览 Downloads/MemeHelper"))
-        } catch (e: ActivityNotFoundException) {
-            throw IllegalStateException("未找到文件管理器应用")
         }
     }
 

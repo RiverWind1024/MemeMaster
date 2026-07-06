@@ -1963,6 +1963,60 @@ abstract class S {
   /// **'确定'**
   String get ok;
 
+  /// No description provided for @exportMemes.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出表情包'**
+  String get exportMemes;
+
+  /// No description provided for @export.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出'**
+  String get export;
+
+  /// No description provided for @exportFileName.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件名'**
+  String get exportFileName;
+
+  /// No description provided for @exporting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在导出...'**
+  String get exporting;
+
+  /// No description provided for @exportSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出成功: {path}'**
+  String exportSuccess(String path);
+
+  /// No description provided for @exportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出失败: {error}'**
+  String exportFailed(String error);
+
+  /// No description provided for @importMemePack.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入表情包'**
+  String get importMemePack;
+
+  /// No description provided for @importMemePackResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入完成: 成功 {success}, 跳过 {skipped}, 失败 {errors}'**
+  String importMemePackResult(int success, int skipped, int errors);
+
+  /// No description provided for @importMemePackFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入失败: {error}'**
+  String importMemePackFailed(String error);
+
   /// No description provided for @copiedToClipboard.
   ///
   /// In zh, this message translates to:

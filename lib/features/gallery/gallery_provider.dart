@@ -273,22 +273,37 @@ class LocalLlmConfigNotifier extends Notifier<LocalLlmConfig> {
       if (jsonStr != null) {
         final cfg = LocalLlmConfig.fromJson(
             jsonDecode(jsonStr) as Map<String, dynamic>);
-        // 兼容旧版：路径如果指向内部 app 私有目录，自动改写到当前 storageDir
-        return _migrateFromOldPath(cfg);
+        // 兼容旧版路径改写
+        final migrated = _migrateFromOldPath(cfg);
+        // 如果 modelPath 文件不存在，打日志方便排查
+        if (migrated.modelPath != null &&
+            migrated.modelPath!.isNotEmpty &&
+            !File(migrated.modelPath!).existsSync()) {
+          debugPrint(
+            '[LocalLlmConfig] 警告: modelPath 指向的文件不存在: ${migrated.modelPath}',
+          );
+        }
+        return migrated;
       }
     } catch (_) {}
     return const LocalLlmConfig();
   }
 
-  /// 把旧路径（内部 app 私有目录）下的 .gguf 路径改写到新路径（外部 app 专属目录）
+  /// 把旧路径下的 .gguf 路径改写为当前 storageDir 下的路径
+  ///
+  /// 仅当以下条件同时满足时才改写：
+  /// - path 以旧的基准路径标记（_oldPathMarker）开头
+  /// - path 尚未指向当前 storageDir（防止 double-path）
+  /// - 新路径下的文件实际存在（迁移已完成）
   LocalLlmConfig _migrateFromOldPath(LocalLlmConfig cfg) {
     final storageDir = ref.read(storageDirProvider);
     String? rewrite(String? path) {
       if (path == null) return null;
+      // 已经指向当前 storageDir，无需改写
+      if (path.startsWith(storageDir)) return path;
       if (!path.startsWith(_oldPathMarker)) return path;
       final fileName = path.substring(_oldPathMarker.length);
       final newPath = '$storageDir/$fileName';
-      // 如果新路径下文件已存在（迁移完成了），改写；否则保持旧值（文件没迁移成功）
       if (File(newPath).existsSync()) return newPath;
       return path;
     }
@@ -468,12 +483,17 @@ class _DownloadTask {
 /// 使用 [downloadTaskId] 作为key，格式为 "{modelId}#{fileType}"，
 /// 其中 fileType 为 "gguf" 或 "mmproj"，确保同一模型的不同文件可以并行下载。
 class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
-  DownloadStatesNotifier() : super({});
+  DownloadStatesNotifier({LogService? log}) : super({}) {
+    _log = log;
+  }
+
+  LogService? _log;
+  static const _tag = 'DownloadState';
 
   /// 每个下载任务对应的取消令牌（用于暂停/取消）
   final Map<String, CancelToken> _cancelTokens = {};
 
-  /// 每个下载任务的完整上下文（resume 时用来重启协程）
+  /// 每个下载任务的完整上下文（resume/retry 时用来重启协程）
   final Map<String, _DownloadTask> _tasks = {};
 
   /// 生成唯一的下载任务ID
@@ -501,6 +521,7 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
       ...state,
       taskId: DownloadState(modelId: taskId, status: DownloadStatus.downloading),
     };
+    _log?.info(_tag, 'startDownload: taskId=$taskId, url=${modelInfo.ggufUrl}');
     _runDownload(taskId);
   }
 
@@ -514,6 +535,7 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
 
   /// 暂停当前任务：仅置 flag，正在跑的协程下次循环检测到会抛 PauseException 退出
   void pauseDownload(String taskId) {
+    _log?.info(_tag, 'pauseDownload: taskId=$taskId');
     _cancelTokens[taskId]?.pause();
     state = {
       ...state,
@@ -525,7 +547,11 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
   /// 恢复任务：置 flag + 重新启动 downloadModel 协程（断点续传）
   void resumeDownload(String taskId) {
     final task = _tasks[taskId];
-    if (task == null) return;
+    if (task == null) {
+      _log?.warning(_tag, 'resumeDownload 失败: task 不存在, taskId=$taskId');
+      return;
+    }
+    _log?.info(_tag, 'resumeDownload: taskId=$taskId');
     _cancelTokens[taskId]?.resume();
     state = {
       ...state,
@@ -536,11 +562,8 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
   }
 
   /// 取消任务：取消 token + 清理上下文和临时文件 + 隐藏 UI 卡片
-  ///
-  /// 临时文件由调用方直接清理（不让协程负责），因为用户期望点 ❌ 后立即生效：
-  /// - 协程可能还在写文件：协程内不主动清理（避免与正在的 IO 竞争）
-  /// - 协程可能已退出（PauseException）：catchError 不会再跑
   void cancelDownload(String taskId) {
+    _log?.info(_tag, 'cancelDownload: taskId=$taskId');
     final token = _cancelTokens[taskId];
     final task = _tasks[taskId];
     token?.cancel();
@@ -555,13 +578,13 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
   /// 兼容旧 API：删除模型时调用，等价于 [cancelDownload]
   void removeState(String taskId) => cancelDownload(taskId);
 
+  /// 标记下载失败
+  ///
+  /// 保留临时文件和任务上下文，以便用户后续重试时断点续传。
+  /// 临时文件只会在用户主动取消或下载完成重命名时清理。
   void failDownload(String taskId, String error) {
-    final task = _tasks[taskId];
-    if (task != null) {
-      _deleteTempFile(task.tempFilePath);
-      _tasks.remove(taskId);
-      _cancelTokens.remove(taskId);
-    }
+    _log?.error(_tag, 'failDownload: taskId=$taskId, error=$error');
+    // 保留 _tasks 和 _cancelTokens，不删临时文件，以便用户重试断点续传
     state = {
       ...state,
       taskId: state[taskId]?.copyWith(status: DownloadStatus.failed, errorMessage: error) ??
@@ -570,6 +593,7 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
   }
 
   void completeDownload(String taskId) {
+    _log?.info(_tag, 'completeDownload: taskId=$taskId');
     _cancelTokens.remove(taskId);
     _tasks.remove(taskId);
     state = {
@@ -577,6 +601,35 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
       taskId: state[taskId]?.copyWith(status: DownloadStatus.completed, progress: 1.0) ??
           DownloadState(modelId: taskId, status: DownloadStatus.completed, progress: 1.0),
     };
+  }
+
+  /// 重试失败的下载（从断点续传）
+  void retryDownload(String taskId) {
+    final task = _tasks[taskId];
+    if (task == null) {
+      _log?.warning(_tag, 'retryDownload 失败: task 不存在, taskId=$taskId');
+      return;
+    }
+    _log?.info(_tag, 'retryDownload: taskId=$taskId, url=${task.modelInfo.ggufUrl}');
+
+    // 保证有一个可用的 CancelToken（旧的可能已取消）
+    _cancelTokens[taskId] ??= CancelToken();
+    _cancelTokens[taskId]?.resume();
+
+    state = {
+      ...state,
+      taskId: state[taskId]?.copyWith(
+        status: DownloadStatus.downloading,
+        progress: 0.0,
+        errorMessage: null,
+      ) ??
+          DownloadState(
+            modelId: taskId,
+            status: DownloadStatus.downloading,
+            progress: 0.0,
+          ),
+    };
+    _runDownload(taskId);
   }
 
   /// 后台跑一次 downloadModel，失败/暂停/cancel 都正确处理
@@ -600,6 +653,7 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
       if (e is PauseException) return;
       // 取消：cancelDownload 已经清理过所有东西，这里什么都不做
       if (token.isCancelled) return;
+      _log?.error(_tag, '_runDownload 异常: taskId=$taskId, error=$e');
       failDownload(taskId, e.toString());
       task.onError?.call(taskId, e);
     });
@@ -617,7 +671,8 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
 
 final downloadStatesProvider =
     StateNotifierProvider<DownloadStatesNotifier, Map<String, DownloadState>>((ref) {
-  return DownloadStatesNotifier();
+  final log = ref.watch(logServiceProvider);
+  return DownloadStatesNotifier(log: log);
 });
 
 // ---- 模型管理 ----
@@ -628,7 +683,8 @@ final storageDirProvider = Provider<String>((ref) {
 
 final modelManagerProvider = Provider<ModelManager>((ref) {
   final dir = ref.watch(storageDirProvider);
-  return ModelManager(storageDir: dir);
+  final log = ref.watch(logServiceProvider);
+  return ModelManager(storageDir: dir, log: log);
 });
 
 // ---- 管线配置 ----
@@ -792,10 +848,19 @@ final todayStatsProvider = FutureProvider<UserStatsEntry?>((ref) {
   return dao.getOrCreateToday();
 });
 
-/// 近 7 天统计
-final recentWeekStatsProvider = FutureProvider<List<UserStatsEntry>>((ref) {
+/// 当前选择的统计日期范围（默认最近 7 天）
+final selectedDateRangeProvider = StateProvider<DateTimeRange>((ref) {
+  final now = DateTime.now();
+  final start = DateTime(now.year, now.month, now.day - 6);
+  final end = now;
+  return DateTimeRange(start: start, end: end);
+});
+
+/// 根据选择的日期范围获取统计
+final rangeStatsProvider = FutureProvider<List<UserStatsEntry>>((ref) {
+  final range = ref.watch(selectedDateRangeProvider);
   final dao = ref.read(userStatsDaoProvider);
-  return dao.getRecentDays(7);
+  return dao.getByDateRange(range.start, range.end);
 });
 
 /// 汇总统计

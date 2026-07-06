@@ -328,6 +328,17 @@
   "importResultTitle": "Import Result",
   "existingFiles": "Existing files:",
   "ok": "OK",
+
+  "exportMemes": "Export Memes",
+  "export": "Export",
+  "exportFileName": "File name",
+  "exporting": "Exporting...",
+  "exportSuccess": "Export successful: {path}",
+  "exportFailed": "Export failed: {error}",
+  "importMemePack": "Import Meme Pack",
+  "importMemePackResult": "Import complete: {success} success, {skipped} skipped, {errors} failed",
+  "importMemePackFailed": "Import failed: {error}",
+
   "copiedToClipboard": "Copied to clipboard",
 
   "shareMeme": "Share meme",
@@ -379,5 +390,15 @@
   "configExported": "Config exported",
   "configImportSuccess": "Config imported successfully",
   "configImportFailed": "Config import failed: {error}",
-  "@configImportFailed": { "placeholders": { "error": { "type": "String" } } }
+  "@configImportFailed": { "placeholders": { "error": { "type": "String" } } },
+
+  "@exportMemes": {},
+  "@export": {},
+  "@exportFileName": {},
+  "@exporting": {},
+  "@exportSuccess": { "placeholders": { "path": { "type": "String" } } },
+  "@exportFailed": { "placeholders": { "error": { "type": "String" } } },
+  "@importMemePack": {},
+  "@importMemePackResult": { "placeholders": { "success": { "type": "int" }, "skipped": { "type": "int" }, "errors": { "type": "int" } } },
+  "@importMemePackFailed": { "placeholders": { "error": { "type": "String" } } }
 }

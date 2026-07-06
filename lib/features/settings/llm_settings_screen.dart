@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:file_selector/file_selector.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -351,8 +351,21 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
 
     ref.read(localLlmLoadingProvider.notifier).state = true;
     debugPrint('[LoadModel] 开始加载模型: ${config.modelPath}');
-    debugPrint('[LoadModel] 模型文件存在: ${File(config.modelPath!).existsSync()}');
-    debugPrint('[LoadModel] 模型文件大小: ${File(config.modelPath!).lengthSync()} bytes');
+    final modelFile = File(config.modelPath!);
+    final fileExists = modelFile.existsSync();
+    debugPrint('[LoadModel] 模型文件存在: $fileExists');
+    if (fileExists) {
+      debugPrint('[LoadModel] 模型文件大小: ${modelFile.lengthSync()} bytes');
+    } else {
+      debugPrint('[LoadModel] 模型文件不存在，跳过长度检查');
+      ref.read(localLlmLoadingProvider.notifier).state = false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('模型文件不存在，请检查模型路径或重新下载')),
+        );
+      }
+      return;
+    }
 
     // 等一帧让进度条先渲染出来
     await Future.delayed(const Duration(milliseconds: 50));
@@ -475,23 +488,22 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
 
   Future<void> _pickLocalModel() async {
     // 选择 GGUF 模型文件
-    final modelFile = await openFile(
-      acceptedTypeGroups: [
-        XTypeGroup(
-          label: S.of(context).ggufModelFile,
-          extensions: ['gguf'],
-        ),
-      ],
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['gguf'],
     );
-    if (modelFile == null || !mounted) return;
+    if (result == null || result.files.isEmpty || !mounted) return;
 
-    // 校验文件后缀（Linux 上 file_selector 的 extensions 过滤可被用户绕过）
-    if (!modelFile.path.toLowerCase().endsWith('.gguf')) {
+    final modelPath = result.files.single.path;
+    if (modelPath == null) return;
+
+    // 双重校验：FilePicker 已按 extensions 过滤，但以防被绕过
+    if (!modelPath.toLowerCase().endsWith('.gguf')) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(S.of(context).invalidGgufFileDetail(
-            modelFile.path.split('/').last,
+            modelPath.split('/').last,
           )),
         ),
       );
@@ -503,9 +515,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(S.of(context).loadMultimodalProjection),
-        content: Text(
-          S.of(context).mmprojHint,
-        ),
+        content: Text(S.of(context).mmprojHint),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -521,27 +531,25 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
 
     String? mmprojPath;
     if (wantMmproj == true && mounted) {
-      final mmprojFile = await openFile(
-        acceptedTypeGroups: [
-          XTypeGroup(
-            label: S.of(context).ggufProjectionFile,
-            extensions: ['gguf'],
-          ),
-        ],
+      final mmprojResult = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['gguf'],
       );
-      if (mmprojFile != null) {
-        // 同样校验 mmproj 文件后缀
-        if (!mmprojFile.path.toLowerCase().endsWith('.gguf')) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(S.of(context).invalidGgufFileDetail(
-                mmprojFile.path.split('/').last,
-              )),
-            ),
-          );
-        } else {
-          mmprojPath = mmprojFile.path;
+      if (mmprojResult != null && mmprojResult.files.isNotEmpty) {
+        final path = mmprojResult.files.single.path;
+        if (path != null) {
+          if (!path.toLowerCase().endsWith('.gguf')) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(S.of(context).invalidGgufFileDetail(
+                  path.split('/').last,
+                )),
+              ),
+            );
+          } else {
+            mmprojPath = path;
+          }
         }
       }
     }
@@ -549,7 +557,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
     if (!mounted) return;
     ref.read(localLlmConfigProvider.notifier).update(
       LocalLlmConfig(
-        modelPath: modelFile.path,
+        modelPath: modelPath,
         mmprojPath: mmprojPath,
       ),
     );

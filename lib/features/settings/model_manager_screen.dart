@@ -23,6 +23,15 @@ final searchResultsProvider = StateProvider<List<SearchableModel>>((ref) => []);
 /// 是否正在搜索
 final isSearchingProvider = StateProvider<bool>((ref) => false);
 
+/// 当前搜索页码
+final searchCurrentPageProvider = StateProvider<int>((ref) => 1);
+
+/// 搜索结果总数
+final searchTotalCountProvider = StateProvider<int>((ref) => 0);
+
+/// 是否正在加载更多
+final isLoadingMoreProvider = StateProvider<bool>((ref) => false);
+
 class ModelManagerScreen extends ConsumerStatefulWidget {
   const ModelManagerScreen({super.key});
 
@@ -33,7 +42,7 @@ class ModelManagerScreen extends ConsumerStatefulWidget {
 class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ModelSearchService _searchService = ModelSearchService();
-  final Set<String> _autoCompletedTasks = {};
+
 
   @override
   void dispose() {
@@ -42,21 +51,39 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
     super.dispose();
   }
 
-  Future<void> _performSearch() async {
+  Future<void> _performSearch({int page = 1}) async {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
 
-    ref.read(searchResultsProvider.notifier).state = [];
-    ref.read(isSearchingProvider.notifier).state = true;
+    if (page == 1) {
+      ref.read(searchResultsProvider.notifier).state = [];
+      ref.read(searchCurrentPageProvider.notifier).state = 1;
+      ref.read(searchTotalCountProvider.notifier).state = 0;
+    }
+    ref.read(isSearchingProvider.notifier).state = page == 1;
+    if (page > 1) {
+      ref.read(isLoadingMoreProvider.notifier).state = true;
+    }
 
     try {
       final source = ref.read(selectedSourceProvider);
-      final results = await _searchService.search(
+      final result = await _searchService.search(
         source: source,
         query: query,
-        limit: 20,
+        page: page,
+        pageSize: 20,
       );
-      ref.read(searchResultsProvider.notifier).state = results;
+
+      if (page == 1) {
+        ref.read(searchResultsProvider.notifier).state = result.models;
+      } else {
+        ref.read(searchResultsProvider.notifier).state = [
+          ...ref.read(searchResultsProvider),
+          ...result.models,
+        ];
+      }
+      ref.read(searchCurrentPageProvider.notifier).state = result.currentPage;
+      ref.read(searchTotalCountProvider.notifier).state = result.totalCount;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -65,12 +92,15 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
       }
     } finally {
       ref.read(isSearchingProvider.notifier).state = false;
+      ref.read(isLoadingMoreProvider.notifier).state = false;
     }
   }
 
   void _clearSearch() {
     _searchController.clear();
     ref.read(searchResultsProvider.notifier).state = [];
+    ref.read(searchCurrentPageProvider.notifier).state = 1;
+    ref.read(searchTotalCountProvider.notifier).state = 0;
   }
 
   @override
@@ -100,11 +130,14 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
               const Center(child: CircularProgressIndicator())
             else if (searchResults.isEmpty)
               _buildEmptyCard('未找到相关模型')
-            else
+            else ...[
               ...searchResults.map((model) => _SearchResultCard(
                     model: model,
                     onDownload: () => _showGgufFilesDialog(model),
                   )),
+              // 分页加载更多
+              _buildPaginationSection(theme),
+            ],
           ] else ...[
             Text('推荐模型', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
@@ -230,39 +263,41 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
 
   Widget _buildDownloadingSection(ThemeData theme) {
     final downloadStates = ref.watch(downloadStatesProvider);
-    final manager = ref.read(modelManagerProvider);
-    final notifier = ref.read(downloadStatesProvider.notifier);
-
-    // 兜底检测：对 progress >= 1.0 但状态仍为 downloading 的卡住下载做自动完成
-    for (final entry in downloadStates.entries) {
-      if (entry.value.progress >= 1.0 &&
-          entry.value.status == DownloadStatus.downloading &&
-          !_autoCompletedTasks.contains(entry.key)) {
-        final modelId = entry.key.split('#').first;
-        if (manager.getDownloadedModels().any((d) => d.id == modelId)) {
-          _autoCompletedTasks.add(entry.key);
-          Future.microtask(() => notifier.completeDownload(entry.key));
-        }
-      }
-    }
 
     final downloading = downloadStates.entries
         .where((e) => e.value.status == DownloadStatus.downloading || e.value.status == DownloadStatus.paused)
         .toList();
+    final failed = downloadStates.entries
+        .where((e) => e.value.status == DownloadStatus.failed)
+        .toList();
 
-    if (downloading.isEmpty) {
+    if (downloading.isEmpty && failed.isEmpty) {
       return const SizedBox.shrink();
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('下载中', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        ...downloading.map((entry) => _DownloadingCard(
-              modelId: entry.key,
-              state: entry.value,
-            )),
+        if (downloading.isNotEmpty) ...[
+          Text('下载中', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          ...downloading.map((entry) => _DownloadingCard(
+                modelId: entry.key,
+                state: entry.value,
+              )),
+          const SizedBox(height: 16),
+        ],
+        if (failed.isNotEmpty) ...[
+          Text('下载失败', style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.colorScheme.error,
+          )),
+          const SizedBox(height: 8),
+          ...failed.map((entry) => _FailedDownloadCard(
+                modelId: entry.key,
+                state: entry.value,
+              )),
+          const SizedBox(height: 16),
+        ],
       ],
     );
   }
@@ -441,6 +476,42 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  /// 分页加载更多区域
+  Widget _buildPaginationSection(ThemeData theme) {
+    final currentPage = ref.watch(searchCurrentPageProvider);
+    final totalCount = ref.watch(searchTotalCountProvider);
+    final isLoadingMore = ref.watch(isLoadingMoreProvider);
+    final pageSize = 20;
+    final totalPages = (totalCount / pageSize).ceil();
+    final hasMore = currentPage * pageSize < totalCount;
+
+    if (!hasMore && totalPages <= 1) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Column(
+        children: [
+          // 页码信息
+          Text(
+            '第 $currentPage 页 / 共 $totalPages 页（$totalCount 个结果）',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (hasMore)
+            isLoadingMore
+                ? const Center(child: CircularProgressIndicator())
+                : OutlinedButton.icon(
+                    onPressed: () => _performSearch(page: currentPage + 1),
+                    icon: const Icon(Icons.expand_more, size: 18),
+                    label: const Text('加载更多'),
+                  ),
+        ],
+      ),
+    );
   }
 }
 
@@ -683,6 +754,74 @@ class _DownloadingCard extends ConsumerWidget {
   }
 }
 
+/// 下载失败卡片（带重试按钮）
+class _FailedDownloadCard extends ConsumerWidget {
+  final String modelId;
+  final DownloadState state;
+
+  const _FailedDownloadCard({
+    required this.modelId,
+    required this.state,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: theme.colorScheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.error_outline, size: 18, color: theme.colorScheme.error),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(modelId, style: theme.textTheme.titleSmall),
+                ),
+              ],
+            ),
+            if (state.errorMessage != null && state.errorMessage!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                state.errorMessage!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onErrorContainer,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  onPressed: () =>
+                      ref.read(downloadStatesProvider.notifier).retryDownload(modelId),
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('重试'),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  tooltip: '取消下载',
+                  onPressed: () =>
+                      ref.read(downloadStatesProvider.notifier).cancelDownload(modelId),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// 已下载模型卡片
 class _DownloadedModelCard extends ConsumerWidget {
   final DownloadedModel model;
@@ -837,18 +976,6 @@ class _DownloadedModelCard extends ConsumerWidget {
                               style: const TextStyle(fontSize: 11),
                             ),
                           ),
-                          trailing: const Icon(Icons.open_in_new, size: 16),
-                          onTap: () async {
-                            Navigator.pop(ctx);
-                            try {
-                              await manager.openDownloadsFolder();
-                            } catch (e) {
-                              if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('打开失败: $e')),
-                              );
-                            }
-                          },
                         );
                       }).toList(),
                     ),
@@ -858,21 +985,6 @@ class _DownloadedModelCard extends ConsumerWidget {
           ),
         ),
         actions: [
-          TextButton.icon(
-            icon: const Icon(Icons.folder_open, size: 18),
-            label: const Text('打开所在文件夹'),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await manager.openDownloadsFolder();
-              } catch (e) {
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('打开失败: $e')),
-                );
-              }
-            },
-          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('关闭'),
@@ -881,4 +993,5 @@ class _DownloadedModelCard extends ConsumerWidget {
       ),
     );
   }
+
 }

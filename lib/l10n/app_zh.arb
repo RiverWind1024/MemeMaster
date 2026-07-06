@@ -378,6 +378,17 @@
   "importResultTitle": "导入结果",
   "existingFiles": "已存在的文件:",
   "ok": "确定",
+
+  "exportMemes": "导出表情包",
+  "export": "导出",
+  "exportFileName": "文件名",
+  "exporting": "正在导出...",
+  "exportSuccess": "导出成功: {path}",
+  "exportFailed": "导出失败: {error}",
+  "importMemePack": "导入表情包",
+  "importMemePackResult": "导入完成: 成功 {success}, 跳过 {skipped}, 失败 {errors}",
+  "importMemePackFailed": "导入失败: {error}",
+
   "copiedToClipboard": "已复制到剪贴板",
 
   "shareMeme": "分享表情包",
@@ -434,5 +445,15 @@
   "configExported": "配置已导出",
   "configImportSuccess": "配置导入成功",
   "configImportFailed": "配置导入失败: {error}",
-  "@configImportFailed": { "placeholders": { "error": { "type": "String" } } }
+  "@configImportFailed": { "placeholders": { "error": { "type": "String" } } },
+
+  "@exportMemes": {},
+  "@export": {},
+  "@exportFileName": {},
+  "@exporting": {},
+  "@exportSuccess": { "placeholders": { "path": { "type": "String" } } },
+  "@exportFailed": { "placeholders": { "error": { "type": "String" } } },
+  "@importMemePack": {},
+  "@importMemePackResult": { "placeholders": { "success": { "type": "int" }, "skipped": { "type": "int" }, "errors": { "type": "int" } } },
+  "@importMemePackFailed": { "placeholders": { "error": { "type": "String" } } }
 }
