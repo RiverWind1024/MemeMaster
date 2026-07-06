@@ -8,6 +8,7 @@
 void* mllm_init(const char*, const char*, int, int, int, int, const char*) { return NULL; }
 char* mllm_complete(void*, const char*, int, float) { return NULL; }
 char* mllm_multimodal_complete(void*, const char*, const unsigned char*, size_t, int, int, int, float) { return NULL; }
+int mllm_complete_stream(void*, const char*, int, float, void*, void*) { return 1; }
 void mllm_close(void*) {}
 void mllm_free_string(char*) {}
 void mllm_log_to_file(int, const char*, ...) {}
@@ -160,7 +161,11 @@ void* mllm_init(const char* model_path,
 
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.n_ctx   = n_ctx;
-    ctx_params.n_batch = n_ctx;
+    ctx_params.n_batch = n_ctx < 512 ? n_ctx : 512;
+    ctx_params.n_ubatch = 256;
+    ctx_params.type_k = GGML_TYPE_F16;
+    ctx_params.type_v = GGML_TYPE_F16;
+    ctx_params.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_ENABLED;
     ctx_params.n_threads = n_threads;
     ctx_params.n_threads_batch = n_threads;
 
@@ -250,6 +255,84 @@ static char* run_sample_loop(MllmHandle* handle,
     memcpy(ret, result.c_str(), result.size());
     ret[result.size()] = '\0';
     return ret;
+}
+
+static int run_stream_loop(MllmHandle* handle,
+                           llama_token* tokens,
+                           int n_tokens,
+                           int max_tokens,
+                           float temperature,
+                           mllm_token_callback_t callback,
+                           void* user_data) {
+    if (!callback) return 1;
+
+    if (temperature > 0.0f) {
+        llama_sampler_chain_add(handle->sampler, llama_sampler_init_temp(temperature));
+        llama_sampler_chain_add(handle->sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+    } else {
+        llama_sampler_chain_add(handle->sampler, llama_sampler_init_greedy());
+    }
+
+    llama_batch batch = llama_batch_get_one(tokens, n_tokens);
+
+    for (int n_pos = 0; n_pos + batch.n_tokens < n_tokens + max_tokens; ) {
+        if (llama_decode(handle->ctx, batch)) {
+            MLLM_LOGE("run_stream_loop: llama_decode failed");
+            return 1;
+        }
+        n_pos += batch.n_tokens;
+
+        llama_token new_token = llama_sampler_sample(handle->sampler, handle->ctx, -1);
+        llama_sampler_accept(handle->sampler, new_token);
+
+        if (llama_vocab_is_eog(handle->vocab, new_token)) {
+            break;
+        }
+
+        char buf[256];
+        int n = llama_token_to_piece(handle->vocab, new_token, buf, sizeof(buf), 0, true);
+        if (n > 0) {
+            buf[n] = '\0';
+            if (callback(buf, user_data) != 0) {
+                break;
+            }
+        }
+
+        batch = llama_batch_get_one(&new_token, 1);
+    }
+
+    while (llama_sampler_chain_n(handle->sampler) > 2) {
+        llama_sampler* removed = llama_sampler_chain_remove(handle->sampler, llama_sampler_chain_n(handle->sampler) - 1);
+        llama_sampler_free(removed);
+    }
+
+    return 0;
+}
+
+int mllm_complete_stream(void* handle_ptr,
+                         const char* prompt,
+                         int max_tokens,
+                         float temperature,
+                         mllm_token_callback_t callback,
+                         void* user_data) {
+    MllmHandle* handle = (MllmHandle*)handle_ptr;
+    if (!handle) return 1;
+
+    const llama_vocab* vocab = handle->vocab;
+
+    int n_prompt = -llama_tokenize(vocab, prompt, strlen(prompt), NULL, 0, true, true);
+    if (n_prompt < 0) {
+        MLLM_LOGE("mllm_complete_stream: tokenize failed");
+        return 1;
+    }
+
+    std::vector<llama_token> prompt_tokens(n_prompt);
+    if (llama_tokenize(vocab, prompt, strlen(prompt), prompt_tokens.data(), prompt_tokens.size(), true, true) < 0) {
+        MLLM_LOGE("mllm_complete_stream: tokenize failed");
+        return 1;
+    }
+
+    return run_stream_loop(handle, prompt_tokens.data(), n_prompt, max_tokens, temperature, callback, user_data);
 }
 
 char* mllm_complete(void* handle_ptr,

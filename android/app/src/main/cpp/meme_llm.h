@@ -71,6 +71,21 @@ void mllm_close(void* handle);
 // 释放 mllm_complete / mllm_multimodal_complete 返回的字符串
 void mllm_free_string(char* str);
 
+// ---- Streaming API ----
+
+// 逐 token 回调：每次生成一个 token piece 时调用
+// 返回 0 继续生成，非 0 中止
+typedef int (*mllm_token_callback_t)(const char* token_text, void* user_data);
+
+// 流式文本补全 — 每生成一个 token 就回调一次
+// 返回 0 成功，非 0 失败或被回调中止
+int mllm_complete_stream(void* handle,
+                         const char* prompt,
+                         int max_tokens,
+                         float temperature,
+                         mllm_token_callback_t callback,
+                         void* user_data);
+
 #ifdef __cplusplus
 }
 #endif
