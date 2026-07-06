@@ -36,6 +36,14 @@ extern "C" {
 // use_gpu: 0=CPU only, 1=尝试 GPU 加速
 // n_gpu_layers: 卸载到 GPU 的层数（use_gpu=1 时有效，-1=全部）
 // log_file_path: 把 C++ 端日志同时写入此文件（可为 NULL 表示只写 logcat）
+// extra_params: 额外优化参数，格式 "key=val,key=val,..." 或 NULL
+//   支持的 key:
+//     flash_attn   = auto | enabled | disabled  （默认 auto）
+//     kv_cache     = f16 | q4_0                 （默认 f16）
+//     kv_unified   = 1 | 0                      （默认 1）
+//     use_mmap     = 1 | 0                      （默认 0，Android 推荐关闭）
+//     n_batch      = <数值>                      （默认 512）
+//     n_ubatch     = <数值>                      （默认 256）
 // 返回 opaque handle，失败返回 NULL
 void* mllm_init(const char* model_path,
                 const char* mmproj_path,
@@ -43,7 +51,8 @@ void* mllm_init(const char* model_path,
                 int n_ctx,
                 int use_gpu,
                 int n_gpu_layers,
-                const char* log_file_path);
+                const char* log_file_path,
+                const char* extra_params);
 
 // 纯文本补全
 // 返回生成的文本（调用方须 mllm_free_string 释放），失败返回 NULL
@@ -70,6 +79,13 @@ void mllm_close(void* handle);
 
 // 释放 mllm_complete / mllm_multimodal_complete 返回的字符串
 void mllm_free_string(char* str);
+
+// 获取 C++ 侧捕获的最近日志
+// 返回日志文本（以 \0 结尾的 UTF-8 字符串），调用方须 mllm_free_string 释放
+// 每次调用返回上次调用之后新增的日志行；首次调用 / since_id=0 返回全部
+// since_id: 传入上次调用返回的 last_id，增量获取；首次传 0
+// out_last_id: 输出本次返回的最后一条日志的 ID，供下次调用传入
+char* mllm_get_logs(uint64_t since_id, uint64_t* out_last_id);
 
 // ---- Streaming API ----
 
