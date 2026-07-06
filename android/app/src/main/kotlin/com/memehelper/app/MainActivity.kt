@@ -168,6 +168,27 @@ class MainActivity : FlutterActivity() {
                         result.error("WRITE_FAILED", e.message, null)
                     }
                 }
+                "getDownloadPath" -> {
+                    val filename = call.argument<String>("filename")
+                    if (filename == null) {
+                        result.error("INVALID_ARG", "filename required", null)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        // 获取 Downloads/MemeHelper/ 下的目标路径
+                        // 实际文件会通过 writeToDownloads 从临时目录复制过来
+                        val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                        val memeHelperDir = File(downloadDir, "MemeHelper")
+                        if (!memeHelperDir.exists()) {
+                            memeHelperDir.mkdirs()
+                        }
+                        val targetPath = File(memeHelperDir, filename).absolutePath
+                        result.success(targetPath)
+                    } catch (e: Exception) {
+                        android.util.Log.e(tag, "getDownloadPath failed", e)
+                        result.error("GET_PATH_FAILED", e.message, null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

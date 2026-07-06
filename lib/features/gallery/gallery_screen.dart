@@ -544,6 +544,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final fabActions = [
       _SpeedDialAction(Icons.search, s.scanFolder),
       _SpeedDialAction(Icons.add_photo_alternate, s.importImage),
+      _SpeedDialAction(Icons.archive, s.importMemePack),
       _SpeedDialAction(Icons.content_paste, s.importFromClipboard),
       _SpeedDialAction(Icons.photo_library, s.newAlbumShort),
     ];
@@ -566,8 +567,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                 case 1:
                   context.pushNamed('import');
                 case 2:
-                  _importFromClipboard();
+                  _importMemePack();
                 case 3:
+                  _importFromClipboard();
+                case 4:
                   _showNewAlbumDialog();
               }
             },
@@ -904,17 +907,20 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
     if (name == null || name.isEmpty) return;
 
-    // 2. 获取 download 目录路径
-    String downloadPath;
+    // 2. Android: 先写到缓存目录，再复制到 Downloads；其他平台直接写到 Downloads
+    String tempPath;
+    String? publicPath;
     if (Platform.isAndroid) {
-      downloadPath = await _getAndroidDownloadPath('$name.zip');
+      tempPath = '${Directory.systemTemp.path}/$name.zip';
+      publicPath = await _getAndroidDownloadPath('$name.zip');
     } else {
       final dir = await getDownloadsDirectory();
       if (dir != null) {
-        downloadPath = p.join(dir.path, '$name.zip');
+        tempPath = p.join(dir.path, '$name.zip');
       } else {
-        downloadPath = '${Directory.systemTemp.path}/$name.zip';
+        tempPath = '${Directory.systemTemp.path}/$name.zip';
       }
+      publicPath = null;
     }
 
     // 3. 显示进度对话框
@@ -946,23 +952,30 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         storage: ref.read(fileStorageServiceProvider),
       );
 
+      // 先写到临时路径
       await exportService.exportMemes(
         memeIds: _selectedIds.toList(),
-        outputPath: downloadPath,
+        outputPath: tempPath,
         onProgress: (current, total) {
           progressNotifier.value = current / total;
         },
       );
 
+      // Android: 从临时目录复制到公共 Downloads
+      if (Platform.isAndroid && publicPath != null) {
+        await _copyToDownloads(tempPath, publicPath);
+      }
+
       if (mounted) {
-        Navigator.pop(context); // 关闭进度对话框
+        Navigator.pop(context);
+        final displayPath = publicPath ?? tempPath;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(S.of(context).exportSuccess(downloadPath))),
+          SnackBar(content: Text(S.of(context).exportSuccess(displayPath))),
         );
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context); // 关闭进度对话框
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(S.of(context).exportFailed(e.toString()))),
         );
@@ -974,18 +987,27 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   }
 
   Future<String> _getAndroidDownloadPath(String filename) async {
-    // Android 使用原生方法写入 Downloads 目录
-    // 如果没有原生方法实现，则使用缓存目录
     try {
       const channel = MethodChannel('com.memehelper.app/downloads');
       final result = await channel.invokeMethod<String>('getDownloadPath', {
         'filename': filename,
       });
       if (result != null) return result;
-    } catch (_) {
-      // 通道不可用
-    }
+    } catch (_) {}
     return '${Directory.systemTemp.path}/$filename';
+  }
+
+  Future<void> _copyToDownloads(String srcPath, String destPath) async {
+    try {
+      const channel = MethodChannel('com.memehelper.app/downloads');
+      await channel.invokeMethod('writeToDownloads', {
+        'srcPath': srcPath,
+        'subDir': '',
+        'displayName': destPath.split('/').last,
+      });
+    } catch (e) {
+      throw Exception('Failed to copy to Downloads: $e');
+    }
   }
 
   Future<void> _importMemePack() async {
