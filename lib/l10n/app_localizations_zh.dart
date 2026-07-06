@@ -352,19 +352,7 @@ class SZh extends S {
   String get colorExtraction => '颜色提取';
 
   @override
-  String get methodNeuralQuantizer => '神经网络量化';
-
-  @override
-  String get methodHistogram => '直方图分桶';
-
-  @override
   String get methodKmeans => 'K-means 聚类';
-
-  @override
-  String get methodMeanShift => '均值漂移';
-
-  @override
-  String get algorithm => '算法';
 
   @override
   String get maxDominantColors => '最大主色调数';
@@ -381,17 +369,6 @@ class SZh extends S {
   String get colorMergeThreshold => '颜色合并阈值';
 
   @override
-  String get initialColorCount => '初始颜色数量';
-
-  @override
-  String get rgbBins => 'RGB 分桶数';
-
-  @override
-  String rgbBinsDetail(int bins, int total) {
-    return '$bins³ = $total 桶';
-  }
-
-  @override
   String get initialClusterK => '初始聚类数 (K)';
 
   @override
@@ -399,9 +376,6 @@ class SZh extends S {
 
   @override
   String get maxIterations => '最大迭代次数';
-
-  @override
-  String get kernelRadius => '核半径';
 
   @override
   String get lightThemeSubtitle => '始终使用浅色主题';

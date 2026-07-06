@@ -360,19 +360,7 @@ class SEn extends S {
   String get colorExtraction => 'Color Extraction';
 
   @override
-  String get methodNeuralQuantizer => 'Neural Quantizer';
-
-  @override
-  String get methodHistogram => 'Histogram Binning';
-
-  @override
   String get methodKmeans => 'K-means Clustering';
-
-  @override
-  String get methodMeanShift => 'Mean Shift';
-
-  @override
-  String get algorithm => 'Algorithm';
 
   @override
   String get maxDominantColors => 'Max Dominant Colors';
@@ -389,17 +377,6 @@ class SEn extends S {
   String get colorMergeThreshold => 'Color Merge Threshold';
 
   @override
-  String get initialColorCount => 'Initial Color Count';
-
-  @override
-  String get rgbBins => 'RGB Bins';
-
-  @override
-  String rgbBinsDetail(int bins, int total) {
-    return '$bins³ = $total bins';
-  }
-
-  @override
   String get initialClusterK => 'Initial Clusters (K)';
 
   @override
@@ -407,9 +384,6 @@ class SEn extends S {
 
   @override
   String get maxIterations => 'Max Iterations';
-
-  @override
-  String get kernelRadius => 'Kernel Radius';
 
   @override
   String get lightThemeSubtitle => 'Always use light theme';
