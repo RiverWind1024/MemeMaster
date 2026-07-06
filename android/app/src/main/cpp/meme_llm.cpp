@@ -78,6 +78,7 @@ static void close_log_file() {
 static const char* const k_llama_log_blacklist[] = {
     "llama_model_loader",   // 模型元数据 kv dump（动辄几十行）
     "load_tensors",         // 张量加载进度（每个 tensor 一行，几百个 tensor）
+    "create_tensor",        // 每个 tensor 创建日志，模型有几百个 tensor，过于啰嗦
 };
 static bool llama_log_is_filtered(const char* text) {
     if (!text) return true;
@@ -163,8 +164,8 @@ void* mllm_init(const char* model_path,
     ctx_params.n_ctx   = n_ctx;
     ctx_params.n_batch = n_ctx < 512 ? n_ctx : 512;
     ctx_params.n_ubatch = 256;
-    ctx_params.type_k = GGML_TYPE_Q4_0;
-    ctx_params.type_v = GGML_TYPE_Q4_0;
+    ctx_params.type_k = GGML_TYPE_F16;
+    ctx_params.type_v = GGML_TYPE_F16;
     ctx_params.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_ENABLED;
     ctx_params.n_threads = n_threads;
     ctx_params.n_threads_batch = n_threads;
