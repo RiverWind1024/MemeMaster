@@ -163,8 +163,8 @@ void* mllm_init(const char* model_path,
     ctx_params.n_ctx   = n_ctx;
     ctx_params.n_batch = n_ctx < 512 ? n_ctx : 512;
     ctx_params.n_ubatch = 256;
-    ctx_params.type_k = GGML_TYPE_F16;
-    ctx_params.type_v = GGML_TYPE_F16;
+    ctx_params.type_k = GGML_TYPE_Q4_0;
+    ctx_params.type_v = GGML_TYPE_Q4_0;
     ctx_params.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_ENABLED;
     ctx_params.n_threads = n_threads;
     ctx_params.n_threads_batch = n_threads;
