@@ -438,13 +438,6 @@ class _ColorExtractionCard extends ConsumerWidget {
     final config = ref.watch(colorExtractionConfigProvider);
     final theme = Theme.of(context);
 
-    String methodLabel(ColorExtractionMethod m) => switch (m) {
-          ColorExtractionMethod.neuralQuantizer => S.of(context).methodNeuralQuantizer,
-          ColorExtractionMethod.histogram => S.of(context).methodHistogram,
-          ColorExtractionMethod.kmeans => S.of(context).methodKmeans,
-          ColorExtractionMethod.meanShift => S.of(context).methodMeanShift,
-        };
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -456,34 +449,8 @@ class _ColorExtractionCard extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ---- 算法选择 ----
-                Row(
-                  children: [
-                    Text(S.of(context).algorithm, style: theme.textTheme.bodyMedium),
-                    const Spacer(),
-                    DropdownButton<ColorExtractionMethod>(
-                      value: config.method,
-                      underline: const SizedBox(),
-                      items: ColorExtractionMethod.values.map((m) {
-                        return DropdownMenuItem(
-                          value: m,
-                          child: Text(methodLabel(m)),
-                        );
-                      }).toList(),
-                      onChanged: (v) {
-                        if (v != null) {
-                          ref
-                .read(colorExtractionConfigProvider.notifier)
-                .update(config.copyWith(method: v));
-                        }
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-
-                // ---- 算法特定参数 ----
-                ..._buildMethodSpecificControls(context, ref, config, theme),
+                // ---- K-means 特定参数 ----
+                ..._buildKMeansControls(context, ref, config, theme),
 
                 const Divider(height: 16),
 
@@ -567,93 +534,37 @@ class _ColorExtractionCard extends ConsumerWidget {
     );
   }
 
-  List<Widget> _buildMethodSpecificControls(
+  List<Widget> _buildKMeansControls(
     BuildContext context,
     WidgetRef ref,
     ColorExtractionConfig config,
     ThemeData theme,
   ) {
-    switch (config.method) {
-      case ColorExtractionMethod.neuralQuantizer:
-        return [
-          _rowLabel(S.of(context).initialColorCount, '${config.initialColorCount}', theme),
-          const SizedBox(height: 4),
-          _dropdownControl(config.initialColorCount, [8, 16, 32, 64],
-              (v) => config.copyWith(initialColorCount: v), ref),
-          const SizedBox(height: 8),
-        ];
-
-      case ColorExtractionMethod.histogram:
-        return [
-          _rowLabel(S.of(context).rgbBins, S.of(context).rgbBinsDetail(config.histogramBins, config.histogramBins * config.histogramBins * config.histogramBins), theme),
-          const SizedBox(height: 4),
-          _dropdownControl(config.histogramBins, [4, 6, 8, 10, 12, 16],
-              (v) => config.copyWith(histogramBins: v), ref),
-          const SizedBox(height: 8),
-        ];
-
-      case ColorExtractionMethod.kmeans:
-        return [
-          _rowLabel(S.of(context).initialClusterK, '${config.initialColorCount}', theme),
-          const SizedBox(height: 4),
-          _dropdownControl(config.initialColorCount, [8, 16, 32, 48, 64],
-              (v) => config.copyWith(initialColorCount: v), ref),
-          const SizedBox(height: 8),
-          _rowLabel(S.of(context).pixelSampleRate, '${(config.sampleRate * 100).round()}%', theme),
-          const SizedBox(height: 4),
-          Slider(
-            value: config.sampleRate,
-            min: 0.05,
-            max: 1.0,
-            divisions: 19,
-            label: '${(config.sampleRate * 100).round()}%',
-                  onChanged: (v) => ref
-                      .read(colorExtractionConfigProvider.notifier)
-                      .update(config.copyWith(sampleRate: v)),
-          ),
-          const SizedBox(height: 8),
-          _rowLabel(S.of(context).maxIterations, '${config.maxIterations}', theme),
-          const SizedBox(height: 4),
-          _dropdownControl(config.maxIterations, [10, 20, 30, 50, 100],
-              (v) => config.copyWith(maxIterations: v), ref),
-          const SizedBox(height: 8),
-        ];
-
-      case ColorExtractionMethod.meanShift:
-        return [
-          _rowLabel(S.of(context).kernelRadius, '${config.kernelRadius.toStringAsFixed(0)}', theme),
-          const SizedBox(height: 4),
-          Slider(
-            value: config.kernelRadius,
-            min: 5,
-            max: 80,
-            divisions: 15,
-            label: '${config.kernelRadius.round()}',
-                  onChanged: (v) => ref
-                      .read(colorExtractionConfigProvider.notifier)
-                      .update(config.copyWith(kernelRadius: v)),
-          ),
-          const SizedBox(height: 8),
-          _rowLabel(S.of(context).pixelSampleRate, '${(config.sampleRate * 100).round()}%', theme),
-          const SizedBox(height: 4),
-          Slider(
-            value: config.sampleRate,
-            min: 0.05,
-            max: 1.0,
-            divisions: 19,
-            label: '${(config.sampleRate * 100).round()}%',
-                  onChanged: (v) => ref
-                      .read(colorExtractionConfigProvider.notifier)
-                      .update(config.copyWith(sampleRate: v)),
-          ),
-          const SizedBox(height: 8),
-          _rowLabel(S.of(context).maxIterations, '${config.maxIterations}', theme),
-          const SizedBox(height: 4),
-          _dropdownControl(config.maxIterations, [10, 20, 30, 50, 100],
-              (v) => config.copyWith(maxIterations: v), ref),
-          const SizedBox(height: 8),
-        ];
-    }
+    return [
+      _rowLabel(S.of(context).initialClusterK, '${config.initialColorCount}', theme),
+      const SizedBox(height: 4),
+      _dropdownControl(config.initialColorCount, [8, 16, 32, 48, 64],
+          (v) => config.copyWith(initialColorCount: v), ref),
+      const SizedBox(height: 8),
+      _rowLabel(S.of(context).pixelSampleRate, '${(config.sampleRate * 100).round()}%', theme),
+      const SizedBox(height: 4),
+      Slider(
+        value: config.sampleRate,
+        min: 0.05,
+        max: 1.0,
+        divisions: 19,
+        label: '${(config.sampleRate * 100).round()}%',
+              onChanged: (v) => ref
+                  .read(colorExtractionConfigProvider.notifier)
+                  .update(config.copyWith(sampleRate: v)),
+      ),
+      const SizedBox(height: 8),
+      _rowLabel(S.of(context).maxIterations, '${config.maxIterations}', theme),
+      const SizedBox(height: 4),
+      _dropdownControl(config.maxIterations, [10, 20, 30, 50, 100],
+          (v) => config.copyWith(maxIterations: v), ref),
+      const SizedBox(height: 8),
+    ];
   }
 
   Widget _rowLabel(String label, String value, ThemeData theme) {
