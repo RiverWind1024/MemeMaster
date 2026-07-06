@@ -64,6 +64,20 @@ class MemeExportService {
     required String outputPath,
     void Function(int current, int total)? onProgress,
   }) async {
+    final bytes = await exportMemesAsBytes(
+      memeIds: memeIds,
+      onProgress: onProgress,
+    );
+    final outputFile = File(outputPath);
+    await outputFile.writeAsBytes(bytes);
+    return outputPath;
+  }
+
+  /// 导出 memes 为 zip 字节（不写文件），直接省掉中间文件步骤
+  Future<Uint8List> exportMemesAsBytes({
+    required List<String> memeIds,
+    void Function(int current, int total)? onProgress,
+  }) async {
     final archive = Archive();
     final memes = <MemeExportItem>[];
 
@@ -123,10 +137,6 @@ class MemeExportService {
     // 4. 编码为 zip
     final zipData = ZipEncoder().encode(archive);
     if (zipData == null) throw Exception('Failed to encode zip');
-
-    final outputFile = File(outputPath);
-    await outputFile.writeAsBytes(zipData);
-
-    return outputPath;
+    return zipData;
   }
 }

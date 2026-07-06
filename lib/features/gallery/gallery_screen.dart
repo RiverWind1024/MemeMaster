@@ -907,23 +907,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
     if (name == null || name.isEmpty) return;
 
-    // 2. Android: 先写到缓存目录，再复制到 Downloads；其他平台直接写到 Downloads
-    String tempPath;
-    String? publicPath;
-    if (Platform.isAndroid) {
-      tempPath = '${Directory.systemTemp.path}/$name.zip';
-      publicPath = await _getAndroidDownloadPath('$name.zip');
-    } else {
-      final dir = await getDownloadsDirectory();
-      if (dir != null) {
-        tempPath = p.join(dir.path, '$name.zip');
-      } else {
-        tempPath = '${Directory.systemTemp.path}/$name.zip';
-      }
-      publicPath = null;
-    }
-
-    // 3. 显示进度对话框
+    // 2. 显示进度对话框
     final progressNotifier = ValueNotifier<double>(0.0);
     showDialog(
       context: context,
@@ -952,25 +936,34 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         storage: ref.read(fileStorageServiceProvider),
       );
 
-      // 先写到临时路径
-      await exportService.exportMemes(
+      final zipBytes = await exportService.exportMemesAsBytes(
         memeIds: _selectedIds.toList(),
-        outputPath: tempPath,
         onProgress: (current, total) {
           progressNotifier.value = current / total;
         },
       );
 
-      // Android: 从临时目录复制到公共 Downloads
-      if (Platform.isAndroid && publicPath != null) {
-        await _copyToDownloads(tempPath, publicPath);
+      if (Platform.isAndroid) {
+        // Android: 通过原生方法直接用 MediaStore 写入 Downloads
+        const channel = MethodChannel('com.memehelper.app/file');
+        await channel.invokeMethod('saveBytesToDownloads', {
+          'bytes': zipBytes,
+          'displayName': '$name.zip',
+          'subDir': '',
+        });
+      } else {
+        // 其他平台直接写文件
+        final dir = await getDownloadsDirectory();
+        final destPath = dir != null
+            ? p.join(dir.path, '$name.zip')
+            : '${Directory.systemTemp.path}/$name.zip';
+        await File(destPath).writeAsBytes(zipBytes);
       }
 
       if (mounted) {
         Navigator.pop(context);
-        final displayPath = publicPath ?? tempPath;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(S.of(context).exportSuccess(displayPath))),
+          SnackBar(content: Text(S.of(context).exportSuccess('$name.zip'))),
         );
       }
     } catch (e) {
@@ -983,30 +976,6 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     } finally {
       progressNotifier.dispose();
       _exitSelectionMode();
-    }
-  }
-
-  Future<String> _getAndroidDownloadPath(String filename) async {
-    try {
-      const channel = MethodChannel('com.memehelper.app/downloads');
-      final result = await channel.invokeMethod<String>('getDownloadPath', {
-        'filename': filename,
-      });
-      if (result != null) return result;
-    } catch (_) {}
-    return '${Directory.systemTemp.path}/$filename';
-  }
-
-  Future<void> _copyToDownloads(String srcPath, String destPath) async {
-    try {
-      const channel = MethodChannel('com.memehelper.app/downloads');
-      await channel.invokeMethod('writeToDownloads', {
-        'srcPath': srcPath,
-        'subDir': '',
-        'displayName': destPath.split('/').last,
-      });
-    } catch (e) {
-      throw Exception('Failed to copy to Downloads: $e');
     }
   }
 
