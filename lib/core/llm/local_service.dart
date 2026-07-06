@@ -33,6 +33,7 @@ class _InitIsolateArgs {
   final int useGpu;
   final int nGpuLayers;
   final String? logFilePath;
+  final String? extraParams;
 
   _InitIsolateArgs({
     required this.sendPort,
@@ -43,6 +44,7 @@ class _InitIsolateArgs {
     required this.useGpu,
     required this.nGpuLayers,
     this.logFilePath,
+    this.extraParams,
   });
 }
 
@@ -57,6 +59,7 @@ void _initIsolateEntry(_InitIsolateArgs args) {
     useGpu: args.useGpu,
     nGpuLayers: args.nGpuLayers,
     logFilePath: args.logFilePath,
+    extraParams: args.extraParams,
   );
   args.sendPort.send(handle.address);
 }
@@ -97,6 +100,7 @@ void _textRunTestInferenceIsolateEntry(_TextRunTestArgs args) {
     useGpu: 0,
     nGpuLayers: 0,
     logFilePath: _mllmLogFilePath,
+    extraParams: null,
   );
 
   if (handle == nullptr) {
@@ -186,6 +190,9 @@ class LocalLlmService implements LlmService {
   /// Future-chain 操作序列化：所有 handle 操作排队执行，防止并发 FFI
   Completer<void>? _opCompleter;
 
+  /// 模型加载期间的实时日志回调（由 UI 设置，用于显示加载日志）
+  void Function(String logLines)? onLoadingLog;
+
   /// 通过 Future-chain 串行化 FFI 操作，避免并发崩溃
   /// 每个操作会等待前一个完成后再执行，保证 handle 的独占访问
   /// [force] = true 时跳过 _disposed 检查，供 dispose 内部使用
@@ -252,6 +259,8 @@ class LocalLlmService implements LlmService {
     final effectiveThreads = _config.effectiveThreads;
     debugPrint('[LocalLlmService] ${t0.toIso8601String()} 开始加载模型: ${_config.modelPath} (threads=$effectiveThreads, ctx=${_config.contextSize}, rawConfig.threads=${_config.threads})');
 
+    final extraParams = _config.buildExtraParams();
+
     // 通过 Isolate 加载模型，避免阻塞主线程；带 60s 超时
     final receivePort = ReceivePort();
     final args = _InitIsolateArgs(
@@ -263,13 +272,26 @@ class LocalLlmService implements LlmService {
       useGpu: _config.useGpu ? 1 : 0,
       nGpuLayers: _config.useGpu ? -1 : 0,
       logFilePath: _mllmLogFilePath,
+      extraParams: extraParams,
     );
 
     Isolate? isolate;
+    Timer? logTimer;
+    int logSinceId = 0;
     try {
       isolate = await Isolate.spawn(_initIsolateEntry, args);
 
+      // 加载期间轮询 C++ 日志环形缓冲区（每 500ms），通过回调通知 UI
+      logTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+        final (logs, lastId) = _bindings.getLogs(sinceId: logSinceId);
+        if (logs.isNotEmpty) {
+          logSinceId = lastId;
+          onLoadingLog?.call(logs);
+        }
+      });
+
       final address = await receivePort.first.timeout(const Duration(seconds: 60));
+      logTimer.cancel();
       if (address == 0) {
         throw StateError('模型加载失败: ${_config.modelPath}');
       }
@@ -278,9 +300,11 @@ class LocalLlmService implements LlmService {
       debugPrint('[LocalLlmService] ${t1.toIso8601String()} 模型加载完成，耗时 ${t1.difference(t0).inMilliseconds}ms');
     } on TimeoutException {
       isolate?.kill(priority: Isolate.immediate);
+      logTimer?.cancel();
       debugPrint('[LocalLlmService] 模型加载超时 (60s): ${_config.modelPath}');
       throw StateError('模型加载超时 (60s): ${_config.modelPath}');
     } finally {
+      logTimer?.cancel();
       receivePort.close();
     }
   }

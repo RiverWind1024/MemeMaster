@@ -2,8 +2,11 @@ import 'dart:ffi';
 import 'dart:io';
 import 'package:ffi/ffi.dart';
 
-typedef MllmInitC = Pointer<Void> Function(Pointer<Utf8>, Pointer<Utf8>, Int32, Int32, Int32, Int32, Pointer<Utf8>);
-typedef MllmInitDart = Pointer<Void> Function(Pointer<Utf8>, Pointer<Utf8>, int, int, int, int, Pointer<Utf8>);
+typedef MllmInitC = Pointer<Void> Function(Pointer<Utf8>, Pointer<Utf8>, Int32, Int32, Int32, Int32, Pointer<Utf8>, Pointer<Utf8>);
+typedef MllmInitDart = Pointer<Void> Function(Pointer<Utf8>, Pointer<Utf8>, int, int, int, int, Pointer<Utf8>, Pointer<Utf8>);
+
+typedef MllmGetLogsC = Pointer<Utf8> Function(Uint64, Pointer<Uint64>);
+typedef MllmGetLogsDart = Pointer<Utf8> Function(int, Pointer<Uint64>);
 
 typedef MllmCompleteC = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>, Int32, Float);
 typedef MllmCompleteDart = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>, int, double);
@@ -37,6 +40,7 @@ class NativeLlmBindings {
   MllmCloseDart? mllmClose;
   MllmFreeStringDart? mllmFreeString;
   MllmCompleteStreamDart? mllmCompleteStream;
+  MllmGetLogsDart? mllmGetLogs;
 
   /// 构造函数尝试加载动态库，捕获异常避免闪退
   NativeLlmBindings() {
@@ -51,6 +55,7 @@ class NativeLlmBindings {
       mllmFreeString = _dylib!.lookupFunction<MllmFreeStringC, MllmFreeStringDart>('mllm_free_string');
       mllmCompleteStream =
           _dylib!.lookupFunction<MllmCompleteStreamC, MllmCompleteStreamDart>('mllm_complete_stream');
+      mllmGetLogs = _dylib!.lookupFunction<MllmGetLogsC, MllmGetLogsDart>('mllm_get_logs');
     } catch (e) {
       // 加载失败时不抛异常，后续调用通过 mllmInit==null 判断不可用
       // 防止因 ABI 不匹配或 .so 缺失导致 app 启动时直接闪退
@@ -67,16 +72,35 @@ class NativeLlmBindings {
     int useGpu = 1,
     int nGpuLayers = -1,
     String? logFilePath,
+    String? extraParams,
   }) {
     final fn = mllmInit!;
     final modelPtr = modelPath.toNativeUtf8();
     final mmprojPtr = mmprojPath?.toNativeUtf8() ?? nullptr;
     final logPtr = logFilePath?.toNativeUtf8() ?? nullptr;
-    final handle = fn(modelPtr, mmprojPtr, threads, ctxSize, useGpu, nGpuLayers, logPtr);
+    final extraPtr = extraParams?.toNativeUtf8() ?? nullptr;
+    final handle = fn(modelPtr, mmprojPtr, threads, ctxSize, useGpu, nGpuLayers, logPtr, extraPtr);
     malloc.free(modelPtr);
     if (mmprojPath != null) malloc.free(mmprojPtr);
     if (logFilePath != null) malloc.free(logPtr);
+    if (extraParams != null) malloc.free(extraPtr);
     return handle;
+  }
+
+  /// 增量获取 C++ 侧捕获的最近日志，返回 (日志文本, 最后一条日志的ID)
+  /// 首次调用传 sinceId=0，后续传入上次返回的 lastId 做增量读取
+  (String logs, int lastId) getLogs({int sinceId = 0}) {
+    final fn = mllmGetLogs;
+    if (fn == null) return ('', 0);
+    final lastIdPtr = malloc<Uint64>();
+    lastIdPtr.value = 0;
+    final resultPtr = fn(sinceId, lastIdPtr);
+    final lastId = lastIdPtr.value;
+    malloc.free(lastIdPtr);
+    if (resultPtr == nullptr) return ('', lastId);
+    final result = resultPtr.toDartString();
+    mllmFreeString!(resultPtr);
+    return (result, lastId);
   }
 
   String? complete(Pointer<Void> handle, String prompt, int maxTokens, double temperature) {
