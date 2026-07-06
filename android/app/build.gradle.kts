@@ -25,6 +25,9 @@ android {
                     ?: project.findProperty("llama.cpp.dir")?.toString()
                     ?: "${project.rootDir}/../llama.cpp"
                 arguments += listOf("-DLLAMA_CPP_DIR=${llamaDir}")
+                arguments += listOf("-DCMAKE_BUILD_TYPE=Release")
+                arguments += listOf("-DCMAKE_EXPORT_COMPILE_COMMANDS=ON")
+                arguments += listOf("-DCMAKE_ANDROID_PROCESS_MAX=4")
                 cppFlags += listOf("-O3", "-DNDEBUG")
                 targets += listOf("meme_llm")
             }
@@ -51,9 +54,18 @@ android {
 
     packaging {
         jniLibs {
-            pickFirsts += listOf(
-                "lib/x86_64/libmeme_llm.so"
+            excludes += listOf(
+                "lib/armeabi-v7a/**"
             )
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "x86_64")
+            isUniversalApk = false
         }
     }
 }
