@@ -168,6 +168,22 @@ class MainActivity : FlutterActivity() {
                         result.error("WRITE_FAILED", e.message, null)
                     }
                 }
+                "saveBytesToDownloads" -> {
+                    val bytes = call.argument<ByteArray>("bytes")
+                    val displayName = call.argument<String>("displayName")
+                    val subDir = call.argument<String>("subDir") ?: ""
+                    if (bytes == null || displayName == null) {
+                        result.error("INVALID_ARG", "bytes and displayName required", null)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        writeBytesToDownloads(bytes, subDir, displayName)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        android.util.Log.e(tag, "saveBytesToDownloads failed", e)
+                        result.error("WRITE_FAILED", e.message, null)
+                    }
+                }
                 "getDownloadPath" -> {
                     val filename = call.argument<String>("filename")
                     if (filename == null) {
@@ -488,6 +504,46 @@ class MainActivity : FlutterActivity() {
                 src.inputStream().use { input ->
                     input.copyTo(output)
                 }
+            } ?: throw IllegalStateException("无法打开输出流")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                values.clear()
+                values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                contentResolver.update(itemUri, values, null, null)
+            }
+        } catch (e: Exception) {
+            contentResolver.delete(itemUri, null, null)
+            throw e
+        }
+    }
+
+    /// 把字节数组直接写入公共 Downloads/MemeHelper/<subDir>/<displayName>
+    /// 省掉中间临时文件步骤
+    private fun writeBytesToDownloads(bytes: ByteArray, subDir: String, displayName: String) {
+        val relPath = if (subDir.isEmpty()) displayName
+                      else "${subDir.trim('/')}/$displayName"
+        val mimeType = guessMimeType(displayName)
+
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.MediaColumns.RELATIVE_PATH,
+                    Environment.DIRECTORY_DOWNLOADS + "/MemeHelper/$relPath".substringBeforeLast('/'))
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+        }
+
+        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        } else {
+            MediaStore.Files.getContentUri("external")
+        }
+
+        val itemUri = contentResolver.insert(collection, values)
+            ?: throw IllegalStateException("无法创建下载条目")
+        try {
+            contentResolver.openOutputStream(itemUri)?.use { output ->
+                output.write(bytes)
             } ?: throw IllegalStateException("无法打开输出流")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 values.clear()
