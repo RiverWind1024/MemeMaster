@@ -715,35 +715,11 @@ abstract class S {
   /// **'颜色提取'**
   String get colorExtraction;
 
-  /// No description provided for @methodNeuralQuantizer.
-  ///
-  /// In zh, this message translates to:
-  /// **'神经网络量化'**
-  String get methodNeuralQuantizer;
-
-  /// No description provided for @methodHistogram.
-  ///
-  /// In zh, this message translates to:
-  /// **'直方图分桶'**
-  String get methodHistogram;
-
   /// No description provided for @methodKmeans.
   ///
   /// In zh, this message translates to:
   /// **'K-means 聚类'**
   String get methodKmeans;
-
-  /// No description provided for @methodMeanShift.
-  ///
-  /// In zh, this message translates to:
-  /// **'均值漂移'**
-  String get methodMeanShift;
-
-  /// No description provided for @algorithm.
-  ///
-  /// In zh, this message translates to:
-  /// **'算法'**
-  String get algorithm;
 
   /// No description provided for @maxDominantColors.
   ///
@@ -769,24 +745,6 @@ abstract class S {
   /// **'颜色合并阈值'**
   String get colorMergeThreshold;
 
-  /// No description provided for @initialColorCount.
-  ///
-  /// In zh, this message translates to:
-  /// **'初始颜色数量'**
-  String get initialColorCount;
-
-  /// No description provided for @rgbBins.
-  ///
-  /// In zh, this message translates to:
-  /// **'RGB 分桶数'**
-  String get rgbBins;
-
-  /// No description provided for @rgbBinsDetail.
-  ///
-  /// In zh, this message translates to:
-  /// **'{bins}³ = {total} 桶'**
-  String rgbBinsDetail(int bins, int total);
-
   /// No description provided for @initialClusterK.
   ///
   /// In zh, this message translates to:
@@ -804,12 +762,6 @@ abstract class S {
   /// In zh, this message translates to:
   /// **'最大迭代次数'**
   String get maxIterations;
-
-  /// No description provided for @kernelRadius.
-  ///
-  /// In zh, this message translates to:
-  /// **'核半径'**
-  String get kernelRadius;
 
   /// No description provided for @lightThemeSubtitle.
   ///
