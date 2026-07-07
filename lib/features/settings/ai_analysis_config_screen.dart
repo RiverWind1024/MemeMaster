@@ -445,8 +445,10 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
                             title: const Text('统一 KV 缓存'),
-                            subtitle: Text('将 K 和 V 合并存储，减少内存碎片',
-                                style: theme.textTheme.bodySmall),
+                            subtitle: Text(
+                              '开启后多个推理任务共享 KV 缓存，省内存；关闭则每个任务独立 KV 缓存，用满上下文但占更多内存',
+                              style: theme.textTheme.bodySmall,
+                            ),
                             value: ref.watch(localLlmConfigProvider).kvUnified,
                             onChanged: (v) => ref.read(localLlmConfigProvider.notifier).update(
                               ref.read(localLlmConfigProvider).copyWith(kvUnified: v),

@@ -655,6 +655,12 @@ abstract class S {
   /// **'AI 标签与描述'**
   String get aiTagsDescription;
 
+  /// No description provided for @aiConfig.
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 配置'**
+  String get aiConfig;
+
   /// No description provided for @llmOff.
   ///
   /// In zh, this message translates to:
