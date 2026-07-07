@@ -8,7 +8,6 @@ import 'features/import/import_screen.dart';
 import 'features/scan/scan_screen.dart';
 import 'features/settings/ai_analysis_config_screen.dart';
 import 'features/settings/llm_settings_screen.dart';
-import 'features/settings/local_model_config_screen.dart';
 import 'features/settings/model_manager_screen.dart';
 import 'features/settings/log_viewer_screen.dart';
 import 'features/settings/s3_sync_screen.dart';
@@ -89,11 +88,6 @@ final router = GoRouter(
               path: 'model-manager',
               name: 'model-manager',
               builder: (context, state) => const ModelManagerScreen(),
-            ),
-            GoRoute(
-              path: 'local-model-config',
-              name: 'local-model-config',
-              builder: (context, state) => const LocalModelConfigScreen(),
             ),
           ],
         ),
