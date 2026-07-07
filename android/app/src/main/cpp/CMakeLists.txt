@@ -15,6 +15,17 @@ if(NOT EXISTS "${LLAMA_CPP_DIR}/CMakeLists.txt")
     message(FATAL_ERROR "llama.cpp not found at ${LLAMA_CPP_DIR}. Set LLAMA_CPP_DIR env var or cmake property.")
 endif()
 
+# OpenCL 支持（默认关闭）
+# 启用需要：
+# 1. 运行 ./scripts/init-third-party.sh 下载 OpenCL-Headers
+# 2. 设置 ANDROID_NDK 环境变量指向 NDK 目录
+# 3. 运行 third_party/OpenCL-Headers/scripts/ci_build.sh 或手动交叉编译 ICD Loader
+option(ENABLE_OPENCL "Enable OpenCL backend (requires OpenCL-ICD-Loader)" OFF)
+
+# Vulkan 支持（默认关闭）
+# 启用需要安装 Vulkan SDK 或使用 Android NDK 自带的 vulkan-headers
+option(ENABLE_VULKAN "Enable Vulkan backend" OFF)
+
 # 为 arm64-v8a 和 x86_64 构建，其他 ABI 跳过
 if(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a" OR CMAKE_ANDROID_ARCH_ABI STREQUAL "x86_64")
     set(BUILD_SHARED_LIBS OFF)
@@ -28,9 +39,20 @@ if(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a" OR CMAKE_ANDROID_ARCH_ABI STREQUA
     set(LLAMA_INSTALL_VERSION "0.0.0")
     set(MTMD_VIDEO OFF)
 
-    # GPU 加速后端：OpenCL + Vulkan（运行时自动选择）
-    set(GGML_OPENCL OFF)
-    set(GGML_VULKAN OFF)
+    # GPU 加速后端（默认关闭，需手动启用）
+    set(GGML_OPENCL ${ENABLE_OPENCL})
+    set(GGML_VULKAN ${ENABLE_VULKAN})
+
+    # OpenCL 头文件路径
+    if(ENABLE_OPENCL)
+        set(OPENCL_HEADERS_DIR "${LLAMA_CPP_DIR}/../OpenCL-Headers")
+        if(EXISTS "${OPENCL_HEADERS_DIR}/CL/opencl.h")
+            message(STATUS "OpenCL headers found at ${OPENCL_HEADERS_DIR}")
+            include_directories(${OPENCL_HEADERS_DIR})
+        else()
+            message(WARNING "OpenCL headers not found at ${OPENCL_HEADERS_DIR}. GPU acceleration may not work.")
+        endif()
+    endif()
 
     add_subdirectory(${LLAMA_CPP_DIR} llama.cpp EXCLUDE_FROM_ALL)
     add_subdirectory(${LLAMA_CPP_DIR}/tools/mtmd mtmd)
