@@ -317,17 +317,9 @@ class ParallelAnalysisScheduler {
       // 检查是否是本地LLM且未加载
       final llm = enricher.llm;
       if (llm is LocalLlmService && !llm.isLoaded) {
-        if (job.priority >= 1) {
-          // 手动触发（如用户点击「重新分析」）：自动加载模型并继续
-          _log.info('AiScheduler', '手动触发分析，自动加载本地LLM模型: memeId=${job.memeId}');
-          await llm.ensureLoaded();
-        } else {
-          // 后台自动处理（如导入时自动入队）：跳过，避免启动时加载模型增加内存开销
-          _log.info('AiScheduler', '本地LLM模型未加载，跳过AI分析（后台自动模式）');
-          await _aiQueueDao.markDone(job.id);
-          await _memeRepo.updateAiAnalysisStatus(job.memeId, 'done');
-          return;
-        }
+        // 自动加载模型并继续（ensureLoaded 内部会检查 _handle != null 防重复加载）
+        _log.info('AiScheduler', '本地LLM模型未加载，开始加载: memeId=${job.memeId}');
+        await llm.ensureLoaded();
       }
 
       final meme = await _memeRepo.getById(job.memeId);
