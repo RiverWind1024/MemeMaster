@@ -703,13 +703,13 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
     });
   }
 
-  Future<void> _runMmprojDownload(String taskId) {
+  Future<void> _runMmprojDownload(String taskId) async {
     final task = _tasks[taskId];
     if (task == null) return;
     final token = _cancelTokens[taskId];
     if (token == null) return;
 
-    task.manager
+    await task.manager
         .downloadMmproj(
       task.modelInfo,
       onProgress: (p) => updateProgress(taskId, p),
