@@ -226,7 +226,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                                 ? Text('正在加载…', style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange))
                                 : ref.watch(localLlmLoadedProvider)
                                     ? Text(S.of(context).loaded, style: theme.textTheme.bodySmall)
-                                    : Text('已配置，点击下方「加载模型」按钮', style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange)),
+                                    : Text('已配置，分析时自动加载', style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange)),
                             // 显示 mmproj 状态（包括文件是否真实存在）
                             _MmprojStatusText(mmprojPath: localConfig.mmprojPath),
                           ],
@@ -278,15 +278,14 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                           ),
                         ),
                       ],
-                      if (!ref.watch(localLlmLoadedProvider) && !ref.watch(localLlmLoadingProvider))
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: OutlinedButton.icon(
-                            onPressed: () => _loadModel(),
-                            icon: const Icon(Icons.play_arrow, size: 18),
-                            label: const Text('加载模型'),
+                        if (!ref.watch(localLlmLoadedProvider) && !ref.watch(localLlmLoadingProvider))
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            child: Text(
+                              '分析图片时将自动加载模型',
+                              style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                            ),
                           ),
-                        ),
                       const Divider(),
                       ListTile(
                         contentPadding: EdgeInsets.zero,

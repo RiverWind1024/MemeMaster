@@ -45,7 +45,7 @@ class LocalModelConfigScreen extends ConsumerWidget {
                       if (ref.read(localLlmLoadedProvider)) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('GPU 设置已修改，请重新加载模型以生效'),
+                            content: Text('GPU 设置已修改，下次分析时生效'),
                             duration: Duration(seconds: 3),
                           ),
                         );
@@ -73,7 +73,7 @@ class LocalModelConfigScreen extends ConsumerWidget {
                           if (ref.read(localLlmLoadedProvider)) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('上下文长度已修改，请重新加载模型以生效'),
+                                content: Text('上下文长度已修改，下次分析时生效'),
                                 duration: Duration(seconds: 3),
                               ),
                             );
