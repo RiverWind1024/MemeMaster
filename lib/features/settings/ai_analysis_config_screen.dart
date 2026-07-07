@@ -78,9 +78,14 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
           _defaultSystemPrompt = system;
           _defaultUserPrompt = user;
           _loaded = true;
-          // 初始化 controller 文本
-          _systemController.text = system;
-          _userController.text = user;
+          // 从 provider 读取已保存的自定义提示词，优先于默认值
+          final mode = ref.read(llmModeProvider);
+          final isRemote = mode == LlmMode.remote;
+          final dynamic cfg = isRemote
+              ? ref.read(llmConfigProvider)
+              : ref.read(localLlmConfigProvider);
+          _systemController.text = cfg.customSystemPrompt ?? system;
+          _userController.text = cfg.customUserPrompt ?? user;
         });
       }
     } catch (_) {}
