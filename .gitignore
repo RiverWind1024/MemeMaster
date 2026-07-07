@@ -51,4 +51,4 @@ app.*.map.json
 .superpowers/
 
 # llama.cpp 源码（外部依赖，不提交）
-llama.cpp/
+third_party/llama.cpp/

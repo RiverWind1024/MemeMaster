@@ -7,7 +7,7 @@ if(NOT DEFINED LLAMA_CPP_DIR)
     if(DEFINED ENV{LLAMA_CPP_DIR})
         set(LLAMA_CPP_DIR $ENV{LLAMA_CPP_DIR})
     else()
-        set(LLAMA_CPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp")
+        set(LLAMA_CPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../third_party/llama.cpp")
     endif()
 endif()
 
@@ -28,15 +28,9 @@ if(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a" OR CMAKE_ANDROID_ARCH_ABI STREQUA
     set(LLAMA_INSTALL_VERSION "0.0.0")
     set(MTMD_VIDEO OFF)
 
-    # GPU 加速后端（默认关闭）
+    # GPU 加速后端：OpenCL + Vulkan（运行时自动选择）
+    set(GGML_OPENCL OFF)
     set(GGML_VULKAN OFF)
-
-    # 设置 SPIRV-Headers 路径
-    set(SPIRV-Headers_DIR "/home/jiangzifeng/下载/SPIRV-Headers-main/build/CMakeFiles/Export/7e173bd2f6c93e514e1dd3616a7ea2ca")
-    list(APPEND CMAKE_PREFIX_PATH "/home/jiangzifeng/下载/SPIRV-Headers-main/build")
-
-    # 设置 glslc 路径（Android NDK 自带）
-    set(Vulkan_GLSLC_EXECUTABLE "/home/jiangzifeng/Software/android-sdk/ndk/28.2.13676358/shader-tools/linux-x86_64/glslc")
 
     add_subdirectory(${LLAMA_CPP_DIR} llama.cpp EXCLUDE_FROM_ALL)
     add_subdirectory(${LLAMA_CPP_DIR}/tools/mtmd mtmd)
@@ -49,9 +43,6 @@ if(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a" OR CMAKE_ANDROID_ARCH_ABI STREQUA
     )
     target_link_libraries(meme_llm llama ggml mtmd android log)
 else()
-    # 非 arm64-v8a/x86_64 ABI：创建一个空的 stub library
-    # Android Gradle 要求每个 ABI 都有对应的 .so 文件
-    # 我们会在 packaging 中排除这些 ABI
     add_library(meme_llm SHARED meme_llm.cpp)
     target_compile_definitions(meme_llm PRIVATE MLLM_STUB=1)
 endif()

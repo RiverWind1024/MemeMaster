@@ -29,7 +29,7 @@ android {
             cmake {
                 val llamaDir = System.getenv("LLAMA_CPP_DIR")
                     ?: project.findProperty("llama.cpp.dir")?.toString()
-                    ?: "${project.rootDir}/../llama.cpp"
+                    ?: "${project.rootDir}/../third_party/llama.cpp"
                 arguments += listOf("-DLLAMA_CPP_DIR=${llamaDir}")
                 arguments += listOf("-DCMAKE_BUILD_TYPE=Release")
                 arguments += listOf("-DCMAKE_EXPORT_COMPILE_COMMANDS=ON")
