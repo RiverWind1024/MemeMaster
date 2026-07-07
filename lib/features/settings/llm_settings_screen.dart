@@ -280,17 +280,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                               '分析图片时将自动加载模型',
                               style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
                             ),
-                          ),
-                      const Divider(),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.tune),
-                        title: Text(S.of(context).localModelConfig),
-                        subtitle: Text('GPU 加速 · 上下文长度 · 高级性能',
-                            style: theme.textTheme.bodySmall),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => context.pushNamed('local-model-config'),
-                      ),
+                            ),
                     ] else ...[
                       const Icon(Icons.download_outlined, size: 48, color: Colors.grey),
                       const SizedBox(height: 8),

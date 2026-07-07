@@ -10,8 +10,8 @@ import '../gallery/gallery_provider.dart';
 import '../../l10n/app_localizations.dart';
 
 /// AI 分析配置页面（关于页面入口）
-/// 包含：temperature、maxTokens、system prompt、user prompt、图片压缩
-/// 对远程 API 和本地模型都生效
+/// - 远程 API：分析参数（temperature / maxTokens / prompt / 压缩）
+/// - 本地模型：分析参数 + 本地模型配置（GPU / 上下文长度 / 高级性能）
 class AiAnalysisConfigScreen extends ConsumerStatefulWidget {
   const AiAnalysisConfigScreen({super.key});
 
@@ -52,6 +52,7 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
   Widget build(BuildContext context) {
     final mode = ref.watch(llmModeProvider);
     final isRemote = mode == LlmMode.remote;
+    final isLocal = mode == LlmMode.local;
     final theme = Theme.of(context);
 
     if (mode == LlmMode.off) {
@@ -101,6 +102,8 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // ===== 分析参数（远程 + 本地都显示） =====
                 Text(S.of(context).analysisParams, style: theme.textTheme.titleMedium),
                 const SizedBox(height: 8),
                 Card(
@@ -247,14 +250,11 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                         TextFormField(
                           key: ValueKey('sysprompt_${config.customSystemPrompt ?? "default"}'),
                           initialValue: effectiveSystem,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                          ),
+                          decoration: const InputDecoration(border: OutlineInputBorder()),
                           maxLines: 6,
                           onChanged: (v) {
                             final trimmed = v.trim();
                             if (trimmed == _defaultSystemPrompt) {
-                              // 用户填的内容和默认一样，视为清空
                               _updateConfig(ref, isRemote, config.copyWith(clearSystemPrompt: true));
                             } else {
                               _updateConfig(ref, isRemote, config.copyWith(customSystemPrompt: trimmed));
@@ -304,9 +304,7 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                         TextFormField(
                           key: ValueKey('userprompt_${config.customUserPrompt ?? "default"}'),
                           initialValue: effectiveUser,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                          ),
+                          decoration: const InputDecoration(border: OutlineInputBorder()),
                           maxLines: 2,
                           onChanged: (v) {
                             final trimmed = v.trim();
@@ -321,6 +319,199 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                     ),
                   ),
                 ),
+
+                // ===== 本地模型配置（仅本地模式） =====
+                if (isLocal) ...[
+                  const SizedBox(height: 16),
+                  Text('本地模型配置', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // GPU 加速
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(S.of(context).gpuAcceleration),
+                            value: ref.watch(localLlmConfigProvider).useGpu,
+                            onChanged: (v) {
+                              ref.read(localLlmConfigProvider.notifier).update(
+                                ref.read(localLlmConfigProvider).copyWith(useGpu: v),
+                              );
+                              if (ref.read(localLlmLoadedProvider)) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('GPU 设置已修改，下次分析时生效'),
+                                    duration: Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            },
+                            secondary: const Icon(Icons.memory),
+                          ),
+                          const Divider(),
+                          // 上下文长度
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.tune),
+                            title: Text(S.of(context).contextLength),
+                            trailing: DropdownButton<int>(
+                              value: ref.watch(localLlmConfigProvider).contextSize,
+                              underline: const SizedBox(),
+                              items: [512, 1024, 2048, 4096].map((n) {
+                                return DropdownMenuItem(value: n, child: Text('$n'));
+                              }).toList(),
+                              onChanged: (v) {
+                                if (v != null) {
+                                  ref.read(localLlmConfigProvider.notifier).update(
+                                    ref.read(localLlmConfigProvider).copyWith(contextSize: v),
+                                  );
+                                  if (ref.read(localLlmLoadedProvider)) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('上下文长度已修改，下次分析时生效'),
+                                        duration: Duration(seconds: 3),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // 高级性能配置
+                  Text('高级性能配置', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Flash Attention
+                          DropdownButtonFormField<FlashAttnMode>(
+                            value: ref.watch(localLlmConfigProvider).flashAttn,
+                            decoration: const InputDecoration(
+                              labelText: 'Flash Attention',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            ),
+                            items: [
+                              DropdownMenuItem(value: FlashAttnMode.auto, child: Text('自动（根据 GPU 决定）')),
+                              DropdownMenuItem(value: FlashAttnMode.enabled, child: Text('启用')),
+                              DropdownMenuItem(value: FlashAttnMode.disabled, child: Text('禁用')),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) ref.read(localLlmConfigProvider.notifier).update(
+                                ref.read(localLlmConfigProvider).copyWith(flashAttn: v),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          // KV 缓存量化
+                          DropdownButtonFormField<KvCacheType>(
+                            value: ref.watch(localLlmConfigProvider).kvCacheType,
+                            decoration: const InputDecoration(
+                              labelText: 'KV 缓存量化',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            ),
+                            items: [
+                              DropdownMenuItem(value: KvCacheType.f16, child: Text('F16（精度高）')),
+                              DropdownMenuItem(value: KvCacheType.q4_0, child: Text('Q4_0（省内存）')),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) ref.read(localLlmConfigProvider.notifier).update(
+                                ref.read(localLlmConfigProvider).copyWith(kvCacheType: v),
+                              );
+                            },
+                          ),
+                          if (ref.watch(localLlmConfigProvider).kvCacheType == KvCacheType.q4_0)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                'Q4_0 可显著降低 KV 缓存内存占用，适合 4GB 以下内存设备',
+                                style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange),
+                              ),
+                            ),
+                          const SizedBox(height: 12),
+                          // 统一 KV 缓存
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('统一 KV 缓存'),
+                            subtitle: Text('将 K 和 V 合并存储，减少内存碎片',
+                                style: theme.textTheme.bodySmall),
+                            value: ref.watch(localLlmConfigProvider).kvUnified,
+                            onChanged: (v) => ref.read(localLlmConfigProvider.notifier).update(
+                              ref.read(localLlmConfigProvider).copyWith(kvUnified: v),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          // use_mmap
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('使用 mmap 加载'),
+                            subtitle: Text('内存映射文件加载（Android 低内存设备建议关闭）',
+                                style: theme.textTheme.bodySmall),
+                            value: ref.watch(localLlmConfigProvider).useMmap,
+                            onChanged: (v) => ref.read(localLlmConfigProvider.notifier).update(
+                              ref.read(localLlmConfigProvider).copyWith(useMmap: v),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // n_batch / n_ubatch
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  initialValue: ref.watch(localLlmConfigProvider).nBatch.toString(),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Batch 大小',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                    isDense: true,
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (v) {
+                                    final n = int.tryParse(v);
+                                    if (n != null && n > 0) ref.read(localLlmConfigProvider.notifier).update(
+                                      ref.read(localLlmConfigProvider).copyWith(nBatch: n),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextFormField(
+                                  initialValue: ref.watch(localLlmConfigProvider).nUBatch.toString(),
+                                  decoration: const InputDecoration(
+                                    labelText: 'UBatch 大小',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                    isDense: true,
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (v) {
+                                    final n = int.tryParse(v);
+                                    if (n != null && n > 0) ref.read(localLlmConfigProvider.notifier).update(
+                                      ref.read(localLlmConfigProvider).copyWith(nUBatch: n),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
     );
