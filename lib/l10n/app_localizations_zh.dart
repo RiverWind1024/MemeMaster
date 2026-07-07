@@ -206,6 +206,9 @@ class SZh extends S {
   String get remoteApiConfig => '远程 API 配置';
 
   @override
+  String get analysisParams => '分析参数';
+
+  @override
   String get provider => '供应商';
 
   @override
@@ -220,6 +223,9 @@ class SZh extends S {
 
   @override
   String get localModel => '本地模型';
+
+  @override
+  String get localModelConfig => '本地模型详细配置';
 
   @override
   String get loaded => '已加载';

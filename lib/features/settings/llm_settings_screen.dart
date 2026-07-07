@@ -508,7 +508,8 @@ class _AnalysisParamsCard extends ConsumerWidget {
     final isLocal = mode == LlmMode.local;
     if (!isRemote && !isLocal) return const SizedBox.shrink();
 
-    final config = isRemote
+    // LlmConfig 和 LocalLlmConfig 字段相同，用 dynamic 避免联合类型问题
+    final dynamic config = isRemote
         ? ref.watch(llmConfigProvider)
         : ref.watch(localLlmConfigProvider);
 
@@ -625,9 +626,7 @@ class _AnalysisParamsCard extends ConsumerWidget {
                       ref,
                       isRemote,
                       trimmed.isEmpty
-                          ? (isRemote
-                              ? (config as dynamic).copyWith(clearSystemPrompt: true)
-                              : (config as dynamic).copyWith(clearSystemPrompt: true))
+                          ? config.copyWith(clearSystemPrompt: true)
                           : config.copyWith(customSystemPrompt: trimmed),
                     );
                   },
