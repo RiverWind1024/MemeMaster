@@ -1004,6 +1004,8 @@ extern "C" char* mllm_multimodal_chat(void* handle_ptr,
         llama_sampler_chain_add(handle->sampler, llama_sampler_init_greedy());
     }
 
+    llama_memory_clear(llama_get_memory(handle->ctx), true);
+
     llama_pos n_past = 0;
     MLLM_LOGI("mllm_multimodal_chat: evaluating chunks with mtmd_helper_eval_chunks...");
     int32_t eval_ret = mtmd_helper_eval_chunks(
