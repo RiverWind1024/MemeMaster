@@ -9,6 +9,8 @@ import 'package:image/image.dart' as img;
 import '../../services/log_service.dart';
 import '../database/database.dart';
 import '../repositories/meme_repository.dart';
+import 'config.dart';
+import 'local_config.dart';
 import 'local_service.dart';
 import 'llm_service.dart';
 import 'models.dart';

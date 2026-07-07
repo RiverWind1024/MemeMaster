@@ -439,6 +439,12 @@ abstract class S {
   /// **'远程 API 配置'**
   String get remoteApiConfig;
 
+  /// No description provided for @analysisParams.
+  ///
+  /// In zh, this message translates to:
+  /// **'分析参数'**
+  String get analysisParams;
+
   /// No description provided for @provider.
   ///
   /// In zh, this message translates to:
@@ -468,6 +474,12 @@ abstract class S {
   /// In zh, this message translates to:
   /// **'本地模型'**
   String get localModel;
+
+  /// No description provided for @localModelConfig.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地模型详细配置'**
+  String get localModelConfig;
 
   /// No description provided for @loaded.
   ///

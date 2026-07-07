@@ -212,6 +212,9 @@ class SEn extends S {
   String get remoteApiConfig => 'Remote API Configuration';
 
   @override
+  String get analysisParams => 'Analysis Parameters';
+
+  @override
   String get provider => 'Provider';
 
   @override
@@ -226,6 +229,9 @@ class SEn extends S {
 
   @override
   String get localModel => 'Local Model';
+
+  @override
+  String get localModelConfig => 'Local Model Config';
 
   @override
   String get loaded => 'Loaded';
