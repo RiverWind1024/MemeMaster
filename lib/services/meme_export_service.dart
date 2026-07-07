@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:archive/archive.dart';
 
 import '../core/database/database.dart';
@@ -137,6 +138,6 @@ class MemeExportService {
     // 4. 编码为 zip
     final zipData = ZipEncoder().encode(archive);
     if (zipData == null) throw Exception('Failed to encode zip');
-    return zipData;
+    return Uint8List.fromList(zipData);
   }
 }

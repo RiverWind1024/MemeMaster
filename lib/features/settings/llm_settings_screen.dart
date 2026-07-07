@@ -181,9 +181,13 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                         ),
                         items: enabledDownloaded.map((d) {
                           final sizeMB = (d.fileSizeBytes / (1024 * 1024)).toStringAsFixed(1);
+                          // 截断过长的模型名称，只显示文件名部分
+                          final displayName = d.filename.length > 30
+                              ? '${d.filename.substring(0, 27)}...'
+                              : d.filename;
                           return DropdownMenuItem(
                             value: d.id,
-                            child: Text('${d.id} ($sizeMB MB)'),
+                            child: Text('$displayName ($sizeMB MB)'),
                           );
                         }).toList(),
                         onChanged: (v) {
@@ -211,11 +215,18 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                           localConfig.modelPath!.split('/').last,
                           style: theme.textTheme.bodyMedium,
                         ),
-                        subtitle: ref.watch(localLlmLoadingProvider)
-                            ? Text('正在加载…', style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange))
-                            : ref.watch(localLlmLoadedProvider)
-                                ? Text(S.of(context).loaded, style: theme.textTheme.bodySmall)
-                                : Text('已配置，点击下方「加载模型」按钮', style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange)),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ref.watch(localLlmLoadingProvider)
+                                ? Text('正在加载…', style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange))
+                                : ref.watch(localLlmLoadedProvider)
+                                    ? Text(S.of(context).loaded, style: theme.textTheme.bodySmall)
+                                    : Text('已配置，点击下方「加载模型」按钮', style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange)),
+                            // 显示 mmproj 状态（包括文件是否真实存在）
+                            _MmprojStatusText(mmprojPath: localConfig.mmprojPath),
+                          ],
+                        ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -662,6 +673,36 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
     );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(S.of(context).modelFileLoaded)),
+    );
+  }
+}
+
+/// 显示 mmproj 状态（检查文件是否真实存在）
+class _MmprojStatusText extends StatelessWidget {
+  final String? mmprojPath;
+  const _MmprojStatusText({this.mmprojPath});
+
+  @override
+  Widget build(BuildContext context) {
+    if (mmprojPath == null) {
+      return Text(
+        '⚠️ mmproj: 未配置（无法分析图片）',
+        style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+      );
+    }
+
+    final file = File(mmprojPath!);
+    if (!file.existsSync()) {
+      return Text(
+        '⚠️ mmproj 文件不存在: ${mmprojPath!.split('/').last}',
+        style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+      );
+    }
+
+    final sizeMB = (file.lengthSync() / (1024 * 1024)).toStringAsFixed(1);
+    return Text(
+      '✓ mmproj: ${mmprojPath!.split('/').last} ($sizeMB MB)',
+      style: TextStyle(fontSize: 12, color: Colors.green.shade700),
     );
   }
 }

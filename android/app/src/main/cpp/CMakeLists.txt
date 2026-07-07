@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(meme_llm C CXX)
 
+set(CMAKE_BUILD_PARALLEL_LEVEL 4)
+
 if(NOT DEFINED LLAMA_CPP_DIR)
     if(DEFINED ENV{LLAMA_CPP_DIR})
         set(LLAMA_CPP_DIR $ENV{LLAMA_CPP_DIR})
@@ -27,7 +29,7 @@ if(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a" OR CMAKE_ANDROID_ARCH_ABI STREQUA
     set(MTMD_VIDEO OFF)
 
     # GPU 加速后端（默认关闭）
-    set(GGML_VULKAN ON)
+    set(GGML_VULKAN OFF)
 
     # 设置 SPIRV-Headers 路径
     set(SPIRV-Headers_DIR "/home/jiangzifeng/下载/SPIRV-Headers-main/build/CMakeFiles/Export/7e173bd2f6c93e514e1dd3616a7ea2ca")

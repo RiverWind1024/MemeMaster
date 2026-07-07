@@ -1,5 +1,4 @@
 import 'dart:ffi';
-import 'dart:io';
 import 'package:ffi/ffi.dart';
 
 typedef MllmInitC = Pointer<Void> Function(Pointer<Utf8>, Pointer<Utf8>, Int32, Int32, Int32, Int32, Pointer<Utf8>, Pointer<Utf8>);
@@ -8,12 +7,20 @@ typedef MllmInitDart = Pointer<Void> Function(Pointer<Utf8>, Pointer<Utf8>, int,
 typedef MllmGetLogsC = Pointer<Utf8> Function(Uint64, Pointer<Uint64>);
 typedef MllmGetLogsDart = Pointer<Utf8> Function(int, Pointer<Uint64>);
 
+typedef MllmIsMtmdLoadedC = Int32 Function(Pointer<Void>);
+typedef MllmIsMtmdLoadedDart = int Function(Pointer<Void>);
+
 typedef MllmCompleteC = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>, Int32, Float);
 typedef MllmCompleteDart = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>, int, double);
 
 typedef MllmMultimodalCompleteC = Pointer<Utf8> Function(
     Pointer<Void>, Pointer<Utf8>, Pointer<Uint8>, Uint64, Int32, Int32, Int32, Float);
 typedef MllmMultimodalCompleteDart = Pointer<Utf8> Function(
+    Pointer<Void>, Pointer<Utf8>, Pointer<Uint8>, int, int, int, int, double);
+
+typedef MllmMultimodalChatC = Pointer<Utf8> Function(
+    Pointer<Void>, Pointer<Utf8>, Pointer<Uint8>, Uint64, Int32, Int32, Int32, Float);
+typedef MllmMultimodalChatDart = Pointer<Utf8> Function(
     Pointer<Void>, Pointer<Utf8>, Pointer<Uint8>, int, int, int, int, double);
 
 typedef MllmCloseC = Void Function(Pointer<Void>);
@@ -31,16 +38,22 @@ typedef MllmCompleteStreamC = Int32 Function(
 typedef MllmCompleteStreamDart = int Function(
     Pointer<Void>, Pointer<Utf8>, int, double, Pointer<NativeFunction<MllmTokenCallbackC>>, Pointer<Void>);
 
+typedef MllmChatC = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>, Int32, Float);
+typedef MllmChatDart = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>, int, double);
+
 class NativeLlmBindings {
   DynamicLibrary? _dylib;
 
   MllmInitDart? mllmInit;
   MllmCompleteDart? mllmComplete;
   MllmMultimodalCompleteDart? mllmMultimodalComplete;
+  MllmMultimodalChatDart? mllmMultimodalChat;
   MllmCloseDart? mllmClose;
   MllmFreeStringDart? mllmFreeString;
   MllmCompleteStreamDart? mllmCompleteStream;
   MllmGetLogsDart? mllmGetLogs;
+  MllmChatDart? mllmChat;
+  MllmIsMtmdLoadedDart? mllmIsMtmdLoaded;
 
   /// 构造函数尝试加载动态库，捕获异常避免闪退
   NativeLlmBindings() {
@@ -51,11 +64,16 @@ class NativeLlmBindings {
       mllmMultimodalComplete =
           _dylib!.lookupFunction<MllmMultimodalCompleteC, MllmMultimodalCompleteDart>(
               'mllm_multimodal_complete');
+      mllmMultimodalChat =
+          _dylib!.lookupFunction<MllmMultimodalChatC, MllmMultimodalChatDart>(
+              'mllm_multimodal_chat');
       mllmClose = _dylib!.lookupFunction<MllmCloseC, MllmCloseDart>('mllm_close');
       mllmFreeString = _dylib!.lookupFunction<MllmFreeStringC, MllmFreeStringDart>('mllm_free_string');
       mllmCompleteStream =
           _dylib!.lookupFunction<MllmCompleteStreamC, MllmCompleteStreamDart>('mllm_complete_stream');
       mllmGetLogs = _dylib!.lookupFunction<MllmGetLogsC, MllmGetLogsDart>('mllm_get_logs');
+      mllmChat = _dylib!.lookupFunction<MllmChatC, MllmChatDart>('mllm_chat');
+      mllmIsMtmdLoaded = _dylib!.lookupFunction<MllmIsMtmdLoadedC, MllmIsMtmdLoadedDart>('mllm_is_mtmd_loaded');
     } catch (e) {
       // 加载失败时不抛异常，后续调用通过 mllmInit==null 判断不可用
       // 防止因 ABI 不匹配或 .so 缺失导致 app 启动时直接闪退
@@ -103,11 +121,30 @@ class NativeLlmBindings {
     return (result, lastId);
   }
 
+  bool isMtmdLoaded(Pointer<Void> handle) {
+    final fn = mllmIsMtmdLoaded;
+    if (fn == null) return false;
+    return fn(handle) != 0;
+  }
+
   String? complete(Pointer<Void> handle, String prompt, int maxTokens, double temperature) {
     final fn = mllmComplete!;
     final promptPtr = prompt.toNativeUtf8();
     final resultPtr = fn(handle, promptPtr, maxTokens, temperature);
     malloc.free(promptPtr);
+    if (resultPtr == nullptr) return null;
+    final result = resultPtr.toDartString();
+    mllmFreeString!(resultPtr);
+    return result;
+  }
+
+  /// Chat 对话：传入 JSON 格式的消息列表，使用模型的 chat template 格式化
+  /// messagesJson: [{"role":"user","content":"..."},{"role":"assistant","content":"..."}]
+  String? chat(Pointer<Void> handle, String messagesJson, int maxTokens, double temperature) {
+    final fn = mllmChat!;
+    final jsonPtr = messagesJson.toNativeUtf8();
+    final resultPtr = fn(handle, jsonPtr, maxTokens, temperature);
+    malloc.free(jsonPtr);
     if (resultPtr == nullptr) return null;
     final result = resultPtr.toDartString();
     mllmFreeString!(resultPtr);
@@ -129,6 +166,27 @@ class NativeLlmBindings {
     final resultPtr = fn(
         handle, promptPtr, imageData, imageDataSize, imageWidth, imageHeight, maxTokens, temperature);
     malloc.free(promptPtr);
+    if (resultPtr == nullptr) return null;
+    final result = resultPtr.toDartString();
+    mllmFreeString!(resultPtr);
+    return result;
+  }
+
+  String? multimodalChat(
+    Pointer<Void> handle,
+    String messagesJson,
+    Pointer<Uint8> imageData,
+    int imageDataSize,
+    int imageWidth,
+    int imageHeight,
+    int maxTokens,
+    double temperature,
+  ) {
+    final fn = mllmMultimodalChat!;
+    final jsonPtr = messagesJson.toNativeUtf8();
+    final resultPtr = fn(
+        handle, jsonPtr, imageData, imageDataSize, imageWidth, imageHeight, maxTokens, temperature);
+    malloc.free(jsonPtr);
     if (resultPtr == nullptr) return null;
     final result = resultPtr.toDartString();
     mllmFreeString!(resultPtr);

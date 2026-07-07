@@ -432,21 +432,32 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
     final source = ref.read(selectedSourceProvider);
     final fileType = isMmproj ? 'mmproj' : 'gguf';
     final taskId = DownloadStatesNotifier.makeTaskId(model.id, fileType);
-    final safeId = ModelManager.sanitizeId(model.id);
     final manager = ref.read(modelManagerProvider);
 
+    // 解析 author 和 repo
+    final parts = model.id.split('/');
+    final author = parts.isNotEmpty ? parts[0] : '';
+    final repo = parts.length > 1 ? parts[1] : model.id;
+    final filename = file.path;
+
+    // 构建完整 ID: author/repo/filename
+    final fullId = '$author/$repo/$filename';
+
     final modelInfo = ModelInfo(
-      id: model.id,
+      id: fullId,
+      author: author,
+      repo: repo,
+      filename: filename,
       name: model.name,
       description: model.description ?? '',
       source: source,
-      ggufUrl: isMmproj ? '' : file.downloadUrl,
-      mmprojUrl: isMmproj ? file.downloadUrl : null,
+      ggufUrl: isMmproj ? null : file.downloadUrl,
+      defaultMmprojUrl: isMmproj ? file.downloadUrl : null,
       sizeLabel: _formatBytes(file.size),
     );
 
-    final fileName = isMmproj ? 'mmproj-$safeId.gguf' : '$safeId.gguf';
-    final tempFilePath = '${manager.storageDir}/$fileName.download';
+    // 构建临时文件路径
+    final tempFilePath = '${manager.storageDir}/$author/$repo/$filename.download';
 
     final notifier = ref.read(downloadStatesProvider.notifier);
     notifier.startDownload(
@@ -845,7 +856,13 @@ class _DownloadedModelCard extends ConsumerWidget {
             : const Icon(Icons.model_training),
         title: Row(
           children: [
-            Text(model.id, style: theme.textTheme.bodyMedium),
+            Expanded(
+              child: Text(
+                model.filename,
+                style: theme.textTheme.bodyMedium,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             if (isLoaded)
               Padding(
                 padding: const EdgeInsets.only(left: 8),

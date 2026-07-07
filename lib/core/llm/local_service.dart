@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
-import 'dart:io';
 import 'dart:isolate';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:ffi/ffi.dart';
@@ -127,7 +125,7 @@ void _textRunTestInferenceIsolateEntry(_TextRunTestArgs args) {
 class _MultimodalIsolateArgs {
   final SendPort sendPort;
   final int handleAddress;
-  final String prompt;
+  final String messagesJson;
   final Uint8List rgbBytes;
   final int imageWidth;
   final int imageHeight;
@@ -137,7 +135,7 @@ class _MultimodalIsolateArgs {
   _MultimodalIsolateArgs({
     required this.sendPort,
     required this.handleAddress,
-    required this.prompt,
+    required this.messagesJson,
     required this.rgbBytes,
     required this.imageWidth,
     required this.imageHeight,
@@ -146,19 +144,18 @@ class _MultimodalIsolateArgs {
   });
 }
 
-/// 在后台 isolate 中执行多模态推理（同步 FFI 调用，避免阻塞主线程 ANR）
+/// 在后台 isolate 中执行多模态对话推理（同步 FFI 调用，避免阻塞主线程 ANR）
 ///
-/// 被 [Isolate.spawn] 调用，通过 [SendPort] 返回结果。
-/// 在 isolate 内部重新创建 [NativeLlmBindings] 和 malloc 内存。
-void _multimodalCompleteIsolateEntry(_MultimodalIsolateArgs args) {
+/// 使用 mllm_multimodal_chat（含 chat template 和 mtmd 图片处理）。
+void _multimodalChatIsolateEntry(_MultimodalIsolateArgs args) {
   final handle = Pointer<Void>.fromAddress(args.handleAddress);
   final bindings = NativeLlmBindings();
   final imageDataPtr = malloc<Uint8>(args.rgbBytes.length);
   imageDataPtr.asTypedList(args.rgbBytes.length).setAll(0, args.rgbBytes);
   try {
-    final result = bindings.multimodalComplete(
+    final result = bindings.multimodalChat(
       handle,
-      args.prompt,
+      args.messagesJson,
       imageDataPtr,
       args.rgbBytes.length,
       args.imageWidth,
@@ -181,7 +178,7 @@ void _multimodalCompleteIsolateEntry(_MultimodalIsolateArgs args) {
 class LocalLlmService implements LlmService {
   final LocalLlmConfig _config;
   final NativeLlmBindings _bindings = NativeLlmBindings();
-  final LogService _log = LogService();
+  final LogService _log;
   Pointer<Void>? _handle;
 
   /// 标记服务已释放，拒绝新操作
@@ -213,7 +210,9 @@ class LocalLlmService implements LlmService {
     }
   }
 
-  LocalLlmService({required LocalLlmConfig config}) : _config = config;
+  LocalLlmService({required LocalLlmConfig config, String? logFilePath, String? mllmLogPath})
+      : _config = config,
+        _log = LogService(logFilePath: logFilePath, mllmLogPath: mllmLogPath);
 
   @override
   bool get isAvailable => _config.modelPath != null;
@@ -257,7 +256,7 @@ class LocalLlmService implements LlmService {
     }
     final t0 = DateTime.now();
     final effectiveThreads = _config.effectiveThreads;
-    debugPrint('[LocalLlmService] ${t0.toIso8601String()} 开始加载模型: ${_config.modelPath} (threads=$effectiveThreads, ctx=${_config.contextSize}, rawConfig.threads=${_config.threads})');
+    _log.info('[LocalLlmService]', '开始加载模型: ${_config.modelPath} (threads=$effectiveThreads, ctx=${_config.contextSize})');
 
     final extraParams = _config.buildExtraParams();
 
@@ -297,7 +296,7 @@ class LocalLlmService implements LlmService {
       }
       _handle = Pointer<Void>.fromAddress(address as int);
       final t1 = DateTime.now();
-      debugPrint('[LocalLlmService] ${t1.toIso8601String()} 模型加载完成，耗时 ${t1.difference(t0).inMilliseconds}ms');
+      _log.info('[LocalLlmService]', '模型加载完成，耗时 ${t1.difference(t0).inMilliseconds}ms');
     } on TimeoutException {
       isolate?.kill(priority: Isolate.immediate);
       logTimer?.cancel();
@@ -328,56 +327,52 @@ class LocalLlmService implements LlmService {
     return _runSerialized(() async {
       await _ensureLoaded();
 
-      final prompt = messages.map((m) => '${m.role}: ${m.content}').join('\n');
       final maxTokens = options?.maxTokens ?? 512;
       final temperature = options?.temperature ?? 0.7;
-
       final hasImage = messages.any((m) => m.imageBase64 != null);
 
-      print('[LocalLlmService] ${DateTime.now().toIso8601String()} chat() start (hasImage=$hasImage, promptLen=${prompt.length})');
-
       if (hasImage) {
-        // 多模态路径：base64 → RGB pixels → mllm_multimodal_complete
         final imageMsg = messages.firstWhere((m) => m.imageBase64 != null);
-        return _multimodalComplete(prompt, imageMsg.imageBase64!, maxTokens, temperature);
+        // 构建 messages JSON，有图片的消息 content 前加 <__media__> 标记
+        // mtmd_tokenize 识别 <__media__> 后将其替换为图片 embedding
+        final jsonArray = jsonEncode(messages.map((m) {
+          var content = m.content;
+          if (m.imageBase64 != null) {
+            content = '<__media__>\n$content';
+          }
+          return {'role': m.role, 'content': content};
+        }).toList());
+        _log.info('LocalLlmService', '检测到图片，调用多模态对话推理，messages=${messages.length}');
+
+        return _multimodalChat(jsonArray, imageMsg.imageBase64!, maxTokens, temperature);
       }
 
-      // 纯文本路径
-      final t0 = DateTime.now();
-      print('[LocalLlmService] ${t0.toIso8601String()} 调用 _bindings.complete() ...');
-      final result = _bindings.complete(_handle!, prompt, maxTokens, temperature);
-      final t1 = DateTime.now();
-      print('[LocalLlmService] ${t1.toIso8601String()} _bindings.complete() 返回，耗时 ${t1.difference(t0).inMilliseconds}ms');
+      // 纯文本路径：使用 mllm_chat + chat template
+      final jsonArray = jsonEncode(messages.map((m) => {'role': m.role, 'content': m.content}).toList());
+
+      final result = _bindings.chat(_handle!, jsonArray, maxTokens, temperature);
       if (result == null) {
-        throw StateError('推理失败 (complete 返回 null)');
+        throw StateError('推理失败 (chat 返回 null)');
       }
       return result;
     });
   }
 
-  Future<String> _multimodalComplete(
-    String prompt,
+  Future<String> _multimodalChat(
+    String messagesJson,
     String base64Image,
     int maxTokens,
     double temperature,
   ) async {
-    // base64 解码为原始 bytes，然后转换为 RGB 像素
     final imageBytes = _decodeBase64(base64Image);
-    
-    // 使用 image 包解码图片并转换为 RGB
     final decodedImage = img.decodeImage(imageBytes);
     if (decodedImage == null) {
       throw StateError('无法解码图片');
     }
-    
-    // 检查图片尺寸，防止内存溢出
     final pixelCount = decodedImage.width * decodedImage.height;
-    if (pixelCount > 1024 * 1024) {  // 超过1百万像素
+    if (pixelCount > 1024 * 1024) {
       _log.warning('LocalLlmService', '图片过大 (${decodedImage.width}x${decodedImage.height})，可能导致内存不足');
     }
-    
-    // 进一步压缩图片尺寸，减少 mtmd vision encoder 计算量
-    // 本地 LLM 推理是 CPU 瓶颈，降低分辨率可大幅加速
     const int maxLocalDim = 384;
     final decodeW = decodedImage.width;
     final decodeH = decodedImage.height;
@@ -387,7 +382,6 @@ class LocalLlmService implements LlmService {
             : (decodeW, decodeH, decodedImage);
     _log.info('LocalLlmService', '图片 ${decodeW}x$decodeH -> 本地推理使用 ${targetW}x$targetH');
     
-    // 转换为 RGB 像素数据
     final rgbBytes = Uint8List(targetW * targetH * 3);
     for (int y = 0; y < targetH; y++) {
       for (int x = 0; x < targetW; x++) {
@@ -398,21 +392,17 @@ class LocalLlmService implements LlmService {
         rgbBytes[index + 2] = pixel.b.toInt();
       }
     }
-    
     _log.info('LocalLlmService', 'RGB 像素数据: ${targetW}x$targetH -> ${rgbBytes.length} 字节');
 
-    // 在后台 isolate 中执行同步 FFI 调用，避免阻塞主线程导致 ANR
-    // 注意：isolate.kill(Immediate) 无法终止正在执行的 FFI 调用（Dart 限制），
-    // 因此移除超时机制，让推理自然完成。
     final handleAddress = _handle!.address;
-    _log.info('LocalLlmService', '在后台 isolate 中执行多模态推理 ... (maxTokens=$maxTokens, useGpu=${_config.useGpu}, threads=${_config.effectiveThreads}, ctx=${_config.contextSize})');
+    _log.info('LocalLlmService', '在后台 isolate 中执行多模态对话推理 ... (maxTokens=$maxTokens)');
     final t0 = DateTime.now();
 
     final receivePort = ReceivePort();
     final args = _MultimodalIsolateArgs(
       sendPort: receivePort.sendPort,
       handleAddress: handleAddress,
-      prompt: prompt,
+      messagesJson: messagesJson,
       rgbBytes: rgbBytes,
       imageWidth: targetW,
       imageHeight: targetH,
@@ -422,16 +412,19 @@ class LocalLlmService implements LlmService {
 
     Isolate? isolate;
     try {
-      isolate = await Isolate.spawn(_multimodalCompleteIsolateEntry, args);
+      isolate = await Isolate.spawn(_multimodalChatIsolateEntry, args);
 
-      // 无超时等待 — isolate.kill 无法停止 FFI，超时只是徒增 CPU 空转
       final result = await receivePort.first;
       final t1 = DateTime.now();
-      _log.info('LocalLlmService', '后台 isolate 多模态推理返回，耗时 ${t1.difference(t0).inMilliseconds}ms');
+      _log.info('LocalLlmService', '后台 isolate 多模态对话推理返回，耗时 ${t1.difference(t0).inMilliseconds}ms');
       if (result == null) {
-        throw StateError('多模态推理失败 (返回 null)');
+        throw StateError('多模态对话推理失败 (返回 null)');
       }
-      return result as String;
+      final resultStr = result as String;
+      // 日志输出结果前 300 字符，便于调试
+      final preview = resultStr.length > 300 ? '${resultStr.substring(0, 300)}...' : resultStr;
+      _log.info('LocalLlmService', '多模态推理结果 (${resultStr.length} 字符): $preview');
+      return resultStr;
     } finally {
       receivePort.close();
       // 清理 isolate 外壳（FFI 若要跑完还是会跑完，但至少释放 Dart 侧资源）

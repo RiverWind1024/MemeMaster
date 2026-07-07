@@ -441,7 +441,11 @@ final llmServiceProvider = Provider.autoDispose<LlmService?>((ref) {
       }
     case LlmMode.local:
       final localConfig = ref.watch(localLlmConfigProvider);
-      service = LocalLlmService(config: localConfig);
+      service = LocalLlmService(
+        config: localConfig,
+        logFilePath: _logFilePath,
+        mllmLogPath: getMllmLogFilePath(),
+      );
       return service;
   }
   return null;
@@ -645,7 +649,36 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
       onProgress: (p) => updateProgress(taskId, p),
       cancelToken: token,
     )
-        .then((_) {
+        .then((_) async {
+      // 主模型下载完成后，检查是否需要下载 mmproj
+      if (task.modelInfo.defaultMmprojUrl != null) {
+        _log?.info(_tag, '主模型下载完成，开始下载 mmproj: ${task.modelInfo.defaultMmprojUrl}');
+        final mmprojTaskId = '${task.taskId}#mmproj';
+        _cancelTokens[mmprojTaskId] = CancelToken();
+        _tasks[mmprojTaskId] = _DownloadTask(
+          taskId: mmprojTaskId,
+          modelInfo: task.modelInfo,
+          tempFilePath: '${task.tempFilePath}.mmproj',
+          manager: task.manager,
+          onComplete: (_) {
+            _log?.info(_tag, 'mmproj 下载完成: $mmprojTaskId');
+            _cancelTokens.remove(mmprojTaskId);
+            _tasks.remove(mmprojTaskId);
+          },
+          onError: (id, e) {
+            _log?.error(_tag, 'mmproj 下载失败: $mmprojTaskId, error=$e');
+            _cancelTokens.remove(mmprojTaskId);
+            _tasks.remove(mmprojTaskId);
+          },
+        );
+        state = {
+          ...state,
+          mmprojTaskId: DownloadState(modelId: mmprojTaskId, status: DownloadStatus.downloading),
+        };
+        // 并行下载 mmproj
+        _runMmprojDownload(mmprojTaskId);
+      }
+
       completeDownload(taskId);
       task.onComplete?.call(taskId);
     }).catchError((e) {
@@ -654,6 +687,30 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
       // 取消：cancelDownload 已经清理过所有东西，这里什么都不做
       if (token.isCancelled) return;
       _log?.error(_tag, '_runDownload 异常: taskId=$taskId, error=$e');
+      failDownload(taskId, e.toString());
+      task.onError?.call(taskId, e);
+    });
+  }
+
+  void _runMmprojDownload(String taskId) {
+    final task = _tasks[taskId];
+    if (task == null) return;
+    final token = _cancelTokens[taskId];
+    if (token == null) return;
+
+    task.manager
+        .downloadMmproj(
+      task.modelInfo,
+      onProgress: (p) => updateProgress(taskId, p),
+      cancelToken: token,
+    )
+        .then((_) {
+      completeDownload(taskId);
+      task.onComplete?.call(taskId);
+    }).catchError((e) {
+      if (e is PauseException) return;
+      if (token.isCancelled) return;
+      _log?.error(_tag, '_runMmprojDownload 异常: taskId=$taskId, error=$e');
       failDownload(taskId, e.toString());
       task.onError?.call(taskId, e);
     });
