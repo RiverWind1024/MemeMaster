@@ -23,6 +23,8 @@ class VisionLlmEnricher {
   final MemeRepository _repo;
   final LogService _log;
   final bool _isLocalLlm;
+  final LlmConfig? _llmConfig;
+  final LocalLlmConfig? _localLlmConfig;
 
   /// 获取底层的 LLM 服务（用于检查模型加载状态）
   LlmService get llm => _llm;
@@ -41,10 +43,14 @@ class VisionLlmEnricher {
     required LlmService llm,
     required MemeRepository repo,
     required LogService log,
+    LlmConfig? llmConfig,
+    LocalLlmConfig? localLlmConfig,
   })  : _llm = llm,
         _repo = repo,
         _log = log,
-        _isLocalLlm = llm is LocalLlmService;
+        _isLocalLlm = llm is LocalLlmService,
+        _llmConfig = llmConfig,
+        _localLlmConfig = localLlmConfig;
 
   /// 对单张 meme 执行多模态分析
   ///
@@ -126,14 +132,24 @@ class VisionLlmEnricher {
     final systemPrompt = await _loadPrompt(systemFile, locale);
     final userPrompt = await _loadPrompt(userFile, locale);
 
+    // 使用配置的参数（优先用本地配置，再用远程配置，都没有则用默认值）
+    final effectiveConfig = _isLocalLlm ? _localLlmConfig : _llmConfig;
+    final temperature = effectiveConfig?.temperature ?? 0.3;
+    final maxTokens = effectiveConfig?.maxTokens ?? 256;
+    // 自定义 prompt 覆盖默认模板
+    final systemContent = effectiveConfig?.customSystemPrompt ?? systemPrompt;
+    final userContent = effectiveConfig?.customUserPrompt ?? userPrompt;
+
     final messages = [
-      LlmMessage(role: 'system', content: systemPrompt),
-      LlmMessage(role: 'user', content: userPrompt, imageBase64: base64Image),
+      LlmMessage(role: 'system', content: systemContent),
+      LlmMessage(role: 'user', content: userContent, imageBase64: base64Image),
     ];
+
+    _log.info('VisionLLM', '调用 LLM: temperature=$temperature, maxTokens=$maxTokens');
 
     final response = await _llm.chat(
       messages,
-      options: const LlmOptions(temperature: 0.3, maxTokens: 256),
+      options: LlmOptions(temperature: temperature, maxTokens: maxTokens),
     );
 
     return _parseResponse(response);

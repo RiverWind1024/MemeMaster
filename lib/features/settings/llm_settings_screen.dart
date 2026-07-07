@@ -10,7 +10,6 @@ import '../../core/llm/config.dart';
 import '../../core/llm/local_config.dart';
 import '../../core/llm/local_service.dart';
 import '../gallery/gallery_provider.dart';
-import '../llm/llm_chat_screen.dart';
 import '../../l10n/app_localizations.dart';
 
 class LlmSettingsScreen extends ConsumerStatefulWidget {
@@ -68,6 +67,11 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
             },
             style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
+
+          const SizedBox(height: 24),
+
+          // 分析参数配置（通用，远程和本地都可用）
+          _AnalysisParamsCard(mode: mode),
 
           const SizedBox(height: 24),
 
@@ -284,190 +288,14 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                           ),
                         ),
                       const Divider(),
-                      SwitchListTile(
-                        title: Text(S.of(context).gpuAcceleration),
-                        value: localConfig.useGpu,
-                        onChanged: (v) {
-                          ref.read(localLlmConfigProvider.notifier).update(
-                            localConfig.copyWith(useGpu: v),
-                          );
-                          // GPU 设置修改后也需要重新加载模型才能生效
-                          if (ref.read(localLlmLoadedProvider)) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('GPU 设置已修改，请点击「加载模型」重新加载以生效'),
-                                duration: Duration(seconds: 3),
-                              ),
-                            );
-                          }
-                        },
-                        secondary: const Icon(Icons.memory),
-                      ),
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.tune),
-                        title: Text(S.of(context).contextLength),
-                        trailing: DropdownButton<int>(
-                          value: localConfig.contextSize,
-                          underline: const SizedBox(),
-                          items: [512, 1024, 2048, 4096].map((n) {
-                            return DropdownMenuItem(value: n, child: Text('$n'));
-                          }).toList(),
-                          onChanged: (v) {
-                            if (v != null) {
-                              ref.read(localLlmConfigProvider.notifier).update(
-                                localConfig.copyWith(contextSize: v),
-                              );
-                              // 如果模型已加载，提示用户需要重新加载才能生效
-                              if (ref.read(localLlmLoadedProvider)) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('上下文长度已修改，请点击「加载模型」重新加载以生效'),
-                                    duration: Duration(seconds: 3),
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                        ),
-                      ),
-                      const Divider(),
-                      // 高级性能配置（可折叠）
-                      ExpansionTile(
-                        leading: const Icon(Icons.speed),
-                        title: Text('高级性能配置'),
-                        subtitle: Text('Flash Attention · KV 缓存 · Batch 大小',
+                        title: Text(S.of(context).localModelConfig),
+                        subtitle: Text('GPU 加速 · 上下文长度 · 高级性能',
                             style: theme.textTheme.bodySmall),
-                        childrenPadding: EdgeInsets.only(bottom: 8, left: 16, right: 16),
-                        children: [
-                          // Flash Attention
-                          DropdownButtonFormField<FlashAttnMode>(
-                            value: localConfig.flashAttn,
-                            decoration: InputDecoration(
-                              labelText: 'Flash Attention',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            ),
-                            items: [
-                              DropdownMenuItem(value: FlashAttnMode.auto, child: Text('自动（根据 GPU 决定）')),
-                              DropdownMenuItem(value: FlashAttnMode.enabled, child: Text('启用')),
-                              DropdownMenuItem(value: FlashAttnMode.disabled, child: Text('禁用')),
-                            ],
-                            onChanged: (v) {
-                              if (v != null) ref.read(localLlmConfigProvider.notifier).update(
-                                localConfig.copyWith(flashAttn: v),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          // KV 缓存量化类型
-                          DropdownButtonFormField<KvCacheType>(
-                            value: localConfig.kvCacheType,
-                            decoration: InputDecoration(
-                              labelText: 'KV 缓存量化',
-                              hintText: 'F16（默认）',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            ),
-                            items: [
-                              DropdownMenuItem(value: KvCacheType.f16, child: Text('F16（精度高）')),
-                              DropdownMenuItem(value: KvCacheType.q4_0, child: Text('Q4_0（省内存）')),
-                            ],
-                            onChanged: (v) {
-                              if (v != null) ref.read(localLlmConfigProvider.notifier).update(
-                                localConfig.copyWith(kvCacheType: v),
-                              );
-                            },
-                          ),
-                          if (localConfig.kvCacheType == KvCacheType.q4_0)
-                            Padding(
-                              padding: EdgeInsets.only(top: 4),
-                              child: Text('Q4_0 可显著降低 KV 缓存内存占用，适合 4GB 以下内存设备',
-                                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange)),
-                            ),
-                          const SizedBox(height: 12),
-                          // 统一 KV 缓存
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text('统一 KV 缓存'),
-                            subtitle: Text('将 K 和 V 合并存储，减少内存碎片',
-                                style: theme.textTheme.bodySmall),
-                            value: localConfig.kvUnified,
-                            onChanged: (v) => ref.read(localLlmConfigProvider.notifier).update(
-                              localConfig.copyWith(kvUnified: v),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          // use_mmap
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text('使用 mmap 加载'),
-                            subtitle: Text('内存映射文件加载（Android 低内存设备建议关闭）',
-                                style: theme.textTheme.bodySmall),
-                            value: localConfig.useMmap,
-                            onChanged: (v) => ref.read(localLlmConfigProvider.notifier).update(
-                              localConfig.copyWith(useMmap: v),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          // n_batch
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  initialValue: localConfig.nBatch.toString(),
-                                  decoration: InputDecoration(
-                                    labelText: 'Batch 大小',
-                                    hintText: '512',
-                                    border: OutlineInputBorder(),
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                    isDense: true,
-                                  ),
-                                  keyboardType: TextInputType.number,
-                                  onChanged: (v) {
-                                    final n = int.tryParse(v);
-                                    if (n != null && n > 0) ref.read(localLlmConfigProvider.notifier).update(
-                                      localConfig.copyWith(nBatch: n),
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextFormField(
-                                  initialValue: localConfig.nUBatch.toString(),
-                                  decoration: InputDecoration(
-                                    labelText: 'UBatch 大小',
-                                    hintText: '256',
-                                    border: OutlineInputBorder(),
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                    isDense: true,
-                                  ),
-                                  keyboardType: TextInputType.number,
-                                  onChanged: (v) {
-                                    final n = int.tryParse(v);
-                                    if (n != null && n > 0) ref.read(localLlmConfigProvider.notifier).update(
-                                      localConfig.copyWith(nUBatch: n),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const Divider(),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.science_outlined),
-                        title: Text('测试推理'),
-                        subtitle: Text('打开 AI Chat 对话框自由测试',
-                            style: theme.textTheme.bodySmall),
-                        trailing: FilledButton.tonalIcon(
-                          onPressed: () => _openChatTest(),
-                          icon: const Icon(Icons.chat, size: 18),
-                          label: Text('测试'),
-                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => context.pushNamed('local-model-config'),
                       ),
                     ] else ...[
                       const Icon(Icons.download_outlined, size: 48, color: Colors.grey),
@@ -586,16 +414,6 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
     }
   }
 
-  void _openChatTest() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const LlmChatScreen(),
-        fullscreenDialog: true,
-      ),
-    );
-  }
-
   Future<void> _pickLocalModel() async {
     // 选择 GGUF 模型文件
     final result = await FilePicker.pickFiles(
@@ -678,6 +496,190 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
 }
 
 /// 显示 mmproj 状态（检查文件是否真实存在）
+/// 分析参数配置卡片（temperature / maxTokens / 自定义 prompt）
+class _AnalysisParamsCard extends ConsumerWidget {
+  final LlmMode mode;
+  const _AnalysisParamsCard({required this.mode});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    // 根据当前模式获取对应配置
+    final isRemote = mode == LlmMode.remote;
+    final isLocal = mode == LlmMode.local;
+    if (!isRemote && !isLocal) return const SizedBox.shrink();
+
+    final config = isRemote
+        ? ref.watch(llmConfigProvider)
+        : ref.watch(localLlmConfigProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(S.of(context).analysisParams, style: theme.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Temperature
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Temperature', style: theme.textTheme.bodyMedium),
+                          Text(
+                            '控制输出随机性（0=确定，1=最大随机）',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(
+                      width: 80,
+                      child: TextFormField(
+                        key: ValueKey('temp_${config.temperature}'),
+                        initialValue: config.temperature.toString(),
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          isDense: true,
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (v) {
+                          final t = double.tryParse(v);
+                          if (t != null && t >= 0 && t <= 2) {
+                            _updateConfig(ref, isRemote, config.copyWith(temperature: t));
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Max Tokens
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Max Tokens', style: theme.textTheme.bodyMedium),
+                          Text(
+                            '单次输出最大 token 数',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(
+                      width: 100,
+                      child: TextFormField(
+                        key: ValueKey('maxtokens_${config.maxTokens}'),
+                        initialValue: config.maxTokens.toString(),
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          isDense: true,
+                        ),
+                        keyboardType: TextInputType.number,
+                        onChanged: (v) {
+                          final n = int.tryParse(v);
+                          if (n != null && n > 0 && n <= 8192) {
+                            _updateConfig(ref, isRemote, config.copyWith(maxTokens: n));
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                // 自定义 System Prompt
+                Text('System Prompt（留空使用默认）', style: theme.textTheme.bodyMedium),
+                const SizedBox(height: 4),
+                Text(
+                  '覆盖默认系统提示词模板，影响标签生成规则和质量',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: ValueKey('sysprompt_${config.customSystemPrompt ?? "default"}'),
+                  initialValue: config.customSystemPrompt ?? '',
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: '使用默认系统提示词...',
+                  ),
+                  maxLines: 4,
+                  onChanged: (v) {
+                    final trimmed = v.trim();
+                    _updateConfig(
+                      ref,
+                      isRemote,
+                      trimmed.isEmpty
+                          ? (isRemote
+                              ? (config as dynamic).copyWith(clearSystemPrompt: true)
+                              : (config as dynamic).copyWith(clearSystemPrompt: true))
+                          : config.copyWith(customSystemPrompt: trimmed),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                // 自定义 User Prompt
+                Text('User Prompt（留空使用默认）', style: theme.textTheme.bodyMedium),
+                const SizedBox(height: 4),
+                Text(
+                  '覆盖默认用户提示词，影响分析时的引导语',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: ValueKey('userprompt_${config.customUserPrompt ?? "default"}'),
+                  initialValue: config.customUserPrompt ?? '',
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: '使用默认用户提示词...',
+                  ),
+                  maxLines: 2,
+                  onChanged: (v) {
+                    final trimmed = v.trim();
+                    _updateConfig(
+                      ref,
+                      isRemote,
+                      trimmed.isEmpty
+                          ? config.copyWith(clearUserPrompt: true)
+                          : config.copyWith(customUserPrompt: trimmed),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _updateConfig(WidgetRef ref, bool isRemote, dynamic config) {
+    if (isRemote) {
+      ref.read(llmConfigProvider.notifier).update(config as LlmConfig);
+    } else {
+      ref.read(localLlmConfigProvider.notifier).update(config as LocalLlmConfig);
+    }
+  }
+}
+
 class _MmprojStatusText extends StatelessWidget {
   final String? mmprojPath;
   const _MmprojStatusText({this.mmprojPath});

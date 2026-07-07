@@ -457,8 +457,17 @@ final visionEnricherProvider = Provider<VisionLlmEnricher?>((ref) {
   final llm = ref.watch(llmServiceProvider);
   final repo = ref.watch(memeRepositoryProvider);
   final log = ref.watch(logServiceProvider);
+  final mode = ref.watch(llmModeProvider);
   if (llm == null || !llm.isAvailable) return null;
-  return VisionLlmEnricher(llm: llm, repo: repo, log: log);
+  final llmConfig = mode == LlmMode.remote ? ref.watch(llmConfigProvider) : null;
+  final localLlmConfig = mode == LlmMode.local ? ref.watch(localLlmConfigProvider) : null;
+  return VisionLlmEnricher(
+    llm: llm,
+    repo: repo,
+    log: log,
+    llmConfig: llmConfig,
+    localLlmConfig: localLlmConfig,
+  );
 });
 
 // ---- 模型下载状态 ----

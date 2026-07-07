@@ -50,20 +50,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               Card(
                 child: ListTile(
-                  leading: const Icon(Icons.auto_awesome),
-                  title: const Text('AI 配置'),
-                  subtitle: const Text('标签与描述生成模型设置'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.pushNamed('llm-settings'),
-                ),
-              ),
-              Card(
-                child: ListTile(
                   leading: const Icon(Icons.palette_outlined),
                   title: const Text('颜色提取算法'),
                   subtitle: const Text('配色参数配置'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _showColorExtractionPage,
+                ),
+              ),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.auto_awesome),
+                  title: Text(S.of(context).aiTagsDescription),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.pushNamed('llm-settings'),
                 ),
               ),
               Consumer(
