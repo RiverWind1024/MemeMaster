@@ -6,6 +6,7 @@ import 'features/gallery/meme_detail_screen.dart';
 import 'features/import/import_receiver_screen.dart';
 import 'features/import/import_screen.dart';
 import 'features/scan/scan_screen.dart';
+import 'features/settings/ai_analysis_config_screen.dart';
 import 'features/settings/llm_settings_screen.dart';
 import 'features/settings/local_model_config_screen.dart';
 import 'features/settings/model_manager_screen.dart';
@@ -115,6 +116,11 @@ final router = GoRouter(
           path: 'settings/user-stats',
           name: 'user-stats',
           builder: (context, state) => const UserStatsScreen(),
+        ),
+        GoRoute(
+          path: 'settings/ai-config',
+          name: 'ai-config',
+          builder: (context, state) => const AiAnalysisConfigScreen(),
         ),
       ],
     ),

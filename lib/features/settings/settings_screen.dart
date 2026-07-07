@@ -400,6 +400,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onTap: _onVersionTap,
             ),
           ),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.auto_awesome),
+              title: Text(S.of(context).aiConfig),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.pushNamed('ai-config'),
+            ),
+          ),
         ],
       ),
     );

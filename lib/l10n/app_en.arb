@@ -100,6 +100,7 @@
   "ocrTextRecognition": "OCR Text Recognition",
   "ocrDescription": "Automatically extract text from images as tags on import",
   "aiTagsDescription": "AI Tags & Description",
+  "aiConfig": "AI Config",
   "llmOff": "Off",
   "llmRemote": "Remote ({model})",
   "llmLocal": "Local Model",
