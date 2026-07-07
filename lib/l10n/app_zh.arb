@@ -114,6 +114,7 @@
   "ocrTextRecognition": "OCR 文字识别",
   "ocrDescription": "导入图片时自动提取图片中的文字作为标签",
   "aiTagsDescription": "AI 标签与描述",
+  "aiConfig": "AI 配置",
   "llmOff": "已关闭",
   "llmRemote": "远程 ({model})",
   "@llmRemote": { "placeholders": { "model": { "type": "String" } } },
