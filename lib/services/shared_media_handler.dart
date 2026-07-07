@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 typedef NativeEventHandler = void Function(String method);
 
 class SharedMediaHandler {
-  static const _channel = MethodChannel('com.memehelper.app/share');
+  static const _channel = MethodChannel('com.mememaster.app/share');
 
   static final SharedMediaHandler _instance = SharedMediaHandler._();
   factory SharedMediaHandler() => _instance;

@@ -1,4 +1,4 @@
-package com.memehelper.app
+package com.mememaster.app
 
 import android.content.ActivityNotFoundException
 import android.content.ClipData
@@ -20,10 +20,10 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileOutputStream
 
-private const val CHANNEL_CLIPBOARD = "com.memehelper.app/clipboard"
-private const val CHANNEL_SHARE = "com.memehelper.app/share"
-private const val CHANNEL_STORAGE = "com.memehelper.app/storage"
-private const val CHANNEL_FILE = "com.memehelper.app/file"
+private const val CHANNEL_CLIPBOARD = "com.mememaster.app/clipboard"
+private const val CHANNEL_SHARE = "com.mememaster.app/share"
+private const val CHANNEL_STORAGE = "com.mememaster.app/storage"
+private const val CHANNEL_FILE = "com.mememaster.app/file"
 
 class MainActivity : FlutterActivity() {
     companion object {

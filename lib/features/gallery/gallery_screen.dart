@@ -965,7 +965,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
       if (Platform.isAndroid) {
         // Android: 通过原生方法直接用 MediaStore 写入 Downloads
-        const channel = MethodChannel('com.memehelper.app/file');
+        const channel = MethodChannel('com.mememaster.app/file');
         await channel.invokeMethod('saveBytesToDownloads', {
           'bytes': zipBytes,
           'displayName': '$name.zip',

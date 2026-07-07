@@ -8,7 +8,7 @@
          在部分 Android 版本上 getApplicationDocumentsDirectory() 返回的是
          /data/data/<pkg>/app_flutter/ 而非 /data/data/<pkg>/files/，
          用 root-path 覆盖该路径以确保 FileProvider 能找到模型文件 -->
-    <root-path name="app_flutter_models" path="data/data/com.memehelper.app/app_flutter/models/" />
+    <root-path name="app_flutter_models" path="data/data/com.mememaster.app/app_flutter/models/" />
     <!-- 外部 app 专属存储：getExternalStorageDirectory()/models
          即 /storage/emulated/0/Android/data/<pkg>/files/models -->
     <external-files-path name="external_models" path="models/" />

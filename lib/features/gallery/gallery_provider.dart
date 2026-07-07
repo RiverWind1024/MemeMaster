@@ -263,7 +263,7 @@ final llmConfigProvider =
 // ---- 本地 LLM 配置 ----
 
 class LocalLlmConfigNotifier extends Notifier<LocalLlmConfig> {
-  static final _oldPathMarker = '/data/user/0/com.memehelper.app/app_flutter/';
+  static final _oldPathMarker = '/data/user/0/com.mememaster.app/app_flutter/';
 
   @override
   LocalLlmConfig build() {

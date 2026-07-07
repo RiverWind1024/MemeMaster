@@ -1,4 +1,4 @@
-# MemeManager
+# MemeMaster
 
 表情包管理工具 —— 导入、组织、智能搜索、颜色识别、语义分析。支持 Linux / Android 双平台。
 

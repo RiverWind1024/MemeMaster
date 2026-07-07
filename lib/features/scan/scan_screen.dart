@@ -470,7 +470,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     if (_safUri != null) {
       log.info('Scan', 'listing via SAF: $_safUri');
       try {
-        const channel = MethodChannel('com.memehelper.app/storage');
+        const channel = MethodChannel('com.mememaster.app/storage');
         final result = await channel.invokeMethod<List<dynamic>>('listSafDirectory', {
           'uri': _safUri,
         });
