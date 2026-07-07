@@ -60,9 +60,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.auto_awesome),
-                  title: Text(S.of(context).aiTagsDescription),
+                  title: Text(S.of(context).aiConfig),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.pushNamed('llm-settings'),
+                  onTap: () => context.pushNamed('ai-config'),
                 ),
               ),
               Consumer(
@@ -302,6 +302,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ref.read(analysisSchedulerProvider).setOcrEnabled(value);
               },
               secondary: const Icon(Icons.text_fields),
+            ),
+          ),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.auto_awesome),
+              title: Text(S.of(context).aiTagsDescription),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.pushNamed('llm-settings'),
             ),
           ),
           const SizedBox(height: 24),
