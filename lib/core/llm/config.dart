@@ -16,6 +16,7 @@ class LlmConfig {
   final String model;
   final double temperature;
   final int maxTokens;
+  final bool imageCompressionEnabled;
   final String? customSystemPrompt;
   final String? customUserPrompt;
 
@@ -27,6 +28,7 @@ class LlmConfig {
         'model': model,
         'temperature': temperature,
         'maxTokens': maxTokens,
+        'imageCompressionEnabled': imageCompressionEnabled,
         if (customSystemPrompt != null) 'customSystemPrompt': customSystemPrompt,
         if (customUserPrompt != null) 'customUserPrompt': customUserPrompt,
       };
@@ -40,6 +42,7 @@ class LlmConfig {
         model: json['model'] as String,
         temperature: (json['temperature'] as num?)?.toDouble() ?? 0.3,
         maxTokens: json['maxTokens'] as int? ?? 256,
+        imageCompressionEnabled: json['imageCompressionEnabled'] as bool? ?? true,
         customSystemPrompt: json['customSystemPrompt'] as String?,
         customUserPrompt: json['customUserPrompt'] as String?,
       );
@@ -52,6 +55,7 @@ class LlmConfig {
     this.model = 'llama3.2',
     this.temperature = 0.3,
     this.maxTokens = 256,
+    this.imageCompressionEnabled = true,
     this.customSystemPrompt,
     this.customUserPrompt,
   });
@@ -64,6 +68,7 @@ class LlmConfig {
     String? model,
     double? temperature,
     int? maxTokens,
+    bool? imageCompressionEnabled,
     String? customSystemPrompt,
     String? customUserPrompt,
     bool clearSystemPrompt = false,
@@ -77,6 +82,7 @@ class LlmConfig {
       model: model ?? this.model,
       temperature: temperature ?? this.temperature,
       maxTokens: maxTokens ?? this.maxTokens,
+      imageCompressionEnabled: imageCompressionEnabled ?? this.imageCompressionEnabled,
       customSystemPrompt: clearSystemPrompt ? null : (customSystemPrompt ?? this.customSystemPrompt),
       customUserPrompt: clearUserPrompt ? null : (customUserPrompt ?? this.customUserPrompt),
     );

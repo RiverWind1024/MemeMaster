@@ -77,6 +77,8 @@
   "modeLocalDescription": "在设备端本地运行模型，无需联网，需下载模型文件。",
   "remoteApiConfig": "远程 API 配置",
   "analysisParams": "分析参数",
+  "imageCompression": "图片压缩",
+  "imageCompressionHint": "分析前将图片缩小/压缩，减少 token 消耗。关闭可提升分析质量但增加处理时间",
   "provider": "供应商",
   "openaiCompatible": "OpenAI 兼容",
   "model": "模型",

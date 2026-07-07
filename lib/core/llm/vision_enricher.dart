@@ -35,6 +35,12 @@ class VisionLlmEnricher {
   /// 本地 LLM 缩到 384px（减少 vision encoder 计算量），远程 API 保持 768px（节省 token）
   int get _maxImageDimension => _isLocalLlm ? 384 : 768;
 
+  /// 是否启用图片压缩（用户可关闭以提高分析质量）
+  bool get _compressionEnabled {
+    final cfg = _isLocalLlm ? _localLlmConfig : _llmConfig;
+    return cfg?.imageCompressionEnabled ?? true;
+  }
+
   /// JPEG 编码质量（1-100）
   static const int _jpgQuality = 85;
 
@@ -214,6 +220,13 @@ class VisionLlmEnricher {
   Future<Uint8List> _readAndResizeImage(String imagePath) async {
     final file = File(imagePath);
     final bytes = await file.readAsBytes();
+
+    // 压缩已关闭，直接返回原始图片
+    if (!_compressionEnabled) {
+      _log.info('VisionLLM', '图片压缩已关闭，返回原始文件: ${bytes.length} 字节');
+      return bytes;
+    }
+
     final originalSize = bytes.length;
 
     // 解码图片

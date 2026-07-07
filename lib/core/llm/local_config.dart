@@ -47,6 +47,9 @@ class LocalLlmConfig {
   /// 最大 token 数
   final int maxTokens;
 
+  /// 是否启用图片压缩（分析前将图片缩放/压缩以节省 token）
+  final bool imageCompressionEnabled;
+
   /// 自定义系统提示词（null 则使用默认模板）
   final String? customSystemPrompt;
 
@@ -67,6 +70,7 @@ class LocalLlmConfig {
     this.nUBatch = 256,
     this.temperature = 0.1,
     this.maxTokens = 256,
+    this.imageCompressionEnabled = true,
     this.customSystemPrompt,
     this.customUserPrompt,
   });
@@ -108,6 +112,7 @@ class LocalLlmConfig {
         'nUBatch': nUBatch,
         'temperature': temperature,
         'maxTokens': maxTokens,
+        'imageCompressionEnabled': imageCompressionEnabled,
         if (customSystemPrompt != null) 'customSystemPrompt': customSystemPrompt,
         if (customUserPrompt != null) 'customUserPrompt': customUserPrompt,
       };
@@ -118,21 +123,22 @@ class LocalLlmConfig {
         mmprojPath: json['mmprojPath'] as String?,
         contextSize: json['contextSize'] as int? ?? 2048,
         threads: json['threads'] as int? ?? 0,
-        useGpu: json['useGpu'] as bool? ?? true,
+        useGpu: json['useGpu'] as bool? ?? false,
         flashAttn: FlashAttnMode.values.firstWhere(
           (e) => e.name == json['flashAttn'],
-          orElse: () => FlashAttnMode.auto,
+          orElse: () => FlashAttnMode.enabled,
         ),
         kvCacheType: KvCacheType.values.firstWhere(
           (e) => e.name == json['kvCacheType'],
-          orElse: () => KvCacheType.f16,
+          orElse: () => KvCacheType.q4_0,
         ),
         kvUnified: json['kvUnified'] as bool? ?? true,
         useMmap: json['useMmap'] as bool? ?? false,
         nBatch: json['nBatch'] as int? ?? 512,
         nUBatch: json['nUBatch'] as int? ?? 256,
-        temperature: (json['temperature'] as num?)?.toDouble() ?? 0.3,
+        temperature: (json['temperature'] as num?)?.toDouble() ?? 0.1,
         maxTokens: json['maxTokens'] as int? ?? 256,
+        imageCompressionEnabled: json['imageCompressionEnabled'] as bool? ?? true,
         customSystemPrompt: json['customSystemPrompt'] as String?,
         customUserPrompt: json['customUserPrompt'] as String?,
       );
@@ -151,6 +157,7 @@ class LocalLlmConfig {
     int? nUBatch,
     double? temperature,
     int? maxTokens,
+    bool? imageCompressionEnabled,
     String? customSystemPrompt,
     String? customUserPrompt,
     bool clearSystemPrompt = false,
@@ -170,6 +177,7 @@ class LocalLlmConfig {
       nUBatch: nUBatch ?? this.nUBatch,
       temperature: temperature ?? this.temperature,
       maxTokens: maxTokens ?? this.maxTokens,
+      imageCompressionEnabled: imageCompressionEnabled ?? this.imageCompressionEnabled,
       customSystemPrompt: clearSystemPrompt ? null : (customSystemPrompt ?? this.customSystemPrompt),
       customUserPrompt: clearUserPrompt ? null : (customUserPrompt ?? this.customUserPrompt),
     );
