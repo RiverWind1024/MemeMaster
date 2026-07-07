@@ -50,7 +50,7 @@ class LocalLlmConfig {
     this.flashAttn = FlashAttnMode.auto,
     this.kvCacheType = KvCacheType.f16,
     this.kvUnified = true,
-    this.useMmap = false,
+    this.useMmap = true,
     this.nBatch = 512,
     this.nUBatch = 256,
   });

@@ -118,8 +118,16 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
   Future<void> _deleteSelected() async {
     final count = _selectedIds.length;
+
+    // 安全检查：如果没有选中任何图片，直接返回
+    if (_selectedIds.isEmpty) {
+      _exitSelectionMode();
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
+      barrierDismissible: false, // 防止用户点击外部关闭对话框
       builder: (ctx) => AlertDialog(
         title: Text(S.of(context).confirmDeleteTitle),
         content: Text(S.of(context).confirmDeleteSelected(count)),
@@ -137,21 +145,33 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       ),
     );
 
-    if (confirmed != true) return;
-
-    final repo = ref.read(memeRepositoryProvider);
-    for (final id in _selectedIds) {
-      await repo.delete(id);
+    // 确保 confirmed 为 true 才执行删除
+    if (confirmed != true) {
+      return;
     }
 
-    ref.invalidate(memeListProvider);
-    ref.invalidate(memeCountProvider);
-    _exitSelectionMode();
+    try {
+      final repo = ref.read(memeRepositoryProvider);
+      for (final id in _selectedIds) {
+        await repo.delete(id);
+      }
+      ref.invalidate(memeListProvider);
+      ref.invalidate(memeCountProvider);
+      _exitSelectionMode();
 
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(S.of(context).deletedCountImages(count))),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(S.of(context).deletedCountImages(count))),
+        );
+      }
+    } catch (e) {
+      // 如果删除过程中出错，也退出选择模式并显示错误
+      _exitSelectionMode();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败: $e')),
+        );
+      }
     }
   }
 

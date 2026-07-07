@@ -74,6 +74,20 @@ char* mllm_multimodal_complete(void* handle,
                                int max_tokens,
                                float temperature);
 
+// 多模态对话（使用 chat template）
+// messages_json: JSON 格式的消息数组，含图片的消息 content 须包含 <__media__> 标记
+//   如 [{"role":"user","content":"<__media__>\n请分析这张图片"}]
+// image_data: RGB 像素数据（width*height*3 字节）
+// 返回生成的文本（调用方须 mllm_free_string 释放），失败返回 NULL
+char* mllm_multimodal_chat(void* handle,
+                           const char* messages_json,
+                           const unsigned char* image_data,
+                           size_t image_data_size,
+                           int image_width,
+                           int image_height,
+                           int max_tokens,
+                           float temperature);
+
 // 释放资源
 void mllm_close(void* handle);
 

@@ -19,6 +19,12 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        ndk {
+            // release: 只打包 arm64-v8a（真机用）
+            // debug:  取消下一行注释可额外包含 x86_64（模拟器用）
+            abiFilters += listOf("arm64-v8a")
+            // abiFilters += listOf("x86_64")
+        }
         externalNativeBuild {
             cmake {
                 val llamaDir = System.getenv("LLAMA_CPP_DIR")
@@ -57,15 +63,6 @@ android {
             excludes += listOf(
                 "lib/armeabi-v7a/**"
             )
-        }
-    }
-
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a", "x86_64")
-            isUniversalApk = false
         }
     }
 }

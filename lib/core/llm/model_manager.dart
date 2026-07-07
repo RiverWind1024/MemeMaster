@@ -58,24 +58,39 @@ class PauseException implements Exception {
   String toString() => message;
 }
 
+/// 模型类型
+enum ModelType { normal, projection }
+
 /// 模型信息
 class ModelInfo {
+  /// 完整ID，格式: author/repo/filename
   final String id;
+  final String author;
+  final String repo;
+  final String filename;
   final String name;
   final String description;
   final DownloadSource source;
-  final String ggufUrl;
-  final String? mmprojUrl;
+  final String? ggufUrl;
+  /// 可选的 mmproj URL 列表，支持多版本选择
+  final List<String>? mmprojUrls;
+  final String? defaultMmprojUrl;
   final String sizeLabel;
+  final ModelType modelType;
 
   const ModelInfo({
     required this.id,
+    required this.author,
+    required this.repo,
+    required this.filename,
     required this.name,
     required this.description,
     required this.source,
-    required this.ggufUrl,
-    this.mmprojUrl,
+    this.ggufUrl,
+    this.mmprojUrls,
+    this.defaultMmprojUrl,
     this.sizeLabel = '',
+    this.modelType = ModelType.normal,
   });
 }
 
@@ -86,6 +101,9 @@ class DownloadedModel {
   final String? mmprojPath;
   final int fileSizeBytes;
   final DateTime downloadedAt;
+  final String author;
+  final String repo;
+  final String filename;
 
   const DownloadedModel({
     required this.id,
@@ -93,6 +111,9 @@ class DownloadedModel {
     this.mmprojPath,
     required this.fileSizeBytes,
     required this.downloadedAt,
+    required this.author,
+    required this.repo,
+    required this.filename,
   });
 }
 
@@ -115,19 +136,30 @@ class ModelManager {
   /// 预设推荐模型列表（按下载源分组）
   static const Map<DownloadSource, List<ModelInfo>> recommendedModels = {
     DownloadSource.huggingface: [
+      // -------- Qwen2-VL --------
       ModelInfo(
-        id: 'qwen2-vl-2b-instruct-q4_k_m',
+        id: 'Qwen/Qwen2-VL-2B-Instruct-GGUF/qwen2-vl-2b-instruct-q4_k_m.gguf',
+        author: 'Qwen',
+        repo: 'Qwen2-VL-2B-Instruct-GGUF',
+        filename: 'qwen2-vl-2b-instruct-q4_k_m.gguf',
         source: DownloadSource.huggingface,
         name: 'Qwen2-VL 2B',
         description: '阿里通义多模态，中文优秀，适合手机端推理',
         ggufUrl:
             'https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct-GGUF/resolve/main/qwen2-vl-2b-instruct-q4_k_m.gguf',
-        mmprojUrl:
+        mmprojUrls: [
+          'https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct-GGUF/resolve/main/mmproj-qwen2-vl-2b-instruct-f16.gguf',
+        ],
+        defaultMmprojUrl:
             'https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct-GGUF/resolve/main/mmproj-qwen2-vl-2b-instruct-f16.gguf',
         sizeLabel: '~1.8 GB',
       ),
+      // -------- Moondream --------
       ModelInfo(
-        id: 'moondream-2b-q4_k_m',
+        id: 'vikhyatk/moondream2-GGUF/moondream2-q4_k_m.gguf',
+        author: 'vikhyatk',
+        repo: 'moondream2-GGUF',
+        filename: 'moondream2-q4_k_m.gguf',
         source: DownloadSource.huggingface,
         name: 'Moondream 2B',
         description: '轻量多模态，专为图片描述优化',
@@ -135,27 +167,103 @@ class ModelManager {
             'https://huggingface.co/vikhyatk/moondream2-GGUF/resolve/main/moondream2-q4_k_m.gguf',
         sizeLabel: '~1.2 GB',
       ),
+      // -------- Qwen3.5 VL --------
+      ModelInfo(
+        id: 'unsloth/Qwen3.5-2B-GGUF/Qwen3.5-2B-Q4_K_M.gguf',
+        author: 'unsloth',
+        repo: 'Qwen3.5-2B-GGUF',
+        filename: 'Qwen3.5-2B-Q4_K_M.gguf',
+        source: DownloadSource.huggingface,
+        name: 'Qwen3.5 2B',
+        description: '阿里最新多模态，中文优秀，支持图片理解',
+        ggufUrl:
+            'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf',
+        mmprojUrls: [
+          'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf',
+          'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-BF16.gguf',
+        ],
+        defaultMmprojUrl:
+            'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf',
+        sizeLabel: '~1.8 GB（含 mmproj）',
+      ),
+      // -------- mmproj 模型 (PocketPal 风格独立模型) --------
+      ModelInfo(
+        id: 'Qwen/Qwen2-VL-2B-Instruct-GGUF/mmproj-qwen2-vl-2b-instruct-f16.gguf',
+        author: 'Qwen',
+        repo: 'Qwen2-VL-2B-Instruct-GGUF',
+        filename: 'mmproj-qwen2-vl-2b-instruct-f16.gguf',
+        source: DownloadSource.huggingface,
+        name: 'Qwen2-VL mmproj (f16)',
+        description: 'Qwen2-VL 视觉投影器',
+        ggufUrl:
+            'https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct-GGUF/resolve/main/mmproj-qwen2-vl-2b-instruct-f16.gguf',
+        sizeLabel: '~668 MB',
+        modelType: ModelType.projection,
+      ),
+      ModelInfo(
+        id: 'unsloth/Qwen3.5-2B-GGUF/mmproj-F16.gguf',
+        author: 'unsloth',
+        repo: 'Qwen3.5-2B-GGUF',
+        filename: 'mmproj-F16.gguf',
+        source: DownloadSource.huggingface,
+        name: 'Qwen3.5 mmproj (F16)',
+        description: 'Qwen3.5 视觉投影器',
+        ggufUrl:
+            'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf',
+        sizeLabel: '~668 MB',
+        modelType: ModelType.projection,
+      ),
+      ModelInfo(
+        id: 'unsloth/Qwen3.5-2B-GGUF/mmproj-BF16.gguf',
+        author: 'unsloth',
+        repo: 'Qwen3.5-2B-GGUF',
+        filename: 'mmproj-BF16.gguf',
+        source: DownloadSource.huggingface,
+        name: 'Qwen3.5 mmproj (BF16)',
+        description: 'Qwen3.5 视觉投影器（BF16精度）',
+        ggufUrl:
+            'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-BF16.gguf',
+        sizeLabel: '~671 MB',
+        modelType: ModelType.projection,
+      ),
     ],
     DownloadSource.modelscope: [
+
+
+      // -------- Qwen3.5 VL (ModelScope) --------
       ModelInfo(
-        id: 'qwen2-vl-2b-instruct-q4_k_m',
+        id: 'unsloth/Qwen3.5-2B-GGUF/Qwen3.5-2B-Q4_K_M.gguf',
+        author: 'unsloth',
+        repo: 'Qwen3.5-2B-GGUF',
+        filename: 'Qwen3.5-2B-Q4_K_M.gguf',
         source: DownloadSource.modelscope,
-        name: 'Qwen2-VL 2B',
-        description: '阿里通义多模态，中文优秀（ModelScope 镜像）',
+        name: 'Qwen3.5 2B',
+        description: '阿里最新多模态，中文优秀，支持图片理解（需下载 mmproj）',
         ggufUrl:
-            'https://modelscope.cn/models/AI-ModelScope/Qwen2-VL-2B-Instruct-GGUF/resolve/main/Qwen2-VL-2B-Instruct-Q4_K_M.gguf',
-        // ModelScope 仓库不含 mmproj 文件，仅 HuggingFace 源提供
-        sizeLabel: '~1.0 GB',
+            'https://modelscope.cn/models/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf',
+        mmprojUrls: [
+          'https://modelscope.cn/models/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf',
+          'https://modelscope.cn/models/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-BF16.gguf',
+        ],
+        defaultMmprojUrl:
+            'https://modelscope.cn/models/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf',
+        sizeLabel: '~1.8 GB（含 mmproj）',
       ),
+      // -------- mmproj 模型 (ModelScope) --------
       ModelInfo(
-        id: 'moondream-2b-q4_k_m',
+        id: 'unsloth/Qwen3.5-2B-GGUF/mmproj-F16.gguf',
+        author: 'unsloth',
+        repo: 'Qwen3.5-2B-GGUF',
+        filename: 'mmproj-F16.gguf',
         source: DownloadSource.modelscope,
-        name: 'Moondream 2B',
-        description: '轻量多模态，专为图片描述优化（ModelScope 镜像）',
+        name: 'Qwen3.5 mmproj (F16)',
+        description: 'Qwen3.5 视觉投影器',
         ggufUrl:
-            'https://modelscope.cn/models/AI-ModelScope/moondream2-GGUF/resolve/main/moondream2-q4_k_m.gguf',
-        sizeLabel: '~1.2 GB',
+            'https://modelscope.cn/models/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf',
+        sizeLabel: '~668 MB',
+        modelType: ModelType.projection,
       ),
+
     ],
   };
 
@@ -167,40 +275,87 @@ class ModelManager {
     return id.replaceAll('/', '_');
   }
 
+  /// 从完整 ID (author/repo/filename) 中解析各部分
+  /// 例如: "unsloth/Qwen3.5-2B-GGUF/mmproj-F16.gguf" -> (author, repo, filename)
+  static (String author, String repo, String filename) parseModelId(String id) {
+    final parts = id.split('/');
+    if (parts.length >= 3) {
+      return (parts[0], parts[1], parts.sublist(2).join('/'));
+    } else if (parts.length == 2) {
+      return (parts[0], parts[1], '');
+    } else {
+      return ('', id, '');
+    }
+  }
+
+  /// 构建存储路径: {storageDir}/{author}/{repo}/{filename}
+  static String buildStoragePath(String storageDir, String author, String repo, String filename) {
+    return p.join(storageDir, author, repo, filename);
+  }
+
+  /// 从存储路径解析出 (author, repo, filename)
+  static (String author, String repo, String filename)? parseStoragePath(String storageDir, String path) {
+    if (!path.startsWith(storageDir)) return null;
+    final relative = path.substring(storageDir.length).replaceAll('\\', '/');
+    final parts = relative.split('/').where((p) => p.isNotEmpty).toList();
+    if (parts.length >= 3) {
+      return (parts[0], parts[1], parts.sublist(2).join('/'));
+    }
+    return null;
+  }
+
   /// 下载模型（带进度回调与取消支持）
   ///
   /// 返回下载的文件路径，用于UI更新。
+  /// 使用 PocketPal 风格路径: {storageDir}/{author}/{repo}/{filename}
   Future<String> downloadModel(
     ModelInfo info, {
     void Function(double progress)? onProgress,
     CancelToken? cancelToken,
   }) async {
-    final safeId = sanitizeId(info.id);
-    final mainPath = p.join(_storageDir, '$safeId.gguf');
-    _log?.info(_tag, 'downloadModel 开始: id=${info.id}, url=${info.ggufUrl}');
+    // 使用新的路径结构
+    final storagePath = buildStoragePath(_storageDir, info.author, info.repo, info.filename);
+    _log?.info(_tag, 'downloadModel 开始: id=${info.id}, path=$storagePath');
 
-    // 下载主模型文件
-    await _downloadFile(
-      url: info.ggufUrl,
-      destPath: mainPath,
-      onProgress: onProgress,
-      cancelToken: cancelToken,
-    );
-
-    // 下载 mmproj 文件（如果有）
-    if (info.mmprojUrl != null) {
-      _log?.info(_tag, 'downloadModel 开始下载 mmproj: url=${info.mmprojUrl}');
-      final mmprojPath = p.join(_storageDir, 'mmproj-$safeId.gguf');
+    // 下载模型文件
+    if (info.ggufUrl != null) {
       await _downloadFile(
-        url: info.mmprojUrl!,
-        destPath: mmprojPath,
+        url: info.ggufUrl!,
+        destPath: storagePath,
         onProgress: onProgress,
         cancelToken: cancelToken,
       );
     }
 
-    _log?.info(_tag, 'downloadModel 完成: path=$mainPath');
-    return mainPath;
+    _log?.info(_tag, 'downloadModel 完成: path=$storagePath');
+    return storagePath;
+  }
+
+  /// 下载 mmproj 文件（如果有配置）
+  Future<String?> downloadMmproj(
+    ModelInfo info, {
+    void Function(double progress)? onProgress,
+    CancelToken? cancelToken,
+  }) async {
+    if (info.defaultMmprojUrl == null) return null;
+
+    // 从 URL 解析文件名
+    final urlUri = Uri.parse(info.defaultMmprojUrl!);
+    final segments = urlUri.pathSegments;
+    final mmprojFilename = segments.isNotEmpty ? segments.last : 'mmproj.gguf';
+
+    final mmprojPath = buildStoragePath(_storageDir, info.author, info.repo, mmprojFilename);
+    _log?.info(_tag, 'downloadMmproj 开始: path=$mmprojPath');
+
+    await _downloadFile(
+      url: info.defaultMmprojUrl!,
+      destPath: mmprojPath,
+      onProgress: onProgress,
+      cancelToken: cancelToken,
+    );
+
+    _log?.info(_tag, 'downloadMmproj 完成: path=$mmprojPath');
+    return mmprojPath;
   }
 
   /// 单个文件的断点续传下载
@@ -364,48 +519,110 @@ class ModelManager {
   }
 
   /// 获取已下载的模型列表
+  /// 递归扫描 {storageDir}/{author}/{repo}/ 下的所有 .gguf 文件
   List<DownloadedModel> getDownloadedModels() {
     final dir = Directory(_storageDir);
     if (!dir.existsSync()) return [];
 
-    return dir.listSync().whereType<File>().where((f) {
-      return f.path.endsWith('.gguf') && !f.path.endsWith('.download');
-    }).map((f) {
-      final name = p.basenameWithoutExtension(f.path);
-      final mmproj = File(p.join(_storageDir, 'mmproj-$name.gguf'));
-      return DownloadedModel(
-        id: name,
-        modelPath: f.path,
-        mmprojPath: mmproj.existsSync() ? mmproj.path : null,
-        fileSizeBytes: f.lengthSync(),
-        downloadedAt: f.lastModifiedSync(),
-      );
-    }).toList();
+    final result = <DownloadedModel>[];
+
+    // 递归扫描所有子目录
+    for (final authorDir in dir.listSync().whereType<Directory>()) {
+      for (final repoDir in authorDir.listSync().whereType<Directory>()) {
+        for (final file in repoDir.listSync().whereType<File>()) {
+          if (!file.path.endsWith('.gguf') || file.path.endsWith('.download')) {
+            continue;
+          }
+
+          final filename = p.basename(file.path);
+          final author = p.basename(authorDir.path);
+          final repo = p.basename(repoDir.path);
+          final id = '$author/$repo/$filename';
+
+          // 查找同目录下的 mmproj 文件
+          String? mmprojPath;
+          for (final sibling in repoDir.listSync().whereType<File>()) {
+            if (sibling.path.endsWith('.gguf') &&
+                sibling.path.contains('mmproj') &&
+                !sibling.path.endsWith('.download')) {
+              mmprojPath = sibling.path;
+              break;
+            }
+          }
+
+          result.add(DownloadedModel(
+            id: id,
+            modelPath: file.path,
+            mmprojPath: mmprojPath,
+            fileSizeBytes: file.lengthSync(),
+            downloadedAt: file.lastModifiedSync(),
+            author: author,
+            repo: repo,
+            filename: filename,
+          ));
+        }
+      }
+    }
+
+    return result;
   }
 
   /// 删除模型
+  /// 根据 ID (author/repo/filename) 删除文件及同目录下的 mmproj
   Future<void> deleteModel(String modelId) async {
-    final safeId = sanitizeId(modelId);
-    final modelFile = File(p.join(_storageDir, '$safeId.gguf'));
-    if (await modelFile.exists()) await modelFile.delete();
+    final (author, repo, filename) = parseModelId(modelId);
+    if (author.isEmpty || repo.isEmpty || filename.isEmpty) {
+      _log?.warning(_tag, 'deleteModel: 无效的 modelId: $modelId');
+      return;
+    }
 
-    final mmprojFile = File(p.join(_storageDir, 'mmproj-$safeId.gguf'));
-    if (await mmprojFile.exists()) await mmprojFile.delete();
+    final modelPath = buildStoragePath(_storageDir, author, repo, filename);
+    final modelFile = File(modelPath);
+    if (await modelFile.exists()) {
+      await modelFile.delete();
+      _log?.info(_tag, 'deleteModel: 已删除 $modelPath');
+    }
+
+    // 删除同目录下的 mmproj 文件
+    final repoDir = Directory(p.join(_storageDir, author, repo));
+    if (await repoDir.exists()) {
+      for (final file in repoDir.listSync().whereType<File>()) {
+        if (file.path.contains('mmproj') && file.path.endsWith('.gguf')) {
+          await file.delete();
+          _log?.info(_tag, 'deleteModel: 已删除 mmproj ${file.path}');
+        }
+      }
+    }
 
     // 清理残留的临时文件
-    final tempFile = File(p.join(_storageDir, '$safeId.gguf.download'));
+    final tempFile = File('$modelPath.download');
     if (await tempFile.exists()) await tempFile.delete();
   }
 
   /// 列出指定模型在存储目录中的所有相关文件
   /// （主模型 .gguf、mmproj、临时 .download 等）
   Future<List<File>> listModelFiles(String modelId) async {
-    final safeId = sanitizeId(modelId);
+    final (author, repo, filename) = parseModelId(modelId);
+    if (author.isEmpty || repo.isEmpty) {
+      return [];
+    }
+
+    final modelPath = buildStoragePath(_storageDir, author, repo, filename);
     final candidates = [
-      File(p.join(_storageDir, '$safeId.gguf')),
-      File(p.join(_storageDir, 'mmproj-$safeId.gguf')),
-      File(p.join(_storageDir, '$safeId.gguf.download')),
+      File(modelPath),
+      File('$modelPath.download'),
     ];
+
+    // 添加同目录下的 mmproj 文件
+    final repoDir = Directory(p.join(_storageDir, author, repo));
+    if (await repoDir.exists()) {
+      for (final file in repoDir.listSync().whereType<File>()) {
+        if (file.path.contains('mmproj') && file.path.endsWith('.gguf')) {
+          candidates.add(file);
+        }
+      }
+    }
+
     final result = <File>[];
     for (final f in candidates) {
       if (await f.exists()) result.add(f);

@@ -380,12 +380,14 @@ class _AiChip extends ConsumerWidget {
   const _AiChip({required this.memeId});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final enabled = ref.watch(llmEnabledProvider);
+    // 检查 AI 是否真正可用（而不仅仅是手动开关）
+    final llmService = ref.watch(llmServiceProvider);
+    final aiAvailable = llmService != null && llmService.isAvailable;
     return Row(children: [
-      Icon(Icons.auto_awesome, size: 14, color: enabled ? Colors.purple : Colors.grey),
+      Icon(Icons.auto_awesome, size: 14, color: aiAvailable ? Colors.purple : Colors.grey),
       const SizedBox(width: 6),
-      Text(enabled ? S.of(context).aiEnabled : S.of(context).aiDisabled,
-          style: TextStyle(fontSize: 13, color: enabled ? Colors.purple : Colors.grey)),
+      Text(aiAvailable ? S.of(context).aiEnabled : S.of(context).aiDisabled,
+          style: TextStyle(fontSize: 13, color: aiAvailable ? Colors.purple : Colors.grey)),
     ]);
   }
 }
