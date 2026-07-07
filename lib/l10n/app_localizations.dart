@@ -445,6 +445,18 @@ abstract class S {
   /// **'分析参数'**
   String get analysisParams;
 
+  /// No description provided for @imageCompression.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片压缩'**
+  String get imageCompression;
+
+  /// No description provided for @imageCompressionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'分析前将图片缩小/压缩，减少 token 消耗。关闭可提升分析质量但增加处理时间'**
+  String get imageCompressionHint;
+
   /// No description provided for @provider.
   ///
   /// In zh, this message translates to:

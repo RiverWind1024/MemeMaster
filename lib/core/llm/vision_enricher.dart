@@ -37,7 +37,8 @@ class VisionLlmEnricher {
 
   /// 是否启用图片压缩（用户可关闭以提高分析质量）
   bool get _compressionEnabled {
-    final cfg = _isLocalLlm ? _localLlmConfig : _llmConfig;
+    // LlmConfig 和 LocalLlmConfig 字段相同，用 dynamic 避免联合类型问题
+    final dynamic cfg = _isLocalLlm ? _localLlmConfig : _llmConfig;
     return cfg?.imageCompressionEnabled ?? true;
   }
 

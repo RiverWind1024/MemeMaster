@@ -215,6 +215,13 @@ class SEn extends S {
   String get analysisParams => 'Analysis Parameters';
 
   @override
+  String get imageCompression => 'Image Compression';
+
+  @override
+  String get imageCompressionHint =>
+      'Resize/compress images before analysis to reduce token usage. Disable for better quality but slower processing';
+
+  @override
   String get provider => 'Provider';
 
   @override
