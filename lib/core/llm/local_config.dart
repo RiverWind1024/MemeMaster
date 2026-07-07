@@ -41,6 +41,18 @@ class LocalLlmConfig {
   /// ubatch 大小
   final int nUBatch;
 
+  /// 温度（控制随机性）
+  final double temperature;
+
+  /// 最大 token 数
+  final int maxTokens;
+
+  /// 自定义系统提示词（null 则使用默认模板）
+  final String? customSystemPrompt;
+
+  /// 自定义用户提示词（null 则使用默认模板）
+  final String? customUserPrompt;
+
   const LocalLlmConfig({
     this.modelPath,
     this.mmprojPath,
@@ -53,6 +65,10 @@ class LocalLlmConfig {
     this.useMmap = true,
     this.nBatch = 512,
     this.nUBatch = 256,
+    this.temperature = 0.3,
+    this.maxTokens = 256,
+    this.customSystemPrompt,
+    this.customUserPrompt,
   });
 
   /// 实际使用的线程数（自动检测时根据 CPU 核数计算）
@@ -90,6 +106,10 @@ class LocalLlmConfig {
         'useMmap': useMmap,
         'nBatch': nBatch,
         'nUBatch': nUBatch,
+        'temperature': temperature,
+        'maxTokens': maxTokens,
+        if (customSystemPrompt != null) 'customSystemPrompt': customSystemPrompt,
+        if (customUserPrompt != null) 'customUserPrompt': customUserPrompt,
       };
 
   factory LocalLlmConfig.fromJson(Map<String, dynamic> json) =>
@@ -111,6 +131,10 @@ class LocalLlmConfig {
         useMmap: json['useMmap'] as bool? ?? false,
         nBatch: json['nBatch'] as int? ?? 512,
         nUBatch: json['nUBatch'] as int? ?? 256,
+        temperature: (json['temperature'] as num?)?.toDouble() ?? 0.3,
+        maxTokens: json['maxTokens'] as int? ?? 256,
+        customSystemPrompt: json['customSystemPrompt'] as String?,
+        customUserPrompt: json['customUserPrompt'] as String?,
       );
 
   LocalLlmConfig copyWith({
@@ -125,6 +149,12 @@ class LocalLlmConfig {
     bool? useMmap,
     int? nBatch,
     int? nUBatch,
+    double? temperature,
+    int? maxTokens,
+    String? customSystemPrompt,
+    String? customUserPrompt,
+    bool clearSystemPrompt = false,
+    bool clearUserPrompt = false,
   }) {
     return LocalLlmConfig(
       modelPath: modelPath ?? this.modelPath,
@@ -138,6 +168,10 @@ class LocalLlmConfig {
       useMmap: useMmap ?? this.useMmap,
       nBatch: nBatch ?? this.nBatch,
       nUBatch: nUBatch ?? this.nUBatch,
+      temperature: temperature ?? this.temperature,
+      maxTokens: maxTokens ?? this.maxTokens,
+      customSystemPrompt: clearSystemPrompt ? null : (customSystemPrompt ?? this.customSystemPrompt),
+      customUserPrompt: clearUserPrompt ? null : (customUserPrompt ?? this.customUserPrompt),
     );
   }
 }
