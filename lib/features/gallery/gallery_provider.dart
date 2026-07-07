@@ -684,12 +684,14 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
           ...state,
           mmprojTaskId: DownloadState(modelId: mmprojTaskId, status: DownloadStatus.downloading),
         };
-        // 并行下载 mmproj
-        _runMmprojDownload(mmprojTaskId);
+        // 等待 mmproj 下载完成后再触发主模型完成
+        await _runMmprojDownload(mmprojTaskId);
+        completeDownload(taskId);
+        task.onComplete?.call(taskId);
+      } else {
+        completeDownload(taskId);
+        task.onComplete?.call(taskId);
       }
-
-      completeDownload(taskId);
-      task.onComplete?.call(taskId);
     }).catchError((e) {
       // 暂停不算失败（用户后续会 resume）
       if (e is PauseException) return;
@@ -701,7 +703,7 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
     });
   }
 
-  void _runMmprojDownload(String taskId) {
+  Future<void> _runMmprojDownload(String taskId) {
     final task = _tasks[taskId];
     if (task == null) return;
     final token = _cancelTokens[taskId];

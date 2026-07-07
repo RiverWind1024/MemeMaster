@@ -23,11 +23,46 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
   String _defaultSystemPrompt = '';
   String _defaultUserPrompt = '';
   bool _loaded = false;
+  late TextEditingController _systemController;
+  late TextEditingController _userController;
+  bool _syncingText = false; // guard: 防止 didUpdateWidget 更新 controller 时触发 onChanged
 
   @override
   void initState() {
     super.initState();
+    _systemController = TextEditingController();
+    _userController = TextEditingController();
     _loadDefaultPrompts();
+  }
+
+  @override
+  void didUpdateWidget(AiAnalysisConfigScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 恢复默认时，同步 controller 文本（加 guard 防止覆盖用户正在输入的内容）
+    if (_loaded && !_syncingText && _defaultSystemPrompt.isNotEmpty) {
+      _syncingText = true;
+      final mode = ref.read(llmModeProvider);
+      final isRemote = mode == LlmMode.remote;
+      final dynamic cfg = isRemote
+          ? ref.read(llmConfigProvider)
+          : ref.read(localLlmConfigProvider);
+      final newSys = cfg.customSystemPrompt ?? _defaultSystemPrompt;
+      final newUsr = cfg.customUserPrompt ?? _defaultUserPrompt;
+      if (_systemController.text != newSys) {
+        _systemController.text = newSys;
+      }
+      if (_userController.text != newUsr) {
+        _userController.text = newUsr;
+      }
+      _syncingText = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _systemController.dispose();
+    _userController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadDefaultPrompts() async {
@@ -43,6 +78,9 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
           _defaultSystemPrompt = system;
           _defaultUserPrompt = user;
           _loaded = true;
+          // 初始化 controller 文本
+          _systemController.text = system;
+          _userController.text = user;
         });
       }
     } catch (_) {}
@@ -248,11 +286,11 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                         ),
                         const SizedBox(height: 8),
                         TextFormField(
-                          key: ValueKey('sysprompt_${config.customSystemPrompt ?? "default"}'),
-                          initialValue: effectiveSystem,
+                          controller: _systemController,
                           decoration: const InputDecoration(border: OutlineInputBorder()),
                           maxLines: 6,
                           onChanged: (v) {
+                            if (_syncingText) return;
                             final trimmed = v.trim();
                             if (trimmed == _defaultSystemPrompt) {
                               _updateConfig(ref, isRemote, config.copyWith(clearSystemPrompt: true));
@@ -302,11 +340,11 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                         ),
                         const SizedBox(height: 8),
                         TextFormField(
-                          key: ValueKey('userprompt_${config.customUserPrompt ?? "default"}'),
-                          initialValue: effectiveUser,
+                          controller: _userController,
                           decoration: const InputDecoration(border: OutlineInputBorder()),
                           maxLines: 2,
                           onChanged: (v) {
+                            if (_syncingText) return;
                             final trimmed = v.trim();
                             if (trimmed == _defaultUserPrompt) {
                               _updateConfig(ref, isRemote, config.copyWith(clearUserPrompt: true));
