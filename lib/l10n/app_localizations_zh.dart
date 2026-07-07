@@ -209,6 +209,12 @@ class SZh extends S {
   String get analysisParams => '分析参数';
 
   @override
+  String get imageCompression => '图片压缩';
+
+  @override
+  String get imageCompressionHint => '分析前将图片缩小/压缩，减少 token 消耗。关闭可提升分析质量但增加处理时间';
+
+  @override
   String get provider => '供应商';
 
   @override
