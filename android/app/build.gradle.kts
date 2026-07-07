@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.memehelper.app"
+    namespace = "com.mememaster.app"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -14,7 +14,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.memehelper.app"
+        applicationId = "com.mememaster.app"
         minSdk = 26
         targetSdk = 36
         versionCode = flutter.versionCode

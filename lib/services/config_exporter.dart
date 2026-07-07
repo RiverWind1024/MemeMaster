@@ -90,14 +90,14 @@ class ConfigExporter {
     if (Platform.isAndroid || Platform.isIOS) {
       // 移动平台：保存到文档目录，然后通过分享发送
       final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/memehelper_config.json');
+      final file = File('${dir.path}/mememaster_config.json');
       await file.writeAsString(jsonContent, flush: true);
-      await Share.shareXFiles([XFile(file.path)], text: 'MemeHelper 配置');
+      await Share.shareXFiles([XFile(file.path)], text: 'MemeMaster 配置');
       return file.path;
     }
     // 桌面平台：使用系统文件选择器
     final location = await getSaveLocation(
-      suggestedName: 'memehelper_config.json',
+      suggestedName: 'mememaster_config.json',
     );
     final path = location?.path;
     if (path == null) return null;
@@ -109,9 +109,9 @@ class ConfigExporter {
   static Future<void> exportViaShare(String jsonContent) async {
     // 先写入临时文件
     final tmpDir = Directory.systemTemp;
-    final tmpFile = File('${tmpDir.path}/memehelper_config.json');
+    final tmpFile = File('${tmpDir.path}/mememaster_config.json');
     await tmpFile.writeAsString(jsonContent, flush: true);
-    await Share.shareXFiles([XFile(tmpFile.path)], text: 'MemeHelper 配置');
+    await Share.shareXFiles([XFile(tmpFile.path)], text: 'MemeMaster 配置');
   }
 
   /// 从文件读取并解析配置

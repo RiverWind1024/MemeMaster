@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
 class ClipboardService {
-  static const _channel = MethodChannel('com.memehelper.app/clipboard');
+  static const _channel = MethodChannel('com.mememaster.app/clipboard');
 
   static Future<String?> readText() async {
     try {

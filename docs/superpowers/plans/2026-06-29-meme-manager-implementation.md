@@ -1,4 +1,4 @@
-# MemeHelper 实现计划（一期 · Android）
+# MemeMaster 实现计划（一期 · Android）
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -17,7 +17,7 @@
 ### 创建的文件结构
 
 ```
-meme_helper/
+meme_master/
 ├── lib/
 │   ├── main.dart
 │   ├── app.dart                                  # MaterialApp + 路由 + ProviderScope
@@ -141,7 +141,7 @@ meme_helper/
 │   │   │   └── arm64-v8a/
 │   │   │       ├── libllama.so                   # llama.cpp 编译产物 (Phase 5)
 │   │   │       └── libggml.so
-│   │   ├── kotlin/.../MemeHelperPlugin.kt        # Platform channel 实现 (Phase 4)
+│   │   ├── kotlin/.../MemeMasterPlugin.kt        # Platform channel 实现 (Phase 4)
 │   │   └── AndroidManifest.xml
 │   └── ...
 │
@@ -159,11 +159,11 @@ meme_helper/
 ### Task 0.1: Flutter 项目初始化
 
 **Files:**
-- Create: `meme_helper/` (Flutter project root)
+- Create: `meme_master/` (Flutter project root)
 
 - [ ] **Step 1: 创建 Flutter 项目**
 
-Run: `flutter create --org com.memehelper --platforms android --project-name meme_helper meme_helper`
+Run: `flutter create --org com.mememaster --platforms android --project-name meme_master meme_master`
 Expected: 项目创建成功，`flutter run` 可显示默认 counter 页面
 
 - [ ] **Step 2: 添加 pubspec.yaml 所有依赖**
@@ -794,14 +794,14 @@ class MemeList extends _$MemeList {
 
 **Files:**
 - Create: `lib/core/platform/platform_channels.dart`
-- Create: (Android) `android/app/src/main/kotlin/.../MemeHelperPlugin.kt`
+- Create: (Android) `android/app/src/main/kotlin/.../MemeMasterPlugin.kt`
 
 - [ ] **Step 1: 定义 Flutter 端 MethodChannel**
 
 ```dart
 // lib/core/platform/platform_channels.dart
 class OcrChannel {
-  static const _channel = MethodChannel('meme_helper/ocr');
+  static const _channel = MethodChannel('meme_master/ocr');
 
   static Future<List<OcrResult>> recognizeText(String imagePath) async {
     final results = await _channel.invokeMethod('recognizeText', {
@@ -812,7 +812,7 @@ class OcrChannel {
 }
 
 class FilePickerChannel {
-  static const _channel = MethodChannel('meme_helper/file_picker');
+  static const _channel = MethodChannel('meme_master/file_picker');
 
   static Future<List<String>> pickImages() async { ... }
 }
@@ -823,8 +823,8 @@ class FilePickerChannel {
 **Reference:** `08-platform-channels.md` Kotlin 代码
 
 ```kotlin
-// MemeHelperPlugin.kt
-class MemeHelperPlugin : FlutterPlugin, MethodCallHandler {
+// MemeMasterPlugin.kt
+class MemeMasterPlugin : FlutterPlugin, MethodCallHandler {
   override fun onMethodCall(call: MethodCall, result: Result) {
     when (call.method) {
       "recognizeText" -> {
@@ -978,7 +978,7 @@ make -j$(nproc)
 - [ ] **Step 3: 复制 .so 到 Flutter 项目**
 
 ```bash
-cp libllama.so libggml.so ../meme_helper/android/app/src/main/jniLibs/arm64-v8a/
+cp libllama.so libggml.so ../meme_master/android/app/src/main/jniLibs/arm64-v8a/
 ```
 
 ### Task 5.2: Dart FFI 绑定
