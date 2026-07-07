@@ -63,6 +63,8 @@
   "modeLocalDescription": "Run models locally on device. No internet needed, but requires model download.",
   "remoteApiConfig": "Remote API Configuration",
   "analysisParams": "Analysis Parameters",
+  "imageCompression": "Image Compression",
+  "imageCompressionHint": "Resize/compress images before analysis to reduce token usage. Disable for better quality but slower processing",
   "provider": "Provider",
   "openaiCompatible": "OpenAI Compatible",
   "model": "Model",

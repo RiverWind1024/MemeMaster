@@ -563,6 +563,24 @@ class _AnalysisParamsCard extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
+                // 图片压缩开关
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(S.of(context).imageCompression),
+                  subtitle: Text(
+                    S.of(context).imageCompressionHint,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  value: config.imageCompressionEnabled,
+                  onChanged: (v) => _updateConfig(
+                    ref,
+                    isRemote,
+                    config.copyWith(imageCompressionEnabled: v),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 // Max Tokens
                 Row(
                   children: [
