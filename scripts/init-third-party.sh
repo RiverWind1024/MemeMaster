@@ -20,6 +20,8 @@ mkdir -p "$THIRD_PARTY"
 # 格式: "仓库名:GitHub URL:Gitee 镜像 URL"
 declare -A DEPS=(
     ["llama.cpp"]="https://github.com/ggml-org/llama.cpp.git:https://gitee.com/你的用户名/llama.cpp.git"
+    ["OpenCL-Headers"]="https://github.com/KhronosGroup/OpenCL-Headers.git:none"
+    ["OpenCL-ICD-Loader"]="https://github.com/KhronosGroup/OpenCL-ICD-Loader.git:none"
 )
 
 # 日志颜色
