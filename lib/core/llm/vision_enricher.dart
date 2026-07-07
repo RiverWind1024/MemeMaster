@@ -135,7 +135,8 @@ class VisionLlmEnricher {
     final userPrompt = await _loadPrompt(userFile, locale);
 
     // 使用配置的参数（优先用本地配置，再用远程配置，都没有则用默认值）
-    final effectiveConfig = _isLocalLlm ? _localLlmConfig : _llmConfig;
+    // LlmConfig 和 LocalLlmConfig 字段相同，用 dynamic 避免联合类型问题
+    final dynamic effectiveConfig = _isLocalLlm ? _localLlmConfig : _llmConfig;
     final temperature = effectiveConfig?.temperature ?? 0.3;
     final maxTokens = effectiveConfig?.maxTokens ?? 256;
     // 自定义 prompt 覆盖默认模板
