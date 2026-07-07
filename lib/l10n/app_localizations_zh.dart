@@ -318,6 +318,9 @@ class SZh extends S {
   String get aiTagsDescription => 'AI 标签与描述';
 
   @override
+  String get aiConfig => 'AI 配置';
+
+  @override
   String get llmOff => '已关闭';
 
   @override

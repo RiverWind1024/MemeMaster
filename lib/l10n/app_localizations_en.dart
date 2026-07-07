@@ -327,6 +327,9 @@ class SEn extends S {
   String get aiTagsDescription => 'AI Tags & Description';
 
   @override
+  String get aiConfig => 'AI Config';
+
+  @override
   String get llmOff => 'Off';
 
   @override
