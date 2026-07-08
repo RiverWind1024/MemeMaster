@@ -10,14 +10,6 @@ typedef MllmGetLogsDart = Pointer<Utf8> Function(int, Pointer<Uint64>);
 typedef MllmIsMtmdLoadedC = Int32 Function(Pointer<Void>);
 typedef MllmIsMtmdLoadedDart = int Function(Pointer<Void>);
 
-typedef MllmCompleteC = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>, Int32, Float);
-typedef MllmCompleteDart = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>, int, double);
-
-typedef MllmMultimodalCompleteC = Pointer<Utf8> Function(
-    Pointer<Void>, Pointer<Utf8>, Pointer<Uint8>, Uint64, Int32, Int32, Int32, Float);
-typedef MllmMultimodalCompleteDart = Pointer<Utf8> Function(
-    Pointer<Void>, Pointer<Utf8>, Pointer<Uint8>, int, int, int, int, double);
-
 typedef MllmMultimodalChatC = Pointer<Utf8> Function(
     Pointer<Void>, Pointer<Utf8>, Pointer<Uint8>, Uint64, Int32, Int32, Int32, Float);
 typedef MllmMultimodalChatDart = Pointer<Utf8> Function(
@@ -29,18 +21,6 @@ typedef MllmCloseDart = void Function(Pointer<Void>);
 typedef MllmFreeStringC = Void Function(Pointer<Utf8>);
 typedef MllmFreeStringDart = void Function(Pointer<Utf8>);
 
-// Streaming API
-typedef MllmTokenCallbackC = Int32 Function(Pointer<Utf8>, Pointer<Void>);
-typedef MllmTokenCallbackDart = int Function(Pointer<Utf8>, Pointer<Void>);
-
-typedef MllmCompleteStreamC = Int32 Function(
-    Pointer<Void>, Pointer<Utf8>, Int32, Float, Pointer<NativeFunction<MllmTokenCallbackC>>, Pointer<Void>);
-typedef MllmCompleteStreamDart = int Function(
-    Pointer<Void>, Pointer<Utf8>, int, double, Pointer<NativeFunction<MllmTokenCallbackC>>, Pointer<Void>);
-
-typedef MllmChatC = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>, Int32, Float);
-typedef MllmChatDart = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>, int, double);
-
 typedef MllmRunDiagnosticsC = Int32 Function(Pointer<Utf8>);
 typedef MllmRunDiagnosticsDart = int Function(Pointer<Utf8>);
 
@@ -48,14 +28,10 @@ class NativeLlmBindings {
   DynamicLibrary? _dylib;
 
   MllmInitDart? mllmInit;
-  MllmCompleteDart? mllmComplete;
-  MllmMultimodalCompleteDart? mllmMultimodalComplete;
   MllmMultimodalChatDart? mllmMultimodalChat;
   MllmCloseDart? mllmClose;
   MllmFreeStringDart? mllmFreeString;
-  MllmCompleteStreamDart? mllmCompleteStream;
   MllmGetLogsDart? mllmGetLogs;
-  MllmChatDart? mllmChat;
   MllmIsMtmdLoadedDart? mllmIsMtmdLoaded;
   MllmRunDiagnosticsDart? mllmRunDiagnostics;
 
@@ -64,19 +40,12 @@ class NativeLlmBindings {
     try {
       _dylib = DynamicLibrary.open('libmeme_llm.so');
       mllmInit = _dylib!.lookupFunction<MllmInitC, MllmInitDart>('mllm_init');
-      mllmComplete = _dylib!.lookupFunction<MllmCompleteC, MllmCompleteDart>('mllm_complete');
-      mllmMultimodalComplete =
-          _dylib!.lookupFunction<MllmMultimodalCompleteC, MllmMultimodalCompleteDart>(
-              'mllm_multimodal_complete');
       mllmMultimodalChat =
           _dylib!.lookupFunction<MllmMultimodalChatC, MllmMultimodalChatDart>(
               'mllm_multimodal_chat');
       mllmClose = _dylib!.lookupFunction<MllmCloseC, MllmCloseDart>('mllm_close');
       mllmFreeString = _dylib!.lookupFunction<MllmFreeStringC, MllmFreeStringDart>('mllm_free_string');
-      mllmCompleteStream =
-          _dylib!.lookupFunction<MllmCompleteStreamC, MllmCompleteStreamDart>('mllm_complete_stream');
       mllmGetLogs = _dylib!.lookupFunction<MllmGetLogsC, MllmGetLogsDart>('mllm_get_logs');
-      mllmChat = _dylib!.lookupFunction<MllmChatC, MllmChatDart>('mllm_chat');
       mllmIsMtmdLoaded = _dylib!.lookupFunction<MllmIsMtmdLoadedC, MllmIsMtmdLoadedDart>('mllm_is_mtmd_loaded');
       mllmRunDiagnostics = _dylib!.lookupFunction<MllmRunDiagnosticsC, MllmRunDiagnosticsDart>('mllm_run_diagnostics');
     } catch (e) {
@@ -144,51 +113,8 @@ class NativeLlmBindings {
     return ret;
   }
 
-  String? complete(Pointer<Void> handle, String prompt, int maxTokens, double temperature) {
-    final fn = mllmComplete!;
-    final promptPtr = prompt.toNativeUtf8();
-    final resultPtr = fn(handle, promptPtr, maxTokens, temperature);
-    malloc.free(promptPtr);
-    if (resultPtr == nullptr) return null;
-    final result = resultPtr.toDartString();
-    mllmFreeString!(resultPtr);
-    return result;
-  }
-
-  /// Chat 对话：传入 JSON 格式的消息列表，使用模型的 chat template 格式化
-  /// messagesJson: [{"role":"user","content":"..."},{"role":"assistant","content":"..."}]
-  String? chat(Pointer<Void> handle, String messagesJson, int maxTokens, double temperature) {
-    final fn = mllmChat!;
-    final jsonPtr = messagesJson.toNativeUtf8();
-    final resultPtr = fn(handle, jsonPtr, maxTokens, temperature);
-    malloc.free(jsonPtr);
-    if (resultPtr == nullptr) return null;
-    final result = resultPtr.toDartString();
-    mllmFreeString!(resultPtr);
-    return result;
-  }
-
-  String? multimodalComplete(
-    Pointer<Void> handle,
-    String prompt,
-    Pointer<Uint8> imageData,
-    int imageDataSize,
-    int imageWidth,
-    int imageHeight,
-    int maxTokens,
-    double temperature,
-  ) {
-    final fn = mllmMultimodalComplete!;
-    final promptPtr = prompt.toNativeUtf8();
-    final resultPtr = fn(
-        handle, promptPtr, imageData, imageDataSize, imageWidth, imageHeight, maxTokens, temperature);
-    malloc.free(promptPtr);
-    if (resultPtr == nullptr) return null;
-    final result = resultPtr.toDartString();
-    mllmFreeString!(resultPtr);
-    return result;
-  }
-
+  /// 多模态对话：传入 JSON 消息列表 + RGB 图片数据，使用 chat template 格式化
+  /// messagesJson 中带图片的消息 content 须包含 <__media__> 标记
   String? multimodalChat(
     Pointer<Void> handle,
     String messagesJson,
@@ -212,22 +138,5 @@ class NativeLlmBindings {
 
   void close(Pointer<Void> handle) {
     mllmClose!(handle);
-  }
-
-  /// 流式补全：通过 callback 逐 token 接收结果
-  /// 返回 0 成功，非 0 失败
-  int completeStream(
-    Pointer<Void> handle,
-    String prompt,
-    int maxTokens,
-    double temperature,
-    Pointer<NativeFunction<MllmTokenCallbackC>> callback,
-    Pointer<Void> userData,
-  ) {
-    final fn = mllmCompleteStream!;
-    final promptPtr = prompt.toNativeUtf8();
-    final result = fn(handle, promptPtr, maxTokens, temperature, callback, userData);
-    malloc.free(promptPtr);
-    return result;
   }
 }

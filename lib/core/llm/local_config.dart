@@ -32,9 +32,6 @@ class LocalLlmConfig {
   /// KV 缓存量化类型
   final KvCacheType kvCacheType;
 
-  /// 统一 KV 缓存（kv_unified）
-  final bool kvUnified;
-
   /// 是否使用 mmap 加载模型（Android 推荐关闭）
   final bool useMmap;
 
@@ -68,7 +65,6 @@ class LocalLlmConfig {
     this.nGpuLayers = -1,
     this.flashAttn = FlashAttnMode.enabled,
     this.kvCacheType = KvCacheType.q4_0,
-    this.kvUnified = true,
     this.useMmap = true,
     this.nBatch = 512,
     this.nUBatch = 256,
@@ -95,7 +91,6 @@ class LocalLlmConfig {
       parts.add('flash_attn=${flashAttn == FlashAttnMode.enabled ? "enabled" : "disabled"}');
     }
     parts.add('kv_cache=${kvCacheType == KvCacheType.q4_0 ? "q4_0" : "f16"}');
-    parts.add('kv_unified=${kvUnified ? 1 : 0}');
     parts.add('use_mmap=${useMmap ? 1 : 0}');
     parts.add('n_batch=$nBatch');
     parts.add('n_ubatch=$nUBatch');
@@ -111,7 +106,6 @@ class LocalLlmConfig {
         'nGpuLayers': nGpuLayers,
         'flashAttn': flashAttn.name,
         'kvCacheType': kvCacheType.name,
-        'kvUnified': kvUnified,
         'useMmap': useMmap,
         'nBatch': nBatch,
         'nUBatch': nUBatch,
@@ -138,7 +132,6 @@ class LocalLlmConfig {
           (e) => e.name == json['kvCacheType'],
           orElse: () => KvCacheType.q4_0,
         ),
-        kvUnified: json['kvUnified'] as bool? ?? true,
         useMmap: json['useMmap'] as bool? ?? false,
         nBatch: json['nBatch'] as int? ?? 512,
         nUBatch: json['nUBatch'] as int? ?? 256,
@@ -158,7 +151,6 @@ class LocalLlmConfig {
     int? nGpuLayers,
     FlashAttnMode? flashAttn,
     KvCacheType? kvCacheType,
-    bool? kvUnified,
     bool? useMmap,
     int? nBatch,
     int? nUBatch,
@@ -179,7 +171,6 @@ class LocalLlmConfig {
       nGpuLayers: nGpuLayers ?? this.nGpuLayers,
       flashAttn: flashAttn ?? this.flashAttn,
       kvCacheType: kvCacheType ?? this.kvCacheType,
-      kvUnified: kvUnified ?? this.kvUnified,
       useMmap: useMmap ?? this.useMmap,
       nBatch: nBatch ?? this.nBatch,
       nUBatch: nUBatch ?? this.nUBatch,

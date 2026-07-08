@@ -7,15 +7,11 @@
 #ifdef MLLM_STUB
 #include <stdlib.h>
 void* mllm_init(const char*, const char*, int, int, int, int, const char*, const char*) { return NULL; }
-char* mllm_complete(void*, const char*, int, float) { return NULL; }
-char* mllm_multimodal_complete(void*, const char*, const unsigned char*, size_t, int, int, int, float) { return NULL; }
-int mllm_complete_stream(void*, const char*, int, float, void*, void*) { return 1; }
 void mllm_close(void*) {}
 void mllm_free_string(char*) {}
 void mllm_log_to_file(int, const char*, ...) {}
 char* mllm_get_logs(uint64_t, uint64_t*) { char* s = (char*)malloc(1); s[0] = '\0'; return s; }
 int mllm_is_mtmd_loaded(void*) { return 0; }
-char* mllm_chat(void*, const char*, int, float) { return NULL; }
 char* mllm_multimodal_chat(void*, const char*, const unsigned char*, size_t, int, int, int, float) { return NULL; }
 int mllm_run_diagnostics(const char*) { return 0; }
 #else
@@ -221,14 +217,12 @@ extern "C" int mllm_is_mtmd_loaded(void* handle_ptr) {
 // 支持的 key:
 //   flash_attn = auto | enabled | disabled
 //   kv_cache   = f16 | q4_0
-//   kv_unified = 1 | 0
 //   use_mmap   = 1 | 0
 //   n_batch    = <int>
 //   n_ubatch   = <int>
 struct ExtraParams {
     int flash_attn = -1;      // -1=auto, 0=disabled, 1=enabled
     ggml_type kv_cache = GGML_TYPE_F16;
-    int kv_unified = 1;
     int use_mmap = 1;
     int n_batch = 512;
     int n_ubatch = 256;
@@ -260,8 +254,6 @@ static ExtraParams parse_extra_params(const char* extra_params) {
         } else if (strncmp(token, "kv_cache", key_len) == 0 && key_len == 8) {
             if (strcmp(val, "q4_0") == 0) p.kv_cache = GGML_TYPE_Q4_0;
             // "f16" -> keep default
-        } else if (strncmp(token, "kv_unified", key_len) == 0 && key_len == 10) {
-            p.kv_unified = atoi(val);
         } else if (strncmp(token, "use_mmap", key_len) == 0 && key_len == 8) {
             p.use_mmap = atoi(val);
         } else if (strncmp(token, "n_batch", key_len) == 0 && key_len == 7) {
@@ -335,10 +327,10 @@ void* mllm_init(const char* model_path,
 
     MLLM_LOGI("mllm_init: model_path=%s, threads=%d, ctx=%d, use_gpu=%d, n_gpu_layers=%d",
               model_path, n_threads, n_ctx, use_gpu, n_gpu_layers);
-    MLLM_LOGI("mllm_init: extra_params: flash_attn=%d, kv_cache=%s, kv_unified=%d, use_mmap=%d, n_batch=%d, n_ubatch=%d",
+    MLLM_LOGI("mllm_init: extra_params: flash_attn=%d, kv_cache=%s, use_mmap=%d, n_batch=%d, n_ubatch=%d",
               opt.flash_attn,
               opt.kv_cache == GGML_TYPE_Q4_0 ? "q4_0" : "f16",
-              opt.kv_unified, opt.use_mmap, opt.n_batch, opt.n_ubatch);
+              opt.use_mmap, opt.n_batch, opt.n_ubatch);
 
     llama_model_params model_params = llama_model_default_params();
     model_params.use_mmap = opt.use_mmap;
@@ -438,7 +430,6 @@ void* mllm_init(const char* model_path,
     ctx_params.flash_attn_type = (opt.flash_attn == -1)
         ? LLAMA_FLASH_ATTN_TYPE_AUTO
         : (opt.flash_attn ? LLAMA_FLASH_ATTN_TYPE_ENABLED : LLAMA_FLASH_ATTN_TYPE_DISABLED);
-    ctx_params.kv_unified = opt.kv_unified;
     ctx_params.n_threads = n_threads;
     ctx_params.n_threads_batch = n_threads;
 
@@ -485,481 +476,6 @@ void* mllm_init(const char* model_path,
     handle->n_threads = n_threads;
     handle->n_batch = opt.n_batch;
     return handle;
-}
-
-static char* run_sample_loop(MllmHandle* handle,
-                             llama_token* tokens,
-                             int n_tokens,
-                             int max_tokens,
-                             float temperature) {
-    if (temperature > 0.0f) {
-        llama_sampler_chain_add(handle->sampler, llama_sampler_init_temp(temperature));
-        llama_sampler_chain_add(handle->sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
-    } else {
-        llama_sampler_chain_add(handle->sampler, llama_sampler_init_greedy());
-    }
-
-    llama_batch batch = llama_batch_get_one(tokens, n_tokens);
-    std::string result;
-
-    for (int n_pos = 0; n_pos + batch.n_tokens < n_tokens + max_tokens; ) {
-        if (llama_decode(handle->ctx, batch)) {
-            MLLM_LOGE("run_sample_loop: llama_decode failed");
-            break;
-        }
-        n_pos += batch.n_tokens;
-
-        llama_token new_token = llama_sampler_sample(handle->sampler, handle->ctx, -1);
-        llama_sampler_accept(handle->sampler, new_token);
-
-        if (llama_vocab_is_eog(handle->vocab, new_token)) {
-            break;
-        }
-
-        char buf[256];
-        int n = llama_token_to_piece(handle->vocab, new_token, buf, sizeof(buf), 0, true);
-        if (n > 0) {
-            result.append(buf, n);
-        }
-
-        batch = llama_batch_get_one(&new_token, 1);
-    }
-
-    // 重置 sampler：删除动态添加的采样器，保留初始的 temp(0)+dist
-    while (llama_sampler_chain_n(handle->sampler) > 2) {
-        llama_sampler* removed = llama_sampler_chain_remove(handle->sampler, llama_sampler_chain_n(handle->sampler) - 1);
-        llama_sampler_free(removed);
-    }
-
-    char* ret = (char*)malloc(result.size() + 1);
-    memcpy(ret, result.c_str(), result.size());
-    ret[result.size()] = '\0';
-    return ret;
-}
-
-static int run_stream_loop(MllmHandle* handle,
-                           llama_token* tokens,
-                           int n_tokens,
-                           int max_tokens,
-                           float temperature,
-                           mllm_token_callback_t callback,
-                           void* user_data) {
-    if (!callback) return 1;
-
-    if (temperature > 0.0f) {
-        llama_sampler_chain_add(handle->sampler, llama_sampler_init_temp(temperature));
-        llama_sampler_chain_add(handle->sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
-    } else {
-        llama_sampler_chain_add(handle->sampler, llama_sampler_init_greedy());
-    }
-
-    llama_batch batch = llama_batch_get_one(tokens, n_tokens);
-
-    for (int n_pos = 0; n_pos + batch.n_tokens < n_tokens + max_tokens; ) {
-        if (llama_decode(handle->ctx, batch)) {
-            MLLM_LOGE("run_stream_loop: llama_decode failed");
-            return 1;
-        }
-        n_pos += batch.n_tokens;
-
-        llama_token new_token = llama_sampler_sample(handle->sampler, handle->ctx, -1);
-        llama_sampler_accept(handle->sampler, new_token);
-
-        if (llama_vocab_is_eog(handle->vocab, new_token)) {
-            break;
-        }
-
-        char buf[256];
-        int n = llama_token_to_piece(handle->vocab, new_token, buf, sizeof(buf), 0, true);
-        if (n > 0) {
-            buf[n] = '\0';
-            if (callback(buf, user_data) != 0) {
-                break;
-            }
-        }
-
-        batch = llama_batch_get_one(&new_token, 1);
-    }
-
-    while (llama_sampler_chain_n(handle->sampler) > 2) {
-        llama_sampler* removed = llama_sampler_chain_remove(handle->sampler, llama_sampler_chain_n(handle->sampler) - 1);
-        llama_sampler_free(removed);
-    }
-
-    return 0;
-}
-
-int mllm_complete_stream(void* handle_ptr,
-                         const char* prompt,
-                         int max_tokens,
-                         float temperature,
-                         mllm_token_callback_t callback,
-                         void* user_data) {
-    MllmHandle* handle = (MllmHandle*)handle_ptr;
-    if (!handle) return 1;
-
-    const llama_vocab* vocab = handle->vocab;
-
-    int n_prompt = -llama_tokenize(vocab, prompt, strlen(prompt), NULL, 0, true, true);
-    if (n_prompt < 0) {
-        MLLM_LOGE("mllm_complete_stream: tokenize failed");
-        return 1;
-    }
-
-    std::vector<llama_token> prompt_tokens(n_prompt);
-    if (llama_tokenize(vocab, prompt, strlen(prompt), prompt_tokens.data(), prompt_tokens.size(), true, true) < 0) {
-        MLLM_LOGE("mllm_complete_stream: tokenize failed");
-        return 1;
-    }
-
-    return run_stream_loop(handle, prompt_tokens.data(), n_prompt, max_tokens, temperature, callback, user_data);
-}
-
-char* mllm_complete(void* handle_ptr,
-                    const char* prompt,
-                    int max_tokens,
-                    float temperature) {
-    MllmHandle* handle = (MllmHandle*)handle_ptr;
-    if (!handle) return NULL;
-
-    const llama_vocab* vocab = handle->vocab;
-
-    int n_prompt = -llama_tokenize(vocab, prompt, strlen(prompt), NULL, 0, true, true);
-    if (n_prompt < 0) {
-        MLLM_LOGE("mllm_complete: tokenize failed");
-        return NULL;
-    }
-
-    std::vector<llama_token> prompt_tokens(n_prompt);
-    if (llama_tokenize(vocab, prompt, strlen(prompt), prompt_tokens.data(), prompt_tokens.size(), true, true) < 0) {
-        MLLM_LOGE("mllm_complete: tokenize failed");
-        return NULL;
-    }
-
-    return run_sample_loop(handle, prompt_tokens.data(), n_prompt, max_tokens, temperature);
-}
-
-// mllm_chat: 使用 llama_chat_apply_template 正确格式化对话并推理
-// messages_json: JSON 数组格式 [{"role":"user","content":"..."},{"role":"assistant","content":"..."}]
-// max_tokens: 最大生成的 token 数
-// temperature: 采样温度，0 = greedy
-// 返回: 分配的字符串，调用方负责 free()
-extern "C" char* mllm_chat(void* handle_ptr,
-                            const char* messages_json,
-                            int max_tokens,
-                            float temperature) {
-    MllmHandle* handle = (MllmHandle*)handle_ptr;
-    if (!handle) return NULL;
-
-    // 1. 解析 JSON 消息
-    // 简单解析：支持格式 [{"role":"user","content":"hello"},...]
-    // 每个消息: {"role":"xxx","content":"yyy"}
-    std::vector<llama_chat_message> chat_msgs;
-    std::vector<std::string> role_strs;
-    std::vector<std::string> content_strs;
-
-    const char* p = messages_json;
-    // 跳过开始的 '['
-    while (*p && (*p == ' ' || *p == '\n' || *p == '[')) p++;
-    if (*p != '{') {
-        MLLM_LOGE("mllm_chat: invalid JSON format, expected array of objects");
-        return NULL;
-    }
-
-    // 解析每个对象
-    while (*p && *p != ']') {
-        // 跳过空白，找到 '{'
-        while (*p && (*p == ' ' || *p == '\n' || *p == ',')) p++;
-        if (*p != '{') break;
-
-        std::string role_val, content_val;
-        p++; // skip '{'
-
-        // 解析 role 和 content 字段
-        for (int field = 0; field < 2; field++) {
-            // 跳过空白
-            while (*p && (*p == ' ' || *p == '\n')) p++;
-            // 查找 key
-            const char* key_start = p;
-            while (*p && *p != ':') p++;
-            if (*p != ':') { p++; continue; }
-            std::string key(key_start, p - key_start);
-            p++; // skip ':'
-
-            // 跳过空白和可能的 quote
-            while (*p && (*p == ' ' || *p == '"')) p++;
-
-            // 读取字符串值（支持 JSON 转义序列 \" \\ 等）
-            std::string val;
-            while (*p && *p != '"') {
-                if (*p == '\\' && *(p+1)) {
-                    val.push_back(*p);
-                    p++;
-                    val.push_back(*p);
-                    p++;
-                } else {
-                    val.push_back(*p);
-                    p++;
-                }
-            }
-            p++; // skip closing '"'
-
-            if (key.find("role") != std::string::npos) {
-                role_val = val;
-            } else if (key.find("content") != std::string::npos) {
-                content_val = val;
-            }
-        }
-
-        if (!role_val.empty() && !content_val.empty()) {
-            role_strs.push_back(role_val);
-            content_strs.push_back(content_val);
-        }
-
-        // 继续查找下一个对象或结束
-        while (*p && (*p == ' ' || *p == '\n' || *p == '}' || *p == ',')) p++;
-    }
-
-    if (role_strs.empty()) {
-        MLLM_LOGE("mllm_chat: no valid messages found");
-        return NULL;
-    }
-
-    // 2. 准备 llama_chat_message 数组
-    chat_msgs.resize(role_strs.size());
-    for (size_t i = 0; i < role_strs.size(); i++) {
-        chat_msgs[i].role = role_strs[i].c_str();
-        chat_msgs[i].content = content_strs[i].c_str();
-    }
-
-    // 3. 获取模型的 chat template
-    const char* tmpl = llama_model_chat_template(handle->model, NULL);
-    if (!tmpl) {
-        MLLM_LOGE("mllm_chat: model has no chat template");
-        return NULL;
-    }
-
-    // 4. 应用 chat template 生成格式化后的 prompt
-    //    使用 2x 总字符数作为缓冲区（保守估计）
-    size_t buf_size = 0;
-    for (size_t i = 0; i < content_strs.size(); i++) {
-        buf_size += role_strs[i].size() + content_strs[i].size() + 64;
-    }
-    buf_size = std::max(buf_size, (size_t)2048);
-
-    std::vector<char> buf(buf_size);
-    int32_t len = llama_chat_apply_template(
-        tmpl,
-        chat_msgs.data(),
-        chat_msgs.size(),
-        true,  // add_ass: 在末尾添加 assistant 开始标记
-        buf.data(),
-        buf_size);
-
-    if (len < 0) {
-        MLLM_LOGE("mllm_chat: llama_chat_apply_template failed");
-        return NULL;
-    }
-    if ((size_t)len > buf_size) {
-        // 缓冲区不够，重新分配
-        buf.resize(len + 1);
-        len = llama_chat_apply_template(
-            tmpl,
-            chat_msgs.data(),
-            chat_msgs.size(),
-            true,
-            buf.data(),
-            len + 1);
-        if (len < 0) {
-            MLLM_LOGE("mllm_chat: llama_chat_apply_template failed on retry");
-            return NULL;
-        }
-    }
-
-    std::string formatted_prompt(buf.data(), len);
-    MLLM_LOGI("mllm_chat: formatted prompt (%d chars): %s",
-              (int)formatted_prompt.size(),
-              formatted_prompt.size() > 200 ? "(truncated)" : formatted_prompt.c_str());
-
-    // 5. Tokenize 格式化后的 prompt
-    const llama_vocab* vocab = handle->vocab;
-    int n_tokens = -llama_tokenize(vocab, formatted_prompt.c_str(), formatted_prompt.size(), NULL, 0, true, true);
-    if (n_tokens < 0) {
-        MLLM_LOGE("mllm_chat: tokenize failed");
-        return NULL;
-    }
-
-    std::vector<llama_token> prompt_tokens(n_tokens);
-    if (llama_tokenize(vocab, formatted_prompt.c_str(), formatted_prompt.size(),
-                       prompt_tokens.data(), prompt_tokens.size(), true, true) < 0) {
-        MLLM_LOGE("mllm_chat: tokenize failed");
-        return NULL;
-    }
-
-    MLLM_LOGI("mllm_chat: %zu messages -> %d tokens", chat_msgs.size(), n_tokens);
-
-    // 6. 运行推理
-    return run_sample_loop(handle, prompt_tokens.data(), n_tokens, max_tokens, temperature);
-}
-
-char* mllm_multimodal_complete(void* handle_ptr,
-                               const char* prompt,
-                               const unsigned char* image_data,
-                               size_t image_data_size,
-                               int image_width,
-                               int image_height,
-                                int max_tokens,
-                                float temperature) {
-    // 计时开始
-    struct timeval t_start, t_end;
-    gettimeofday(&t_start, nullptr);
-
-    MLLM_LOGI("mllm_multimodal_complete: called with image %dx%d, data_size=%zu", image_width, image_height, image_data_size);
-    MllmHandle* handle = (MllmHandle*)handle_ptr;
-    if (!handle) {
-        MLLM_LOGE("mllm_multimodal_complete: handle is null");
-        return NULL;
-    }
-    if (!handle->mtmd_ctx) {
-        MLLM_LOGW("mllm_multimodal_complete: mtmd_ctx is NULL, falling back to text-only");
-        MLLM_LOGI("mllm_multimodal_complete: prompt (first 200 chars): %.*s", 200, prompt);
-        return mllm_complete(handle_ptr, prompt, max_tokens, temperature);
-    }
-    MLLM_LOGI("mllm_multimodal_complete: mtmd_ctx is VALID, proceeding with vision pipeline");
-    MLLM_LOGI("mllm_multimodal_complete: prompt (first 200 chars): %.*s", 200, prompt);
-    MLLM_LOGI("mllm_multimodal_complete: mtmd_default_marker: %s", mtmd_default_marker());
-
-    MLLM_LOGI("mllm_multimodal_complete: creating bitmap...");
-    mtmd_bitmap* bitmap = mtmd_bitmap_init(image_width, image_height, image_data);
-    if (!bitmap) {
-        MLLM_LOGE("mllm_multimodal_complete: failed to create bitmap");
-        return NULL;
-    }
-    MLLM_LOGI("mllm_multimodal_complete: bitmap created successfully");
-
-    std::string full_prompt = std::string(mtmd_default_marker()) + "\n" + prompt;
-    mtmd_input_text input_text;
-    input_text.text = full_prompt.c_str();
-    input_text.add_special = true;
-    input_text.parse_special = true;
-
-    const mtmd_bitmap* bitmaps[] = { bitmap };
-    mtmd_input_chunks* chunks = mtmd_input_chunks_init();
-
-    MLLM_LOGI("mllm_multimodal_complete: tokenizing...");
-    int32_t ret = mtmd_tokenize(handle->mtmd_ctx, chunks, &input_text, bitmaps, 1);
-    mtmd_bitmap_free(bitmap);
-
-    if (ret != 0) {
-        MLLM_LOGE("mllm_multimodal_complete: mtmd_tokenize failed (%d)", ret);
-        mtmd_input_chunks_free(chunks);
-        return NULL;
-    }
-    MLLM_LOGI("mllm_multimodal_complete: tokenize success, chunks=%zu", mtmd_input_chunks_size(chunks));
-
-    for (size_t i = 0; i < mtmd_input_chunks_size(chunks); i++) {
-        const mtmd_input_chunk* chunk = mtmd_input_chunks_get(chunks, i);
-        int chunk_type = mtmd_input_chunk_get_type(chunk);
-        const char* type_str = chunk_type == MTMD_INPUT_CHUNK_TYPE_TEXT ? "TEXT"
-                             : chunk_type == MTMD_INPUT_CHUNK_TYPE_IMAGE ? "IMAGE"
-                             : chunk_type == MTMD_INPUT_CHUNK_TYPE_AUDIO ? "AUDIO" : "UNKNOWN";
-        size_t n_tokens = mtmd_input_chunk_get_n_tokens(chunk);
-        MLLM_LOGI("mllm_multimodal_complete: chunk[%zu] type=%s, n_tokens=%zu", i, type_str, n_tokens);
-    }
-
-    // 设置采样器
-    if (temperature > 0.0f) {
-        llama_sampler_chain_add(handle->sampler, llama_sampler_init_temp(temperature));
-        llama_sampler_chain_add(handle->sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
-    } else {
-        llama_sampler_chain_add(handle->sampler, llama_sampler_init_greedy());
-    }
-
-    // 使用 mtmd_helper_eval_chunks 统一处理 TEXT + IMAGE 所有 chunks
-    // 它会自动处理：
-    //   1. TEXT chunk → llama_decode()
-    //   2. IMAGE chunk → mtmd_encode_chunk() + mtmd_get_output_embd() + llama_decode()
-    // 每次调用都会正确更新 KV cache 中的 position
-    llama_pos n_past = 0;
-    MLLM_LOGI("mllm_multimodal_complete: evaluating chunks with mtmd_helper_eval_chunks...");
-    int32_t eval_ret = mtmd_helper_eval_chunks(
-        handle->mtmd_ctx,
-        handle->ctx,
-        chunks,
-        n_past,     // starting position (0)
-        0,          // seq_id
-        handle->n_batch,
-        true,       // logits_last: 保留最后一个 token 的 logits 用于采样
-        &n_past     // 返回处理完 prompt 后的下一个 position
-    );
-
-    mtmd_input_chunks_free(chunks);
-
-    if (eval_ret != 0) {
-        MLLM_LOGE("mllm_multimodal_complete: mtmd_helper_eval_chunks failed (%d)", eval_ret);
-        // 重置 sampler
-        while (llama_sampler_chain_n(handle->sampler) > 2) {
-            llama_sampler* removed = llama_sampler_chain_remove(handle->sampler, llama_sampler_chain_n(handle->sampler) - 1);
-            llama_sampler_free(removed);
-        }
-        return NULL;
-    }
-
-    MLLM_LOGI("mllm_multimodal_complete: prompt eval done, n_past=%d, starting generation (max %d tokens)...", n_past, max_tokens);
-
-    // 自回归生成循环
-    // 注意：不能复用 run_sample_loop，因为它会重置 batch position（从 0 开始）
-    // 我们需要从 n_past 继续生成
-    std::string result;
-    for (int i = 0; i < max_tokens; i++) {
-        // 从最后一个 token 的 logits 采样
-        llama_token new_token = llama_sampler_sample(handle->sampler, handle->ctx, -1);
-        llama_sampler_accept(handle->sampler, new_token);
-
-        // 检查是否结束
-        if (llama_vocab_is_eog(handle->vocab, new_token)) {
-            MLLM_LOGI("mllm_multimodal_complete: EOS token %d generated", new_token);
-            break;
-        }
-
-        // 转换 token 为文本
-        char buf[256];
-        int n = llama_token_to_piece(handle->vocab, new_token, buf, sizeof(buf), 0, true);
-        if (n > 0) {
-            result.append(buf, n);
-        }
-
-        // 解码新 token（位置由 llama_batch_get_one 自动从 KV cache 当前位置继续）
-        llama_batch token_batch = llama_batch_get_one(&new_token, 1);
-        if (llama_decode(handle->ctx, token_batch)) {
-            MLLM_LOGE("mllm_multimodal_complete: llama_decode failed at step %d", i);
-            break;
-        }
-    }
-
-    // 重置 sampler：删除动态添加的采样器，保留初始的 temp(0)+dist
-    while (llama_sampler_chain_n(handle->sampler) > 2) {
-        llama_sampler* removed = llama_sampler_chain_remove(handle->sampler, llama_sampler_chain_n(handle->sampler) - 1);
-        llama_sampler_free(removed);
-    }
-
-    MLLM_LOGI("mllm_multimodal_complete: generated %zu chars", result.size());
-    if (result.size() > 0) {
-        MLLM_LOGI("mllm_multimodal_complete: result preview: %.*s", (int)std::min(result.size(), (size_t)200), result.c_str());
-    }
-
-    // 计时结束
-    gettimeofday(&t_end, nullptr);
-    double elapsed_ms = (t_end.tv_sec - t_start.tv_sec) * 1000.0 + (t_end.tv_usec - t_start.tv_usec) / 1000.0;
-    MLLM_LOGI("mllm_multimodal_complete: total inference time: %.1f ms", elapsed_ms);
-
-    // 返回结果
-    char* ret_str = (char*)malloc(result.size() + 1);
-    if (ret_str) {
-        memcpy(ret_str, result.c_str(), result.size());
-        ret_str[result.size()] = '\0';
-    }
-    return ret_str;
 }
 
 // messages_json: JSON array with <__media__> marker in the image-bearing message's content
