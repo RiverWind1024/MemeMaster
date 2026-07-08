@@ -219,21 +219,25 @@ class VisionLlmEnricher {
   }
 
   Future<Uint8List> _readAndResizeImage(String imagePath) async {
+    final t0 = DateTime.now();
     final file = File(imagePath);
     final bytes = await file.readAsBytes();
+    final t1 = DateTime.now();
 
     // 压缩已关闭，直接返回原始图片
     if (!_compressionEnabled) {
-      _log.info('VisionLLM', '图片压缩已关闭，返回原始文件: ${bytes.length} 字节');
+      _log.info('VisionLLM', '图片压缩已关闭，返回原始文件: ${bytes.length} 字节 (读取耗时 ${t1.difference(t0).inMilliseconds}ms)');
       return bytes;
     }
 
     final originalSize = bytes.length;
 
     // 解码图片
+    final t2 = DateTime.now();
     final original = img.decodeImage(bytes);
+    final t3 = DateTime.now();
     if (original == null) {
-      _log.warning('VisionLLM', '无法解码图片，使用原始文件');
+      _log.warning('VisionLLM', '无法解码图片，使用原始文件 (解码耗时 ${t3.difference(t2).inMilliseconds}ms)');
       return bytes;
     }
 
@@ -250,13 +254,22 @@ class VisionLlmEnricher {
           w = (w * _maxImageDimension / h).round();
           h = _maxImageDimension;
         }
+        final t4 = DateTime.now();
         final resized = img.copyResize(original, width: w, height: h);
+        final t5 = DateTime.now();
         try {
+          final t6 = DateTime.now();
           final jpeg = img.encodeJpg(resized, quality: _jpgQuality);
+          final t7 = DateTime.now();
           _log.info(
             'VisionLLM',
             '图片压缩: $originalSize -> ${jpeg.length} 字节, '
-                '尺寸: ${original.width}x${original.height} -> ${w}x$h',
+                '尺寸: ${original.width}x${original.height} -> ${w}x$h, '
+                '读取=${t1.difference(t0).inMilliseconds}ms, '
+                '解码=${t3.difference(t2).inMilliseconds}ms, '
+                '缩放=${t5.difference(t4).inMilliseconds}ms, '
+                '编码=${t7.difference(t6).inMilliseconds}ms, '
+                '总计=${t7.difference(t0).inMilliseconds}ms',
           );
           return Uint8List.fromList(jpeg);
         } finally {
@@ -266,15 +279,21 @@ class VisionLlmEnricher {
 
       // 尺寸没超但文件较大 → 重编码为 JPEG 减体积
       if (originalSize > _reencodeThreshold) {
+        final t4 = DateTime.now();
         final jpeg = img.encodeJpg(original, quality: _jpgQuality);
+        final t5 = DateTime.now();
         _log.info(
           'VisionLLM',
-          '图片重编码: $originalSize -> ${jpeg.length} 字节',
+          '图片重编码: $originalSize -> ${jpeg.length} 字节, '
+              '读取=${t1.difference(t0).inMilliseconds}ms, '
+              '解码=${t3.difference(t2).inMilliseconds}ms, '
+              '编码=${t5.difference(t4).inMilliseconds}ms, '
+              '总计=${t5.difference(t0).inMilliseconds}ms',
         );
         return Uint8List.fromList(jpeg);
       }
 
-      _log.info('VisionLLM', '图片无需压缩: ${w}x$h, $originalSize 字节');
+      _log.info('VisionLLM', '图片无需压缩: ${w}x$h, $originalSize 字节 (读取+解码=${t3.difference(t0).inMilliseconds}ms)');
       return bytes;
     } finally {
       // 释放原始解码图片内存
