@@ -421,7 +421,7 @@ class LocalLlmService implements LlmService {
 
     final handleAddress = _handle!.address;
     _log.info('LocalLlmService', '在后台 isolate 中执行多模态对话推理 ... (maxTokens=$maxTokens)');
-    final t0 = DateTime.now();
+    final tInfer = DateTime.now();
 
     final receivePort = ReceivePort();
     final args = _MultimodalIsolateArgs(
@@ -441,7 +441,7 @@ class LocalLlmService implements LlmService {
 
       final result = await receivePort.first;
       final t1 = DateTime.now();
-      _log.info('LocalLlmService', '后台 isolate 多模态对话推理返回，耗时 ${t1.difference(t0).inMilliseconds}ms');
+      _log.info('LocalLlmService', '后台 isolate 多模态对话推理返回，耗时 ${t1.difference(tInfer).inMilliseconds}ms');
       if (result == null) {
         throw StateError('多模态对话推理失败 (返回 null)');
       }
