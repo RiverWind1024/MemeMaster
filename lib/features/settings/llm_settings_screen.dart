@@ -347,8 +347,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
 
     try {
       // 获取实际的 LocalLlmService 实例并将模型加载到其中
-      // 与 runTestInference 不同：后者创建独立实例加载后立即释放，
-      // 这里直接让分析调度器使用的服务持有模型句柄
+      // 直接让分析调度器使用的服务持有模型句柄
       final service = ref.read(llmServiceProvider);
       if (service is LocalLlmService) {
         debugPrint('[LoadModel] 调用 service.ensureLoaded...');

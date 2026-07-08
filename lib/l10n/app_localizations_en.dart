@@ -594,6 +594,9 @@ class SEn extends S {
   String get logCopied => 'Logs copied to clipboard';
 
   @override
+  String get logExported => 'Log exported';
+
+  @override
   String get noLogs => 'No logs';
 
   @override

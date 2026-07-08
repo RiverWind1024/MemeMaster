@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../services/log_service.dart';
 import '../gallery/gallery_provider.dart';
@@ -150,6 +154,47 @@ class _LogViewerScreenState extends ConsumerState<LogViewerScreen> {
                     );
                   },
             tooltip: l10n.copy,
+          ),
+          IconButton(
+            icon: const Icon(Icons.file_download_outlined),
+            onPressed: allLogs.isEmpty
+                ? null
+                : () async {
+                    final text = allLogs
+                        .map((e) =>
+                            '${e.formattedTimestamp} ${e.level.name.toUpperCase().padRight(7)} [${e.tag}] ${e.message}')
+                        .join('\n');
+                    try {
+                      final tempDir = await getTemporaryDirectory();
+                      final now = DateTime.now();
+                      final filename =
+                          'memehelper-log-${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}-${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}.log';
+                      final file = File('${tempDir.path}/$filename');
+                      await file.writeAsString(text);
+                      await Share.shareXFiles(
+                        [XFile(file.path)],
+                        text: 'MemeHelper Logs',
+                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(l10n.logExported),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(l10n.exportFailed(e.toString())),
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    }
+                  },
+            tooltip: l10n.export,
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline),

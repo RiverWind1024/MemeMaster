@@ -74,13 +74,15 @@ class VisionLlmEnricher {
     _log.info('VisionLLM', '开始多模态分析: $memeId, locale: ${effectiveLocale.languageCode}');
 
     try {
-      // 1. 读取图片并转 base64
+      // 1. 读取图片（本地 LLM 直接传原始字节，跳过 base64）
       final imageBytes = await _readAndResizeImage(imagePath);
-      final base64Image = base64Encode(imageBytes);
-      _log.info('VisionLLM', '图片 base64: ${base64Image.length} 字节');
+      final base64Image = _isLocalLlm ? null : base64Encode(imageBytes);
+      if (!_isLocalLlm) {
+        _log.info('VisionLLM', '图片 base64: ${base64Image!.length} 字节');
+      }
 
       // 2. 调用多模态 LLM（带超时保护）
-      final result = await _analyzeImageWithTimeout(base64Image, effectiveLocale);
+      final result = await _analyzeImageWithTimeout(base64Image, imageBytes, effectiveLocale);
 
       if (result == null) {
         _log.warning('VisionLLM', 'LLM 返回空结果');
@@ -116,14 +118,14 @@ class VisionLlmEnricher {
   }
 
   /// 带超时的图片分析
-  Future<_AnalysisResult?> _analyzeImageWithTimeout(String base64Image, Locale locale) async {
+  Future<_AnalysisResult?> _analyzeImageWithTimeout(String? base64Image, Uint8List imageBytes, Locale locale) async {
     if (_isLocalLlm) {
       // 本地 LLM：不在此处设超时，由 _multimodalComplete 内部处理超时 + isolate 清理
       // （外层的 Future.timeout 无法停止正在运行的 FFI 调用，会导致 CPU 持续空转）
-      return await _analyzeImage(base64Image, locale);
+      return await _analyzeImage(base64Image, imageBytes, locale);
     }
     // 远程 API 设置较短超时，避免请求无限挂起
-    return await _analyzeImage(base64Image, locale).timeout(
+    return await _analyzeImage(base64Image, imageBytes, locale).timeout(
       const Duration(seconds: 60),
       onTimeout: () {
         throw LlmException('AI分析超时（60秒）');
@@ -131,7 +133,7 @@ class VisionLlmEnricher {
     );
   }
 
-  Future<_AnalysisResult?> _analyzeImage(String base64Image, Locale locale) async {
+  Future<_AnalysisResult?> _analyzeImage(String? base64Image, Uint8List imageBytes, Locale locale) async {
     final isChinese = locale.languageCode.startsWith('zh');
     final systemFile = isChinese ? 'vision_system_zh.txt' : 'vision_system_en.txt';
     final userFile = isChinese ? 'vision_user_zh.txt' : 'vision_user_en.txt';
@@ -152,7 +154,10 @@ class VisionLlmEnricher {
 
     final messages = [
       LlmMessage(role: 'system', content: systemContent),
-      LlmMessage(role: 'user', content: userContent, imageBase64: base64Image),
+      if (_isLocalLlm)
+        LlmMessage(role: 'user', content: userContent, imageBytes: imageBytes)
+      else
+        LlmMessage(role: 'user', content: userContent, imageBase64: base64Image),
     ];
 
     _log.info('VisionLLM', '调用 LLM: temperature=$temperature, maxTokens=$maxTokens');
@@ -219,21 +224,25 @@ class VisionLlmEnricher {
   }
 
   Future<Uint8List> _readAndResizeImage(String imagePath) async {
+    final t0 = DateTime.now();
     final file = File(imagePath);
     final bytes = await file.readAsBytes();
+    final t1 = DateTime.now();
 
     // 压缩已关闭，直接返回原始图片
     if (!_compressionEnabled) {
-      _log.info('VisionLLM', '图片压缩已关闭，返回原始文件: ${bytes.length} 字节');
+      _log.info('VisionLLM', '图片压缩已关闭，返回原始文件: ${bytes.length} 字节 (读取耗时 ${t1.difference(t0).inMilliseconds}ms)');
       return bytes;
     }
 
     final originalSize = bytes.length;
 
     // 解码图片
+    final t2 = DateTime.now();
     final original = img.decodeImage(bytes);
+    final t3 = DateTime.now();
     if (original == null) {
-      _log.warning('VisionLLM', '无法解码图片，使用原始文件');
+      _log.warning('VisionLLM', '无法解码图片，使用原始文件 (解码耗时 ${t3.difference(t2).inMilliseconds}ms)');
       return bytes;
     }
 
@@ -250,13 +259,22 @@ class VisionLlmEnricher {
           w = (w * _maxImageDimension / h).round();
           h = _maxImageDimension;
         }
+        final t4 = DateTime.now();
         final resized = img.copyResize(original, width: w, height: h);
+        final t5 = DateTime.now();
         try {
+          final t6 = DateTime.now();
           final jpeg = img.encodeJpg(resized, quality: _jpgQuality);
+          final t7 = DateTime.now();
           _log.info(
             'VisionLLM',
             '图片压缩: $originalSize -> ${jpeg.length} 字节, '
-                '尺寸: ${original.width}x${original.height} -> ${w}x$h',
+                '尺寸: ${original.width}x${original.height} -> ${w}x$h, '
+                '读取=${t1.difference(t0).inMilliseconds}ms, '
+                '解码=${t3.difference(t2).inMilliseconds}ms, '
+                '缩放=${t5.difference(t4).inMilliseconds}ms, '
+                '编码=${t7.difference(t6).inMilliseconds}ms, '
+                '总计=${t7.difference(t0).inMilliseconds}ms',
           );
           return Uint8List.fromList(jpeg);
         } finally {
@@ -266,15 +284,21 @@ class VisionLlmEnricher {
 
       // 尺寸没超但文件较大 → 重编码为 JPEG 减体积
       if (originalSize > _reencodeThreshold) {
+        final t4 = DateTime.now();
         final jpeg = img.encodeJpg(original, quality: _jpgQuality);
+        final t5 = DateTime.now();
         _log.info(
           'VisionLLM',
-          '图片重编码: $originalSize -> ${jpeg.length} 字节',
+          '图片重编码: $originalSize -> ${jpeg.length} 字节, '
+              '读取=${t1.difference(t0).inMilliseconds}ms, '
+              '解码=${t3.difference(t2).inMilliseconds}ms, '
+              '编码=${t5.difference(t4).inMilliseconds}ms, '
+              '总计=${t5.difference(t0).inMilliseconds}ms',
         );
         return Uint8List.fromList(jpeg);
       }
 
-      _log.info('VisionLLM', '图片无需压缩: ${w}x$h, $originalSize 字节');
+      _log.info('VisionLLM', '图片无需压缩: ${w}x$h, $originalSize 字节 (读取+解码=${t3.difference(t0).inMilliseconds}ms)');
       return bytes;
     } finally {
       // 释放原始解码图片内存

@@ -29,11 +29,20 @@ android {
             cmake {
                 val llamaDir = System.getenv("LLAMA_CPP_DIR")
                     ?: project.findProperty("llama.cpp.dir")?.toString()
-                    ?: "${project.rootDir}/../llama.cpp"
+                    ?: "${project.rootDir}/../third_party/llama.cpp"
                 arguments += listOf("-DLLAMA_CPP_DIR=${llamaDir}")
                 arguments += listOf("-DCMAKE_BUILD_TYPE=Release")
                 arguments += listOf("-DCMAKE_EXPORT_COMPILE_COMMANDS=ON")
                 arguments += listOf("-DCMAKE_ANDROID_PROCESS_MAX=4")
+                // 注意：OpenCL 后端尚未在真实设备上验证，标记为实验性
+                arguments += listOf("-DENABLE_OPENCL=ON")
+                // 可选：启用 Vulkan（通常比 CPU 慢，不推荐）
+                arguments += listOf("-DENABLE_VULKAN=ON")
+                // Vulkan 编译工具路径（glslc 来自 NDK，SPIRV-Headers 来自 third_party）
+                arguments += listOf("-DVulkan_GLSLC_EXECUTABLE=/home/jiangzifeng/Software/android-sdk/ndk/28.2.13676358/shader-tools/linux-x86_64/glslc")
+                arguments += listOf("-DSPIRV-Headers_DIR=${project.rootDir}/../third_party/SPIRV-Headers/install/share/cmake/SPIRV-Headers")
+                
+                // GPU 后端编译优化标志
                 cppFlags += listOf("-O3", "-DNDEBUG")
                 targets += listOf("meme_llm")
             }
