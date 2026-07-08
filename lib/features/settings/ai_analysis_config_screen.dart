@@ -394,6 +394,46 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                             },
                             secondary: const Icon(Icons.memory),
                           ),
+                          // GPU 层数选择（仅在开启 GPU 时显示）
+                          if (ref.watch(localLlmConfigProvider).useGpu) ...[
+                            const SizedBox(height: 8),
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.layers),
+                              title: const Text('GPU 层数'),
+                              subtitle: Text(
+                                ref.watch(localLlmConfigProvider).nGpuLayers == -1
+                                    ? '全部层 (-1)'
+                                    : '${ref.watch(localLlmConfigProvider).nGpuLayers} 层',
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                              trailing: SizedBox(
+                                width: 200,
+                                child: DropdownButton<int>(
+                                  value: ref.watch(localLlmConfigProvider).nGpuLayers,
+                                  underline: const SizedBox(),
+                                  isExpanded: true,
+                                  items: const [
+                                    DropdownMenuItem(value: -1, child: Text('全部 (-1)')),
+                                    DropdownMenuItem(value: 0, child: Text('仅 CPU (0)')),
+                                    DropdownMenuItem(value: 4, child: Text('4 层')),
+                                    DropdownMenuItem(value: 8, child: Text('8 层')),
+                                    DropdownMenuItem(value: 12, child: Text('12 层')),
+                                    DropdownMenuItem(value: 16, child: Text('16 层')),
+                                    DropdownMenuItem(value: 20, child: Text('20 层')),
+                                    DropdownMenuItem(value: 24, child: Text('24 层')),
+                                  ],
+                                  onChanged: (v) {
+                                    if (v != null) {
+                                      ref.read(localLlmConfigProvider.notifier).update(
+                                        ref.read(localLlmConfigProvider).copyWith(nGpuLayers: v),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
                           const Divider(),
                           // 上下文长度
                           ListTile(

@@ -443,8 +443,7 @@ final llmServiceProvider = Provider.autoDispose<LlmService?>((ref) {
       final localConfig = ref.watch(localLlmConfigProvider);
       service = LocalLlmService(
         config: localConfig,
-        logFilePath: _logFilePath,
-        mllmLogPath: getMllmLogFilePath(),
+        log: ref.read(logServiceProvider),
       );
       return service;
   }
