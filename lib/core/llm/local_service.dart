@@ -377,8 +377,10 @@ class LocalLlmService implements LlmService {
     int maxTokens,
     double temperature,
   ) async {
+    final t0 = DateTime.now();
     final imageBytes = _decodeBase64(base64Image);
     final decodedImage = img.decodeImage(imageBytes);
+    final t1 = DateTime.now();
     if (decodedImage == null) {
       throw StateError('无法解码图片');
     }
@@ -390,15 +392,18 @@ class LocalLlmService implements LlmService {
     final decodeH = decodedImage.height;
     final (targetW, targetH, resizedImage) = () {
       if (!_config.imageCompressionEnabled) {
-        _log.info('LocalLlmService', '图片压缩已关闭，使用原始尺寸 ${decodeW}x$decodeH');
+        _log.info('LocalLlmService', '图片压缩已关闭，使用原始尺寸 ${decodeW}x$decodeH (base64解码+图片解码耗时 ${t1.difference(t0).inMilliseconds}ms)');
         return (decodeW, decodeH, decodedImage);
       }
       const int maxLocalDim = 384;
       if (decodeW > maxLocalDim || decodeH > maxLocalDim) {
+        final t2 = DateTime.now();
         final result = _resizeKeepingAspectRatio(decodedImage, maxLocalDim);
-        _log.info('LocalLlmService', '图片压缩: ${decodeW}x$decodeH -> ${result.$1}x${result.$2}');
+        final t3 = DateTime.now();
+        _log.info('LocalLlmService', '图片压缩: ${decodeW}x$decodeH -> ${result.$1}x${result.$2} (base64解码+图片解码=${t1.difference(t0).inMilliseconds}ms, 缩放=${t3.difference(t2).inMilliseconds}ms)');
         return result;
       }
+      _log.info('LocalLlmService', '图片无需压缩: ${decodeW}x$decodeH (base64解码+图片解码耗时 ${t1.difference(t0).inMilliseconds}ms)');
       return (decodeW, decodeH, decodedImage);
     }();
     
