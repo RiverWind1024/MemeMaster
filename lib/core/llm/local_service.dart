@@ -342,21 +342,25 @@ class LocalLlmService implements LlmService {
 
       final maxTokens = options?.maxTokens ?? 512;
       final temperature = options?.temperature ?? 0.7;
-      final hasImage = messages.any((m) => m.imageBase64 != null);
+      final hasImage = messages.any((m) => m.imageBase64 != null || m.imageBytes != null);
 
       if (hasImage) {
-        final imageMsg = messages.firstWhere((m) => m.imageBase64 != null);
+        final imageMsg = messages.firstWhere((m) => m.imageBase64 != null || m.imageBytes != null);
         // 构建 messages JSON，有图片的消息 content 前加 <__media__> 标记
         // mtmd_tokenize 识别 <__media__> 后将其替换为图片 embedding
         final jsonArray = jsonEncode(messages.map((m) {
           var content = m.content;
-          if (m.imageBase64 != null) {
+          if (m.imageBase64 != null || m.imageBytes != null) {
             content = '<__media__>\n$content';
           }
           return {'role': m.role, 'content': content};
         }).toList());
         _log.info('LocalLlmService', '检测到图片，调用多模态对话推理，messages=${messages.length}');
 
+        // 优先使用原始字节（本地 LLM），否则回退到 base64（远程 API）
+        if (imageMsg.imageBytes != null) {
+          return _multimodalChatWithBytes(jsonArray, imageMsg.imageBytes!, maxTokens, temperature);
+        }
         return _multimodalChat(jsonArray, imageMsg.imageBase64!, maxTokens, temperature);
       }
 
@@ -377,8 +381,17 @@ class LocalLlmService implements LlmService {
     int maxTokens,
     double temperature,
   ) async {
-    final t0 = DateTime.now();
     final imageBytes = _decodeBase64(base64Image);
+    return _multimodalChatWithBytes(messagesJson, imageBytes, maxTokens, temperature);
+  }
+
+  Future<String> _multimodalChatWithBytes(
+    String messagesJson,
+    Uint8List imageBytes,
+    int maxTokens,
+    double temperature,
+  ) async {
+    final t0 = DateTime.now();
     final decodedImage = img.decodeImage(imageBytes);
     final t1 = DateTime.now();
     if (decodedImage == null) {
@@ -392,7 +405,7 @@ class LocalLlmService implements LlmService {
     final decodeH = decodedImage.height;
     final (targetW, targetH, resizedImage) = () {
       if (!_config.imageCompressionEnabled) {
-        _log.info('LocalLlmService', '图片压缩已关闭，使用原始尺寸 ${decodeW}x$decodeH (base64解码+图片解码耗时 ${t1.difference(t0).inMilliseconds}ms)');
+        _log.info('LocalLlmService', '图片压缩已关闭，使用原始尺寸 ${decodeW}x$decodeH (图片解码耗时 ${t1.difference(t0).inMilliseconds}ms)');
         return (decodeW, decodeH, decodedImage);
       }
       const int maxLocalDim = 384;
@@ -400,10 +413,10 @@ class LocalLlmService implements LlmService {
         final t2 = DateTime.now();
         final result = _resizeKeepingAspectRatio(decodedImage, maxLocalDim);
         final t3 = DateTime.now();
-        _log.info('LocalLlmService', '图片压缩: ${decodeW}x$decodeH -> ${result.$1}x${result.$2} (base64解码+图片解码=${t1.difference(t0).inMilliseconds}ms, 缩放=${t3.difference(t2).inMilliseconds}ms)');
+        _log.info('LocalLlmService', '图片压缩: ${decodeW}x$decodeH -> ${result.$1}x${result.$2} (解码=${t1.difference(t0).inMilliseconds}ms, 缩放=${t3.difference(t2).inMilliseconds}ms)');
         return result;
       }
-      _log.info('LocalLlmService', '图片无需压缩: ${decodeW}x$decodeH (base64解码+图片解码耗时 ${t1.difference(t0).inMilliseconds}ms)');
+      _log.info('LocalLlmService', '图片无需压缩: ${decodeW}x$decodeH (解码耗时 ${t1.difference(t0).inMilliseconds}ms)');
       return (decodeW, decodeH, decodedImage);
     }();
     

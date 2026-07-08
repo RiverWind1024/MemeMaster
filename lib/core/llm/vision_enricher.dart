@@ -74,13 +74,15 @@ class VisionLlmEnricher {
     _log.info('VisionLLM', '开始多模态分析: $memeId, locale: ${effectiveLocale.languageCode}');
 
     try {
-      // 1. 读取图片并转 base64
+      // 1. 读取图片（本地 LLM 直接传原始字节，跳过 base64）
       final imageBytes = await _readAndResizeImage(imagePath);
-      final base64Image = base64Encode(imageBytes);
-      _log.info('VisionLLM', '图片 base64: ${base64Image.length} 字节');
+      final base64Image = _isLocalLlm ? null : base64Encode(imageBytes);
+      if (!_isLocalLlm) {
+        _log.info('VisionLLM', '图片 base64: ${base64Image!.length} 字节');
+      }
 
       // 2. 调用多模态 LLM（带超时保护）
-      final result = await _analyzeImageWithTimeout(base64Image, effectiveLocale);
+      final result = await _analyzeImageWithTimeout(base64Image, imageBytes, effectiveLocale);
 
       if (result == null) {
         _log.warning('VisionLLM', 'LLM 返回空结果');
@@ -116,14 +118,14 @@ class VisionLlmEnricher {
   }
 
   /// 带超时的图片分析
-  Future<_AnalysisResult?> _analyzeImageWithTimeout(String base64Image, Locale locale) async {
+  Future<_AnalysisResult?> _analyzeImageWithTimeout(String? base64Image, Uint8List imageBytes, Locale locale) async {
     if (_isLocalLlm) {
       // 本地 LLM：不在此处设超时，由 _multimodalComplete 内部处理超时 + isolate 清理
       // （外层的 Future.timeout 无法停止正在运行的 FFI 调用，会导致 CPU 持续空转）
-      return await _analyzeImage(base64Image, locale);
+      return await _analyzeImage(base64Image, imageBytes, locale);
     }
     // 远程 API 设置较短超时，避免请求无限挂起
-    return await _analyzeImage(base64Image, locale).timeout(
+    return await _analyzeImage(base64Image, imageBytes, locale).timeout(
       const Duration(seconds: 60),
       onTimeout: () {
         throw LlmException('AI分析超时（60秒）');
@@ -131,7 +133,7 @@ class VisionLlmEnricher {
     );
   }
 
-  Future<_AnalysisResult?> _analyzeImage(String base64Image, Locale locale) async {
+  Future<_AnalysisResult?> _analyzeImage(String? base64Image, Uint8List imageBytes, Locale locale) async {
     final isChinese = locale.languageCode.startsWith('zh');
     final systemFile = isChinese ? 'vision_system_zh.txt' : 'vision_system_en.txt';
     final userFile = isChinese ? 'vision_user_zh.txt' : 'vision_user_en.txt';
@@ -152,7 +154,10 @@ class VisionLlmEnricher {
 
     final messages = [
       LlmMessage(role: 'system', content: systemContent),
-      LlmMessage(role: 'user', content: userContent, imageBase64: base64Image),
+      if (_isLocalLlm)
+        LlmMessage(role: 'user', content: userContent, imageBytes: imageBytes)
+      else
+        LlmMessage(role: 'user', content: userContent, imageBase64: base64Image),
     ];
 
     _log.info('VisionLLM', '调用 LLM: temperature=$temperature, maxTokens=$maxTokens');
