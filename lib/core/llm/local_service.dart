@@ -386,14 +386,21 @@ class LocalLlmService implements LlmService {
     if (pixelCount > 1024 * 1024) {
       _log.warning('LocalLlmService', '图片过大 (${decodedImage.width}x${decodedImage.height})，可能导致内存不足');
     }
-    const int maxLocalDim = 384;
     final decodeW = decodedImage.width;
     final decodeH = decodedImage.height;
-    final (targetW, targetH, resizedImage) = 
-        (decodeW > maxLocalDim || decodeH > maxLocalDim)
-            ? _resizeKeepingAspectRatio(decodedImage, maxLocalDim)
-            : (decodeW, decodeH, decodedImage);
-    _log.info('LocalLlmService', '图片 ${decodeW}x$decodeH -> 本地推理使用 ${targetW}x$targetH');
+    final (targetW, targetH, resizedImage) = () {
+      if (!_config.imageCompressionEnabled) {
+        _log.info('LocalLlmService', '图片压缩已关闭，使用原始尺寸 ${decodeW}x$decodeH');
+        return (decodeW, decodeH, decodedImage);
+      }
+      const int maxLocalDim = 384;
+      if (decodeW > maxLocalDim || decodeH > maxLocalDim) {
+        final result = _resizeKeepingAspectRatio(decodedImage, maxLocalDim);
+        _log.info('LocalLlmService', '图片压缩: ${decodeW}x$decodeH -> ${result.$1}x${result.$2}');
+        return result;
+      }
+      return (decodeW, decodeH, decodedImage);
+    }();
     
     final rgbBytes = Uint8List(targetW * targetH * 3);
     for (int y = 0; y < targetH; y++) {

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/utils/color_utils.dart';
 import '../../l10n/app_localizations.dart';
+import '../../services/clipboard_service.dart';
 import '../../services/search_service.dart';
 import '../gallery/gallery_provider.dart';
 import 'color_picker_dialog.dart';
@@ -269,6 +270,17 @@ class _SearchResultGridTile extends ConsumerWidget {
   final VoidCallback onTap;
   const _SearchResultGridTile({required this.result, required this.onTap});
 
+  Future<void> _copyImage(WidgetRef ref) async {
+    final storage = ref.read(fileStorageServiceProvider);
+    final file = await storage.getImage(result.meme.filePath);
+    await ClipboardService.copyImageToClipboard(file.path);
+    if (ref.context.mounted) {
+      ScaffoldMessenger.of(ref.context).showSnackBar(
+        SnackBar(content: Text(S.of(ref.context).copiedToClipboard)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final storage = ref.read(fileStorageServiceProvider);
@@ -281,6 +293,23 @@ class _SearchResultGridTile extends ConsumerWidget {
             if (snapshot.hasData) return Image.file(snapshot.data!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const Icon(Icons.broken_image));
             return const Center(child: CircularProgressIndicator(strokeWidth: 2));
           }),
+          // 右上角复制按钮
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Material(
+              color: Colors.black38,
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => _copyImage(ref),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.copy, size: 16, color: Colors.white70),
+                ),
+              ),
+            ),
+          ),
           Positioned(right: 4, bottom: 4, child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(8)),
