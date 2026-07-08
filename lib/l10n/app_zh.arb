@@ -207,6 +207,7 @@
 
   "logViewer": "运行日志",
   "logCopied": "日志已复制到剪贴板",
+  "logExported": "日志已导出",
   "noLogs": "暂无日志",
   "logSearchHint": "搜索日志 (支持 message / tag / level)",
   "logNoMatch": "无匹配日志",

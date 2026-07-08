@@ -1147,6 +1147,12 @@ abstract class S {
   /// **'日志已复制到剪贴板'**
   String get logCopied;
 
+  /// No description provided for @logExported.
+  ///
+  /// In zh, this message translates to:
+  /// **'日志已导出'**
+  String get logExported;
+
   /// No description provided for @noLogs.
   ///
   /// In zh, this message translates to:
