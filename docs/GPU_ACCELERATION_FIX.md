@@ -37,7 +37,7 @@
 
 1. 运行脚本自动下载并构建所有依赖：
 ```bash
-cd /home/jiangzifeng/Project/MemeHelper
+cd <REPO_ROOT>
 ./scripts/init-third-party.sh
 ```
 
@@ -48,13 +48,13 @@ cd /home/jiangzifeng/Project/MemeHelper
 
 2. 确保 ANDROID_NDK 环境变量已设置（可选，仅 OpenCL 需要）：
 ```bash
-export ANDROID_NDK=/home/jiangzifeng/Software/android-sdk/ndk/28.2.13676358
+export ANDROID_NDK=<NDK_PATH>
 ```
 
 ### 构建 APK
 
 ```bash
-cd /home/jiangzifeng/Project/MemeHelper
+cd <REPO_ROOT>
 
 # 清理之前的构建
 flutter clean

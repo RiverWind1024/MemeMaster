@@ -156,7 +156,7 @@ class MemeExportService {
 
 - [ ] **Step 2: 验证代码无语法错误**
 
-Run: `cd /home/jiangzifeng/Project/MemeHelper && flutter analyze lib/services/meme_export_service.dart`
+Run: `cd <REPO_ROOT> && flutter analyze lib/services/meme_export_service.dart`
 Expected: No issues found
 
 ---
@@ -415,7 +415,7 @@ class MemeImportService {
 
 - [ ] **Step 2: 验证代码无语法错误**
 
-Run: `cd /home/jiangzifeng/Project/MemeHelper && flutter analyze lib/services/meme_import_service.dart`
+Run: `cd <REPO_ROOT> && flutter analyze lib/services/meme_import_service.dart`
 Expected: No issues found
 
 ---
@@ -569,7 +569,7 @@ import 'package:path/path.dart' as p;
 
 - [ ] **Step 4: 验证代码无语法错误**
 
-Run: `cd /home/jiangzifeng/Project/MemeHelper && flutter analyze lib/features/gallery/gallery_screen.dart`
+Run: `cd <REPO_ROOT> && flutter analyze lib/features/gallery/gallery_screen.dart`
 Expected: No issues found
 
 ### 任务 4: 添加导入菜单项到加号旋钮
@@ -784,7 +784,7 @@ String get pleaseWait => 'Please wait...';
 
 - [ ] **Step 1: 运行 flutter analyze**
 
-Run: `cd /home/jiangzifeng/Project/MemeHelper && flutter analyze`
+Run: `cd <REPO_ROOT> && flutter analyze`
 Expected: No errors
 
 - [ ] **Step 2: 提交代码**
