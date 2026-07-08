@@ -184,6 +184,7 @@
 
   "logViewer": "Run Logs",
   "logCopied": "Logs copied to clipboard",
+  "logExported": "Log exported",
   "noLogs": "No logs",
   "logSearchHint": "Search logs (matches message / tag / level)",
   "logNoMatch": "No matching logs",

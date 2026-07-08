@@ -582,6 +582,9 @@ class SZh extends S {
   String get logCopied => '日志已复制到剪贴板';
 
   @override
+  String get logExported => '日志已导出';
+
+  @override
   String get noLogs => '暂无日志';
 
   @override
