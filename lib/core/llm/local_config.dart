@@ -23,6 +23,9 @@ class LocalLlmConfig {
   /// 是否启用 GPU 加速
   final bool useGpu;
 
+  /// 放到 GPU 的层数（-1=全部, 0=仅 CPU, 其他值=具体层数）
+  final int nGpuLayers;
+
   /// Flash Attention（auto 根据 GPU 自动决定）
   final FlashAttnMode flashAttn;
 
@@ -62,6 +65,7 @@ class LocalLlmConfig {
     this.contextSize = 2048,
     this.threads = 0,
     this.useGpu = false,
+    this.nGpuLayers = -1,
     this.flashAttn = FlashAttnMode.enabled,
     this.kvCacheType = KvCacheType.q4_0,
     this.kvUnified = true,
@@ -104,6 +108,7 @@ class LocalLlmConfig {
         'contextSize': contextSize,
         'threads': threads,
         'useGpu': useGpu,
+        'nGpuLayers': nGpuLayers,
         'flashAttn': flashAttn.name,
         'kvCacheType': kvCacheType.name,
         'kvUnified': kvUnified,
@@ -124,6 +129,7 @@ class LocalLlmConfig {
         contextSize: json['contextSize'] as int? ?? 2048,
         threads: json['threads'] as int? ?? 0,
         useGpu: json['useGpu'] as bool? ?? false,
+        nGpuLayers: json['nGpuLayers'] as int? ?? -1,
         flashAttn: FlashAttnMode.values.firstWhere(
           (e) => e.name == json['flashAttn'],
           orElse: () => FlashAttnMode.enabled,
@@ -149,6 +155,7 @@ class LocalLlmConfig {
     int? contextSize,
     int? threads,
     bool? useGpu,
+    int? nGpuLayers,
     FlashAttnMode? flashAttn,
     KvCacheType? kvCacheType,
     bool? kvUnified,
@@ -169,6 +176,7 @@ class LocalLlmConfig {
       contextSize: contextSize ?? this.contextSize,
       threads: threads ?? this.threads,
       useGpu: useGpu ?? this.useGpu,
+      nGpuLayers: nGpuLayers ?? this.nGpuLayers,
       flashAttn: flashAttn ?? this.flashAttn,
       kvCacheType: kvCacheType ?? this.kvCacheType,
       kvUnified: kvUnified ?? this.kvUnified,

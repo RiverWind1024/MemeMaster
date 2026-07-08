@@ -210,15 +210,28 @@ class LocalLlmService implements LlmService {
     }
   }
 
-  LocalLlmService({required LocalLlmConfig config, String? logFilePath, String? mllmLogPath})
-      : _config = config,
-        _log = LogService(logFilePath: logFilePath, mllmLogPath: mllmLogPath);
+  /// 创建本地 LLM 服务。
+  /// [log] 必传，必须是全局共享的 LogService 实例（通过 logServiceProvider 拿到），
+  /// 避免创建独立的 LogService 实例导致日志分散在不同内存缓冲区。
+  /// 如果不传，会降级使用纯内存 LogService（仅用于向后兼容，不推荐）。
+  LocalLlmService({
+    required LocalLlmConfig config,
+    LogService? log,
+  })  : _config = config,
+        _log = log ?? LogService();
 
   @override
   bool get isAvailable => _config.modelPath != null;
 
   /// 检查模型是否已加载（用于延迟加载）
   bool get isLoaded => _handle != null;
+
+  /// 运行 C++ 端诊断：枚举所有可用后端、尝试 dlopen libOpenCL.so
+  /// 不需要模型已加载。诊断结果会写入 mllm.log 文件
+  /// 返回 0 成功，非 0 失败（-1 表示 FFI 不可用）
+  int runDiagnostics() {
+    return _bindings.runDiagnostics(logFilePath: _mllmLogFilePath);
+  }
 
   /// 等比缩放图片到最大边长 [maxDim]，返回 (宽, 高, 缩放后的 Image)
   static (int, int, img.Image) _resizeKeepingAspectRatio(img.Image image, int maxDim) {
@@ -269,7 +282,7 @@ class LocalLlmService implements LlmService {
       threads: effectiveThreads,
       contextSize: _config.contextSize,
       useGpu: _config.useGpu ? 1 : 0,
-      nGpuLayers: _config.useGpu ? -1 : 0,
+      nGpuLayers: _config.useGpu ? _config.nGpuLayers : 0,
       logFilePath: _mllmLogFilePath,
       extraParams: extraParams,
     );
