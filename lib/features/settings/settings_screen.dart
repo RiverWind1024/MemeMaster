@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../services/config_exporter.dart';
+import '../../services/opencl_diagnostic.dart';
 import '../../services/s3_config.dart';
 import '../../core/image/color_extraction_config.dart';
 import '../../core/llm/config.dart';
@@ -79,11 +80,56 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   );
                 },
               ),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.medical_services_outlined),
+                  title: const Text('GPU 加速诊断'),
+                  subtitle: const Text('检测 OpenCL（libOpenCL.so）和 Vulkan（libvulkan.so）支持'),
+                  trailing: const Icon(Icons.play_arrow),
+                  onTap: () => _runOpenCLDiagnostic(ctx, ref),
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  void _runOpenCLDiagnostic(BuildContext context, WidgetRef ref) {
+    // 使用 logServiceProvider 提供的单例，确保日志写入同一个实例和文件
+    final log = ref.read(logServiceProvider);
+    log.info('Settings', '用户触发 GPU 诊断（OpenCL + Vulkan）');
+
+    // 立即显示一个 SnackBar 反馈
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('诊断已开始，结果会写入运行日志（OpenCLDiag 标签，含 OpenCL + Vulkan）'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    // 异步运行诊断（不阻塞 UI）
+    () async {
+      try {
+        await OpenCLDiagnostic.runAll(log);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('诊断完成，请到"运行日志"查看结果'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      } catch (e) {
+        log.error('Settings', 'GPU 诊断失败: $e');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('诊断失败: $e')),
+          );
+        }
+      }
+    }();
   }
 
   void _showColorExtractionPage() {

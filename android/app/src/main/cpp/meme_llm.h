@@ -40,7 +40,6 @@ extern "C" {
 //   支持的 key:
 //     flash_attn   = auto | enabled | disabled  （默认 auto）
 //     kv_cache     = f16 | q4_0                 （默认 f16）
-//     kv_unified   = 1 | 0                      （默认 1）
 //     use_mmap     = 1 | 0                      （默认 0，Android 推荐关闭）
 //     n_batch      = <数值>                      （默认 512）
 //     n_ubatch     = <数值>                      （默认 256）
@@ -53,26 +52,6 @@ void* mllm_init(const char* model_path,
                 int n_gpu_layers,
                 const char* log_file_path,
                 const char* extra_params);
-
-// 纯文本补全
-// 返回生成的文本（调用方须 mllm_free_string 释放），失败返回 NULL
-char* mllm_complete(void* handle,
-                    const char* prompt,
-                    int max_tokens,
-                    float temperature);
-
-// 多模态补全（文本 + 图片）
-// image_data: RGB 像素数据; image_data_size: 数据字节数
-// image_width/height: 图片尺寸
-// 返回生成的文本（调用方须 mllm_free_string 释放），失败返回 NULL
-char* mllm_multimodal_complete(void* handle,
-                               const char* prompt,
-                               const unsigned char* image_data,
-                               size_t image_data_size,
-                               int image_width,
-                               int image_height,
-                               int max_tokens,
-                               float temperature);
 
 // 多模态对话（使用 chat template）
 // messages_json: JSON 格式的消息数组，含图片的消息 content 须包含 <__media__> 标记
@@ -91,7 +70,7 @@ char* mllm_multimodal_chat(void* handle,
 // 释放资源
 void mllm_close(void* handle);
 
-// 释放 mllm_complete / mllm_multimodal_complete 返回的字符串
+// 释放 mllm_multimodal_chat 返回的字符串
 void mllm_free_string(char* str);
 
 // 获取 C++ 侧捕获的最近日志
@@ -101,20 +80,11 @@ void mllm_free_string(char* str);
 // out_last_id: 输出本次返回的最后一条日志的 ID，供下次调用传入
 char* mllm_get_logs(uint64_t since_id, uint64_t* out_last_id);
 
-// ---- Streaming API ----
-
-// 逐 token 回调：每次生成一个 token piece 时调用
-// 返回 0 继续生成，非 0 中止
-typedef int (*mllm_token_callback_t)(const char* token_text, void* user_data);
-
-// 流式文本补全 — 每生成一个 token 就回调一次
-// 返回 0 成功，非 0 失败或被回调中止
-int mllm_complete_stream(void* handle,
-                         const char* prompt,
-                         int max_tokens,
-                         float temperature,
-                         mllm_token_callback_t callback,
-                         void* user_data);
+// 运行诊断：枚举所有可用后端及设备
+// 必须在 mllm_init 之前调用以收集诊断信息
+// log_file_path: 把诊断输出写入此文件（可为 NULL）
+// 返回 0 成功，非 0 失败
+int mllm_run_diagnostics(const char* log_file_path);
 
 #ifdef __cplusplus
 }

@@ -394,6 +394,46 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                             },
                             secondary: const Icon(Icons.memory),
                           ),
+                          // GPU 层数选择（仅在开启 GPU 时显示）
+                          if (ref.watch(localLlmConfigProvider).useGpu) ...[
+                            const SizedBox(height: 8),
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.layers),
+                              title: const Text('GPU 层数'),
+                              subtitle: Text(
+                                ref.watch(localLlmConfigProvider).nGpuLayers == -1
+                                    ? '全部层 (-1)'
+                                    : '${ref.watch(localLlmConfigProvider).nGpuLayers} 层',
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                              trailing: SizedBox(
+                                width: 200,
+                                child: DropdownButton<int>(
+                                  value: ref.watch(localLlmConfigProvider).nGpuLayers,
+                                  underline: const SizedBox(),
+                                  isExpanded: true,
+                                  items: const [
+                                    DropdownMenuItem(value: -1, child: Text('全部 (-1)')),
+                                    DropdownMenuItem(value: 0, child: Text('仅 CPU (0)')),
+                                    DropdownMenuItem(value: 4, child: Text('4 层')),
+                                    DropdownMenuItem(value: 8, child: Text('8 层')),
+                                    DropdownMenuItem(value: 12, child: Text('12 层')),
+                                    DropdownMenuItem(value: 16, child: Text('16 层')),
+                                    DropdownMenuItem(value: 20, child: Text('20 层')),
+                                    DropdownMenuItem(value: 24, child: Text('24 层')),
+                                  ],
+                                  onChanged: (v) {
+                                    if (v != null) {
+                                      ref.read(localLlmConfigProvider.notifier).update(
+                                        ref.read(localLlmConfigProvider).copyWith(nGpuLayers: v),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
                           const Divider(),
                           // 上下文长度
                           ListTile(
@@ -483,20 +523,6 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                                 style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange),
                               ),
                             ),
-                          const SizedBox(height: 12),
-                          // 统一 KV 缓存
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('统一 KV 缓存'),
-                            subtitle: Text(
-                              '开启后多个推理任务共享 KV 缓存，省内存；关闭则每个任务独立 KV 缓存，用满上下文但占更多内存',
-                              style: theme.textTheme.bodySmall,
-                            ),
-                            value: ref.watch(localLlmConfigProvider).kvUnified,
-                            onChanged: (v) => ref.read(localLlmConfigProvider.notifier).update(
-                              ref.read(localLlmConfigProvider).copyWith(kvUnified: v),
-                            ),
-                          ),
                           const SizedBox(height: 12),
                           // use_mmap
                           SwitchListTile(

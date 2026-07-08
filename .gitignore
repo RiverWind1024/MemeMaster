@@ -44,11 +44,31 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Local config (may contain sensitive paths)
+/android/local.properties
+/android/gradle.properties
+
 # Git worktrees
 .worktrees/
 
 # Superpowers temp files
 .superpowers/
 
+# OpenCode session logs
+session-*.md
+
+# Sisyphus plans
+.sisyphus/
+
+# Test data
+test/
+
 # llama.cpp 源码（外部依赖，不提交）
-llama.cpp/
+third_party/
+
+# OpenCL build artifacts
+android/app/src/main/cpp/cmake/
+android/app/src/main/jniLibs/
+
+# Gradle properties template
+android/gradle.properties.template

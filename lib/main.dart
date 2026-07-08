@@ -22,7 +22,8 @@ void main() async {
 
   // 应用内部目录：数据库、缓存、配置导出、模型文件、日志
   final docsDir = await getApplicationDocumentsDirectory();
-  initLogFilePath('${docsDir.path}/logs/app.log');
+  final logFilePath = '${docsDir.path}/logs/app.log';
+  initLogFilePath(logFilePath);
   final modelsDir = Directory('${docsDir.path}/models');
   if (!await modelsDir.exists()) {
     await modelsDir.create(recursive: true);

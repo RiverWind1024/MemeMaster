@@ -62,65 +62,6 @@ void _initIsolateEntry(_InitIsolateArgs args) {
   args.sendPort.send(handle.address);
 }
 
-/// 可跨 isolate 传递的文本测试推理参数
-class _TextRunTestArgs {
-  final SendPort sendPort;
-  final String modelPath;
-  final String? mmprojPath;
-  final int threads;
-  final int contextSize;
-  final String prompt;
-  final int maxTokens;
-  final double temperature;
-
-  _TextRunTestArgs({
-    required this.sendPort,
-    required this.modelPath,
-    this.mmprojPath,
-    required this.threads,
-    required this.contextSize,
-    required this.prompt,
-    required this.maxTokens,
-    required this.temperature,
-  });
-}
-
-/// 在后台 isolate 中执行测试推理（加载模型→推理→释放，全部在 isolate 内完成）
-///
-/// 被 [Isolate.spawn] 调用，通过 [SendPort] 返回结果字符串或 null。
-void _textRunTestInferenceIsolateEntry(_TextRunTestArgs args) {
-  final bindings = NativeLlmBindings();
-  final handle = bindings.init(
-    args.modelPath,
-    args.mmprojPath,
-    args.threads,
-    args.contextSize,
-    useGpu: 0,
-    nGpuLayers: 0,
-    logFilePath: _mllmLogFilePath,
-    extraParams: null,
-  );
-
-  if (handle == nullptr) {
-    args.sendPort.send(null);
-    return;
-  }
-
-  try {
-    final result = bindings.complete(
-      handle,
-      args.prompt,
-      args.maxTokens,
-      args.temperature,
-    );
-    args.sendPort.send(result);
-  } catch (e) {
-    args.sendPort.send(null);
-  } finally {
-    bindings.close(handle);
-  }
-}
-
 /// 可跨 isolate 传递的多模态推理参数
 class _MultimodalIsolateArgs {
   final SendPort sendPort;
@@ -210,15 +151,28 @@ class LocalLlmService implements LlmService {
     }
   }
 
-  LocalLlmService({required LocalLlmConfig config, String? logFilePath, String? mllmLogPath})
-      : _config = config,
-        _log = LogService(logFilePath: logFilePath, mllmLogPath: mllmLogPath);
+  /// 创建本地 LLM 服务。
+  /// [log] 必传，必须是全局共享的 LogService 实例（通过 logServiceProvider 拿到），
+  /// 避免创建独立的 LogService 实例导致日志分散在不同内存缓冲区。
+  /// 如果不传，会降级使用纯内存 LogService（仅用于向后兼容，不推荐）。
+  LocalLlmService({
+    required LocalLlmConfig config,
+    LogService? log,
+  })  : _config = config,
+        _log = log ?? LogService();
 
   @override
   bool get isAvailable => _config.modelPath != null;
 
   /// 检查模型是否已加载（用于延迟加载）
   bool get isLoaded => _handle != null;
+
+  /// 运行 C++ 端诊断：枚举所有可用后端、尝试 dlopen libOpenCL.so
+  /// 不需要模型已加载。诊断结果会写入 mllm.log 文件
+  /// 返回 0 成功，非 0 失败（-1 表示 FFI 不可用）
+  int runDiagnostics() {
+    return _bindings.runDiagnostics(logFilePath: _mllmLogFilePath);
+  }
 
   /// 等比缩放图片到最大边长 [maxDim]，返回 (宽, 高, 缩放后的 Image)
   static (int, int, img.Image) _resizeKeepingAspectRatio(img.Image image, int maxDim) {
@@ -269,7 +223,7 @@ class LocalLlmService implements LlmService {
       threads: effectiveThreads,
       contextSize: _config.contextSize,
       useGpu: _config.useGpu ? 1 : 0,
-      nGpuLayers: _config.useGpu ? -1 : 0,
+      nGpuLayers: _config.useGpu ? _config.nGpuLayers : 0,
       logFilePath: _mllmLogFilePath,
       extraParams: extraParams,
     );
@@ -313,9 +267,9 @@ class LocalLlmService implements LlmService {
     String prompt, {
     LlmOptions? options,
   }) async {
-    return chat(
-      [LlmMessage(role: 'user', content: prompt)],
-      options: options,
+    throw UnsupportedError(
+      'LocalLlmService 不支持纯文本 complete(),'
+      '请使用 vision_enricher 或 chat(messages) 并附带图片',
     );
   }
 
@@ -329,32 +283,27 @@ class LocalLlmService implements LlmService {
 
       final maxTokens = options?.maxTokens ?? 512;
       final temperature = options?.temperature ?? 0.7;
-      final hasImage = messages.any((m) => m.imageBase64 != null);
+      final imageMsg = messages.firstWhere(
+        (m) => m.imageBase64 != null || m.imageBytes != null,
+        orElse: () => throw StateError('LocalLlmService.chat 要求至少一条消息包含图片'),
+      );
 
-      if (hasImage) {
-        final imageMsg = messages.firstWhere((m) => m.imageBase64 != null);
-        // 构建 messages JSON，有图片的消息 content 前加 <__media__> 标记
-        // mtmd_tokenize 识别 <__media__> 后将其替换为图片 embedding
-        final jsonArray = jsonEncode(messages.map((m) {
-          var content = m.content;
-          if (m.imageBase64 != null) {
-            content = '<__media__>\n$content';
-          }
-          return {'role': m.role, 'content': content};
-        }).toList());
-        _log.info('LocalLlmService', '检测到图片，调用多模态对话推理，messages=${messages.length}');
+      // 构建 messages JSON，有图片的消息 content 前加 <__media__> 标记
+      // mtmd_tokenize 识别 <__media__> 后将其替换为图片 embedding
+      final jsonArray = jsonEncode(messages.map((m) {
+        var content = m.content;
+        if (m.imageBase64 != null || m.imageBytes != null) {
+          content = '<__media__>\n$content';
+        }
+        return {'role': m.role, 'content': content};
+      }).toList());
+      _log.info('LocalLlmService', '调用多模态对话推理，messages=${messages.length}');
 
-        return _multimodalChat(jsonArray, imageMsg.imageBase64!, maxTokens, temperature);
+      // 优先使用原始字节（本地 LLM），否则回退到 base64（远程 API）
+      if (imageMsg.imageBytes != null) {
+        return _multimodalChatWithBytes(jsonArray, imageMsg.imageBytes!, maxTokens, temperature);
       }
-
-      // 纯文本路径：使用 mllm_chat + chat template
-      final jsonArray = jsonEncode(messages.map((m) => {'role': m.role, 'content': m.content}).toList());
-
-      final result = _bindings.chat(_handle!, jsonArray, maxTokens, temperature);
-      if (result == null) {
-        throw StateError('推理失败 (chat 返回 null)');
-      }
-      return result;
+      return _multimodalChat(jsonArray, imageMsg.imageBase64!, maxTokens, temperature);
     });
   }
 
@@ -365,7 +314,18 @@ class LocalLlmService implements LlmService {
     double temperature,
   ) async {
     final imageBytes = _decodeBase64(base64Image);
+    return _multimodalChatWithBytes(messagesJson, imageBytes, maxTokens, temperature);
+  }
+
+  Future<String> _multimodalChatWithBytes(
+    String messagesJson,
+    Uint8List imageBytes,
+    int maxTokens,
+    double temperature,
+  ) async {
+    final t0 = DateTime.now();
     final decodedImage = img.decodeImage(imageBytes);
+    final t1 = DateTime.now();
     if (decodedImage == null) {
       throw StateError('无法解码图片');
     }
@@ -373,14 +333,24 @@ class LocalLlmService implements LlmService {
     if (pixelCount > 1024 * 1024) {
       _log.warning('LocalLlmService', '图片过大 (${decodedImage.width}x${decodedImage.height})，可能导致内存不足');
     }
-    const int maxLocalDim = 384;
     final decodeW = decodedImage.width;
     final decodeH = decodedImage.height;
-    final (targetW, targetH, resizedImage) = 
-        (decodeW > maxLocalDim || decodeH > maxLocalDim)
-            ? _resizeKeepingAspectRatio(decodedImage, maxLocalDim)
-            : (decodeW, decodeH, decodedImage);
-    _log.info('LocalLlmService', '图片 ${decodeW}x$decodeH -> 本地推理使用 ${targetW}x$targetH');
+    final (targetW, targetH, resizedImage) = () {
+      if (!_config.imageCompressionEnabled) {
+        _log.info('LocalLlmService', '图片压缩已关闭，使用原始尺寸 ${decodeW}x$decodeH (图片解码耗时 ${t1.difference(t0).inMilliseconds}ms)');
+        return (decodeW, decodeH, decodedImage);
+      }
+      const int maxLocalDim = 384;
+      if (decodeW > maxLocalDim || decodeH > maxLocalDim) {
+        final t2 = DateTime.now();
+        final result = _resizeKeepingAspectRatio(decodedImage, maxLocalDim);
+        final t3 = DateTime.now();
+        _log.info('LocalLlmService', '图片压缩: ${decodeW}x$decodeH -> ${result.$1}x${result.$2} (解码=${t1.difference(t0).inMilliseconds}ms, 缩放=${t3.difference(t2).inMilliseconds}ms)');
+        return result;
+      }
+      _log.info('LocalLlmService', '图片无需压缩: ${decodeW}x$decodeH (解码耗时 ${t1.difference(t0).inMilliseconds}ms)');
+      return (decodeW, decodeH, decodedImage);
+    }();
     
     final rgbBytes = Uint8List(targetW * targetH * 3);
     for (int y = 0; y < targetH; y++) {
@@ -396,7 +366,7 @@ class LocalLlmService implements LlmService {
 
     final handleAddress = _handle!.address;
     _log.info('LocalLlmService', '在后台 isolate 中执行多模态对话推理 ... (maxTokens=$maxTokens)');
-    final t0 = DateTime.now();
+    final tInfer = DateTime.now();
 
     final receivePort = ReceivePort();
     final args = _MultimodalIsolateArgs(
@@ -416,7 +386,7 @@ class LocalLlmService implements LlmService {
 
       final result = await receivePort.first;
       final t1 = DateTime.now();
-      _log.info('LocalLlmService', '后台 isolate 多模态对话推理返回，耗时 ${t1.difference(t0).inMilliseconds}ms');
+      _log.info('LocalLlmService', '后台 isolate 多模态对话推理返回，耗时 ${t1.difference(tInfer).inMilliseconds}ms');
       if (result == null) {
         throw StateError('多模态对话推理失败 (返回 null)');
       }
@@ -451,47 +421,5 @@ class LocalLlmService implements LlmService {
         debugPrint('[LocalLlmService] ${DateTime.now().toIso8601String()} dispose() 完成');
       }
     }, force: true);
-  }
-}
-
-/// 在后台 isolate 中执行一次测试推理（加载模型 + 短推理 + 释放）
-///
-/// 返回推理结果字符串，失败返回 null。
-/// 与旧版 [runTestInference] 不同，此方法不阻塞主线程。
-Future<String?> runTestInferenceAsync({
-  required String modelPath,
-  String? mmprojPath,
-  required int threads,
-  required int contextSize,
-  required String prompt,
-  required int maxTokens,
-  required double temperature,
-}) async {
-  debugPrint('[TestInference] 开始异步测试推理: $modelPath (threads=$threads, ctx=$contextSize)');
-
-  final receivePort = ReceivePort();
-  final args = _TextRunTestArgs(
-    sendPort: receivePort.sendPort,
-    modelPath: modelPath,
-    mmprojPath: mmprojPath,
-    threads: threads,
-    contextSize: contextSize,
-    prompt: prompt,
-    maxTokens: maxTokens,
-    temperature: temperature,
-  );
-
-  final t0 = DateTime.now();
-
-  Isolate? isolate;
-  try {
-    isolate = await Isolate.spawn(_textRunTestInferenceIsolateEntry, args);
-    final result = await receivePort.first;
-    final t1 = DateTime.now();
-    debugPrint('[TestInference] 异步测试推理完成，耗时 ${t1.difference(t0).inMilliseconds}ms, 结果: "$result"');
-    return result as String?;
-  } finally {
-    receivePort.close();
-    isolate?.kill(priority: Isolate.immediate);
   }
 }

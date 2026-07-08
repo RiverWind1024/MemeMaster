@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:collection/collection.dart';
 
 /// LLM 请求参数
@@ -24,13 +26,18 @@ class LlmMessage {
   final String role; // 'system' | 'user' | 'assistant'
   final String content;
 
-  /// 可选的 base64 编码图片（多模态 vision 使用）
+  /// 可选的 base64 编码图片（多模态 vision 使用，远程 API）
   final String? imageBase64;
+
+  /// 可选的原始图片字节（多模态 vision 使用，本地 LLM）
+  /// 优先使用 imageBytes，如果为 null 则回退到 imageBase64
+  final Uint8List? imageBytes;
 
   const LlmMessage({
     required this.role,
     required this.content,
     this.imageBase64,
+    this.imageBytes,
   });
 
   Map<String, String> toJson() => {'role': role, 'content': content};
