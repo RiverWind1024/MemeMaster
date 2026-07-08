@@ -38,8 +38,12 @@ android {
                 arguments += listOf("-DENABLE_OPENCL=ON")
                 // 可选：启用 Vulkan（通常比 CPU 慢，不推荐）
                 arguments += listOf("-DENABLE_VULKAN=ON")
-                // Vulkan 编译工具路径（glslc 来自 NDK，SPIRV-Headers 来自 third_party）
-                arguments += listOf("-DVulkan_GLSLC_EXECUTABLE=/home/jiangzifeng/Software/android-sdk/ndk/28.2.13676358/shader-tools/linux-x86_64/glslc")
+                // Vulkan 编译工具路径：glslc 优先从环境变量 ANDROID_NDK 解析,
+                // 找不到时尝试 SDK 默认位置 (注意:这条仅在你的本地开发机配置下成立)
+                val ndkRoot = System.getenv("ANDROID_NDK")
+                    ?: providers.gradleProperty("android.ndkDirectory").orNull
+                    ?: "${android.sdkDirectory}/ndk/${android.ndkVersion}"
+                arguments += listOf("-DVulkan_GLSLC_EXECUTABLE=$ndkRoot/shader-tools/linux-x86_64/glslc")
                 arguments += listOf("-DSPIRV-Headers_DIR=${project.rootDir}/../third_party/SPIRV-Headers/install/share/cmake/SPIRV-Headers")
                 
                 // GPU 后端编译优化标志
