@@ -41,6 +41,9 @@ typedef MllmCompleteStreamDart = int Function(
 typedef MllmChatC = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>, Int32, Float);
 typedef MllmChatDart = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>, int, double);
 
+typedef MllmRunDiagnosticsC = Int32 Function(Pointer<Utf8>);
+typedef MllmRunDiagnosticsDart = int Function(Pointer<Utf8>);
+
 class NativeLlmBindings {
   DynamicLibrary? _dylib;
 
@@ -54,6 +57,7 @@ class NativeLlmBindings {
   MllmGetLogsDart? mllmGetLogs;
   MllmChatDart? mllmChat;
   MllmIsMtmdLoadedDart? mllmIsMtmdLoaded;
+  MllmRunDiagnosticsDart? mllmRunDiagnostics;
 
   /// 构造函数尝试加载动态库，捕获异常避免闪退
   NativeLlmBindings() {
@@ -74,6 +78,7 @@ class NativeLlmBindings {
       mllmGetLogs = _dylib!.lookupFunction<MllmGetLogsC, MllmGetLogsDart>('mllm_get_logs');
       mllmChat = _dylib!.lookupFunction<MllmChatC, MllmChatDart>('mllm_chat');
       mllmIsMtmdLoaded = _dylib!.lookupFunction<MllmIsMtmdLoadedC, MllmIsMtmdLoadedDart>('mllm_is_mtmd_loaded');
+      mllmRunDiagnostics = _dylib!.lookupFunction<MllmRunDiagnosticsC, MllmRunDiagnosticsDart>('mllm_run_diagnostics');
     } catch (e) {
       // 加载失败时不抛异常，后续调用通过 mllmInit==null 判断不可用
       // 防止因 ABI 不匹配或 .so 缺失导致 app 启动时直接闪退
@@ -125,6 +130,18 @@ class NativeLlmBindings {
     final fn = mllmIsMtmdLoaded;
     if (fn == null) return false;
     return fn(handle) != 0;
+  }
+
+  /// 运行 C++ 端诊断（枚举所有后端、尝试 dlopen libOpenCL.so 等）
+  /// logFilePath: 把诊断输出写入此文件，传 null 则只写 logcat
+  /// 返回 0 成功，非 0 失败
+  int runDiagnostics({String? logFilePath}) {
+    final fn = mllmRunDiagnostics;
+    if (fn == null) return -1;
+    final logPtr = logFilePath?.toNativeUtf8() ?? nullptr;
+    final ret = fn(logPtr);
+    if (logFilePath != null) malloc.free(logPtr);
+    return ret;
   }
 
   String? complete(Pointer<Void> handle, String prompt, int maxTokens, double temperature) {
