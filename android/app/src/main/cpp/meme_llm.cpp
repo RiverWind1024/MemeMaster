@@ -17,6 +17,7 @@ char* mllm_get_logs(uint64_t, uint64_t*) { char* s = (char*)malloc(1); s[0] = '\
 int mllm_is_mtmd_loaded(void*) { return 0; }
 char* mllm_chat(void*, const char*, int, float) { return NULL; }
 char* mllm_multimodal_chat(void*, const char*, const unsigned char*, size_t, int, int, int, float) { return NULL; }
+int mllm_run_diagnostics(const char*) { return 0; }
 #else
 
 #include "llama.h"
@@ -28,10 +29,16 @@ char* mllm_multimodal_chat(void*, const char*, const unsigned char*, size_t, int
 #include <string.h>
 #include <vector>
 #include <string>
+#include <exception>
 #include <stdarg.h>
 #include <pthread.h>
 #include <sys/time.h>
+#include <signal.h>
+#include <csetjmp>
 #include <android/log.h>
+#ifdef __ANDROID__
+#include <dlfcn.h>
+#endif
 
 // ---- 日志文件输出 + 内存环形缓冲区 ----
 // 日志同时写入文件和内存环形缓冲区，以便 Dart 侧在模型加载期间实时轮询。
@@ -271,6 +278,45 @@ static ExtraParams parse_extra_params(const char* extra_params) {
     return p;
 }
 
+// ---- GPU 信号崩溃安全回退 ----
+// llama_model_load_from_file 在 Vulkan 驱动崩溃时触发的是信号（SIGSEGV/SIGABRT），
+// 不是 C++ 异常，try-catch 抓不住。我们用 sigaction + sigsetjmp 在信号发生时跳回安全点。
+static sigjmp_buf g_gpu_jmp_buf;
+static volatile sig_atomic_t g_gpu_crashed = 0;
+
+static void gpu_crash_signal_handler(int) {
+    g_gpu_crashed = 1;
+    siglongjmp(g_gpu_jmp_buf, 1);
+}
+
+/// 在信号保护下调用 llama_model_load_from_file，如果触发 SIGSEGV/SIGABRT 则返回 NULL。
+static llama_model* safe_llama_model_load(const char* path, llama_model_params params) {
+    struct sigaction sa_segv, sa_abrt, old_segv, old_abrt;
+
+    memset(&sa_segv, 0, sizeof(sa_segv));
+    sa_segv.sa_handler = gpu_crash_signal_handler;
+    sigemptyset(&sa_segv.sa_mask);
+    sigaction(SIGSEGV, &sa_segv, &old_segv);
+
+    memset(&sa_abrt, 0, sizeof(sa_abrt));
+    sa_abrt.sa_handler = gpu_crash_signal_handler;
+    sigemptyset(&sa_abrt.sa_mask);
+    sigaction(SIGABRT, &sa_abrt, &old_abrt);
+
+    g_gpu_crashed = 0;
+    llama_model* model = nullptr;
+    if (sigsetjmp(g_gpu_jmp_buf, 1) == 0) {
+        model = llama_model_load_from_file(path, params);
+    } else {
+        // siglongjmp 回到这里
+        g_gpu_crashed = 1;
+    }
+
+    sigaction(SIGSEGV, &old_segv, nullptr);
+    sigaction(SIGABRT, &old_abrt, nullptr);
+    return g_gpu_crashed ? nullptr : model;
+}
+
 void* mllm_init(const char* model_path,
                 const char* mmproj_path,
                 int n_threads,
@@ -294,38 +340,88 @@ void* mllm_init(const char* model_path,
               opt.kv_cache == GGML_TYPE_Q4_0 ? "q4_0" : "f16",
               opt.kv_unified, opt.use_mmap, opt.n_batch, opt.n_ubatch);
 
-    ggml_backend_load_all();
-
-    // --- GPU 检测日志 ---
-    int n_backends = (int)ggml_backend_reg_count();
-    int n_devices = (int)ggml_backend_dev_count();
-    MLLM_LOGI("mllm_init: ggml_backend_load_all() 完成, backends=%d, devices=%d", n_backends, n_devices);
-    for (int i = 0; i < n_backends; i++) {
-        ggml_backend_reg_t reg = ggml_backend_reg_get(i);
-        size_t n_reg_dev = ggml_backend_reg_dev_count(reg);
-        MLLM_LOGI("  backend[%d]: \"%s\" (%zu devices)", i, ggml_backend_reg_name(reg), n_reg_dev);
-        for (size_t j = 0; j < n_reg_dev; j++) {
-            ggml_backend_dev_t dev = ggml_backend_reg_dev_get(reg, j);
-            const char* dev_name = ggml_backend_dev_name(dev);
-            const char* dev_desc = ggml_backend_dev_description(dev);
-            MLLM_LOGI("    device[%zu]: \"%s\" — %s", j, dev_name, dev_desc);
-        }
-    }
-    MLLM_LOGI("mllm_init: use_gpu=%d, n_gpu_layers=%d", use_gpu, n_gpu_layers);
-
     llama_model_params model_params = llama_model_default_params();
-    if (use_gpu && n_devices > 0) {
-        model_params.n_gpu_layers = n_gpu_layers;
-        MLLM_LOGI("mllm_init: GPU 加速已启用, n_gpu_layers=%d", n_gpu_layers);
-    } else if (use_gpu && n_devices == 0) {
-        MLLM_LOGW("mllm_init: 请求 GPU 加速但未检测到 GPU 设备，回退到 CPU");
-        model_params.n_gpu_layers = 0;
-    } else {
-        model_params.n_gpu_layers = 0;
-    }
     model_params.use_mmap = opt.use_mmap;
-    MLLM_LOGI("mllm_init: use_mmap=%d", opt.use_mmap);
-    llama_model* model = llama_model_load_from_file(model_path, model_params);
+    bool should_use_gpu = false;
+    llama_model* model = NULL;
+
+    if (use_gpu) {
+        // GPU 模式：加载所有后端（包括 Vulkan/OpenCL），检测 GPU 设备
+        // 注意：ggml_backend_load_all 会静态初始化 Vulkan 后端并探测 GPU 硬件，
+        // 在 Adreno 710 等设备上可能触发 Vulkan 驱动 bug，因此仅在 GPU 模式调用。
+        // 注意：OpenCL 后端尚未在真实设备上验证（标记为实验性）
+        ggml_backend_load_all();
+
+        int n_backends = (int)ggml_backend_reg_count();
+        int n_devices = (int)ggml_backend_dev_count();
+        MLLM_LOGI("mllm_init: ggml_backend_load_all() 完成, backends=%d, devices=%d", n_backends, n_devices);
+        for (int i = 0; i < n_backends; i++) {
+            ggml_backend_reg_t reg = ggml_backend_reg_get(i);
+            size_t n_reg_dev = ggml_backend_reg_dev_count(reg);
+            MLLM_LOGI("  backend[%d]: \"%s\" (%zu devices)", i, ggml_backend_reg_name(reg), n_reg_dev);
+            for (size_t j = 0; j < n_reg_dev; j++) {
+                ggml_backend_dev_t dev = ggml_backend_reg_dev_get(reg, j);
+                const char* dev_name = ggml_backend_dev_name(dev);
+                const char* dev_desc = ggml_backend_dev_description(dev);
+                MLLM_LOGI("    device[%zu]: \"%s\" — %s", j, dev_name, dev_desc);
+                ggml_backend_dev_props props;
+                ggml_backend_dev_get_props(dev, &props);
+                MLLM_LOGI("      type=%d, async=%d, host_buf=%d, mem_free=%zu MB, mem_total=%zu MB",
+                          (int)props.type, (int)props.caps.async, (int)props.caps.host_buffer,
+                          props.memory_free / (1024*1024), props.memory_total / (1024*1024));
+            }
+        }
+
+        int n_gpu_devices = 0;
+        for (int i = 0; i < n_backends; i++) {
+            ggml_backend_reg_t reg = ggml_backend_reg_get(i);
+            const char* reg_name = ggml_backend_reg_name(reg);
+            if (reg_name && strcmp(reg_name, "CPU") != 0 && strcmp(reg_name, "BLAS") != 0) {
+                n_gpu_devices += (int)ggml_backend_reg_dev_count(reg);
+            }
+        }
+        MLLM_LOGI("mllm_init: 检测到 GPU 设备数=%d (总设备数=%d)", n_gpu_devices, n_devices);
+
+        if (n_gpu_devices == 0) {
+            MLLM_LOGW("mllm_init: 请求 GPU 加速但未检测到 GPU 设备");
+            MLLM_LOGW("mllm_init: 可能原因: 1) 设备不支持 2) llama.cpp 未编译 GPU 后端 3) 驱动问题");
+        }
+
+        should_use_gpu = (n_gpu_devices > 0);
+        if (should_use_gpu) {
+            model_params.n_gpu_layers = n_gpu_layers;
+            MLLM_LOGI("mllm_init: GPU 加速已启用, n_gpu_layers=%d", n_gpu_layers);
+        } else {
+            MLLM_LOGW("mllm_init: 请求 GPU 加速但未检测到 GPU 设备，回退到 CPU");
+            model_params.n_gpu_layers = 0;
+        }
+
+        // GPU 模式：用信号保护加载，崩溃时自动回退 CPU
+        MLLM_LOGI("mllm_init: 开始模型加载（GPU 模式，带信号保护）...");
+        model = safe_llama_model_load(model_path, model_params);
+        if (g_gpu_crashed) {
+            MLLM_LOGW("mllm_init: GPU 模式加载触发信号崩溃，回退到 CPU 重试");
+            model_params.n_gpu_layers = 0;
+            model_params.split_mode = LLAMA_SPLIT_MODE_NONE;
+            model_params.main_gpu = -1;
+            should_use_gpu = false;
+            model = safe_llama_model_load(model_path, model_params);
+            if (g_gpu_crashed) {
+                MLLM_LOGE("mllm_init: CPU 模式加载也崩溃，不可恢复");
+                return NULL;
+            }
+        }
+    } else {
+        // CPU 模式：仅使用 CPU 后端，无需 ggml_backend_load_all / 信号保护
+        // 避免初始化 Vulkan 后端可能触发的驱动问题（如 Adreno 710）。
+        // split_mode=NONE + main_gpu=-1 使 llama.cpp 内部跳过所有 GPU 设备
+        MLLM_LOGI("mllm_init: 开始模型加载（CPU 模式）...");
+        model_params.n_gpu_layers = 0;
+        model_params.split_mode = LLAMA_SPLIT_MODE_NONE;
+        model_params.main_gpu = -1;
+        model = llama_model_load_from_file(model_path, model_params);
+    }
+
     if (!model) {
         MLLM_LOGE("mllm_init: failed to load model from %s", model_path);
         return NULL;
@@ -346,6 +442,7 @@ void* mllm_init(const char* model_path,
     ctx_params.n_threads = n_threads;
     ctx_params.n_threads_batch = n_threads;
 
+    MLLM_LOGI("mllm_init: 开始 llama_init_from_model...");
     llama_context* ctx = llama_init_from_model(model, ctx_params);
     if (!ctx) {
         MLLM_LOGE("mllm_init: failed to create context");
@@ -359,11 +456,12 @@ void* mllm_init(const char* model_path,
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
     mtmd_context* mtmd_ctx = NULL;
-    if (mmproj_path) {
-        MLLM_LOGI("mllm_init: loading mtmd from %s", mmproj_path);
+    if (mmproj_path && mmproj_path[0] != '\0') {
+        MLLM_LOGI("mllm_init: loading mtmd from '%s'", mmproj_path);
         auto mtmd_params = mtmd_context_params_default();
-        mtmd_params.use_gpu = (use_gpu && n_devices > 0);
+        mtmd_params.use_gpu = should_use_gpu;
         mtmd_params.n_threads = n_threads;
+        MLLM_LOGI("mllm_init: mtmd_params.use_gpu=%d, 开始 mtmd_init_from_file...", mtmd_params.use_gpu);
         mtmd_ctx = mtmd_init_from_file(mmproj_path, model, mtmd_params);
         if (!mtmd_ctx) {
             MLLM_LOGE("mllm_init: failed to init mtmd from %s", mmproj_path);
@@ -710,8 +808,12 @@ char* mllm_multimodal_complete(void* handle_ptr,
                                size_t image_data_size,
                                int image_width,
                                int image_height,
-                               int max_tokens,
-                               float temperature) {
+                                int max_tokens,
+                                float temperature) {
+    // 计时开始
+    struct timeval t_start, t_end;
+    gettimeofday(&t_start, nullptr);
+
     MLLM_LOGI("mllm_multimodal_complete: called with image %dx%d, data_size=%zu", image_width, image_height, image_data_size);
     MllmHandle* handle = (MllmHandle*)handle_ptr;
     if (!handle) {
@@ -845,6 +947,11 @@ char* mllm_multimodal_complete(void* handle_ptr,
     if (result.size() > 0) {
         MLLM_LOGI("mllm_multimodal_complete: result preview: %.*s", (int)std::min(result.size(), (size_t)200), result.c_str());
     }
+
+    // 计时结束
+    gettimeofday(&t_end, nullptr);
+    double elapsed_ms = (t_end.tv_sec - t_start.tv_sec) * 1000.0 + (t_end.tv_usec - t_start.tv_usec) / 1000.0;
+    MLLM_LOGI("mllm_multimodal_complete: total inference time: %.1f ms", elapsed_ms);
 
     // 返回结果
     char* ret_str = (char*)malloc(result.size() + 1);
@@ -1091,5 +1198,104 @@ void mllm_close(void* handle_ptr) {
 
 void mllm_free_string(char* str) {
     if (str) free(str);
+}
+
+int mllm_run_diagnostics(const char* log_file_path) {
+    open_log_file(log_file_path);
+
+    MLLM_LOGI("=== mllm_run_diagnostics BEGIN ===");
+
+    // 1. 加载所有后端
+    MLLM_LOGI("[diagnostic] 步骤 1: ggml_backend_load_all()");
+    ggml_backend_load_all();
+
+    // 2. 枚举后端和设备
+    int n_backends = (int)ggml_backend_reg_count();
+    int n_devices = (int)ggml_backend_dev_count();
+    MLLM_LOGI("[diagnostic] 步骤 2: 发现 %d 个后端, %d 个设备", n_backends, n_devices);
+
+    int n_gpu = 0;
+    for (int i = 0; i < n_backends; i++) {
+        ggml_backend_reg_t reg = ggml_backend_reg_get(i);
+        const char* reg_name = ggml_backend_reg_name(reg);
+        size_t n_reg_dev = ggml_backend_reg_dev_count(reg);
+        MLLM_LOGI("[diagnostic]   backend[%d]: \"%s\" (%zu devices)", i, reg_name ? reg_name : "?", n_reg_dev);
+
+        for (size_t j = 0; j < n_reg_dev; j++) {
+            ggml_backend_dev_t dev = ggml_backend_reg_dev_get(reg, j);
+            const char* dev_name = ggml_backend_dev_name(dev);
+            const char* dev_desc = ggml_backend_dev_description(dev);
+            MLLM_LOGI("[diagnostic]     device[%zu]: \"%s\" — %s", j,
+                      dev_name ? dev_name : "?", dev_desc ? dev_desc : "?");
+            if (reg_name && strcmp(reg_name, "CPU") != 0 && strcmp(reg_name, "BLAS") != 0) {
+                n_gpu++;
+            }
+        }
+    }
+
+    MLLM_LOGI("[diagnostic] 步骤 3: 检测到 GPU 设备数=%d (总设备数=%d)", n_gpu, n_devices);
+
+    // 3. 尝试 dlopen libOpenCL.so 看是否能直接加载
+    MLLM_LOGI("[diagnostic] 步骤 4: dlopen(\"libOpenCL.so\") 测试");
+#ifdef __ANDROID__
+    const char* lib_paths[] = {
+        "libOpenCL.so",
+        "/system/vendor/lib64/libOpenCL.so",
+        "/vendor/lib64/libOpenCL.so",
+        "/system/lib64/libOpenCL.so",
+    };
+    for (int i = 0; i < 4; i++) {
+        void* handle = dlopen(lib_paths[i], RTLD_NOW | RTLD_LOCAL);
+        if (handle) {
+            MLLM_LOGI("[diagnostic]   ✓ dlopen(\"%s\") 成功: %p", lib_paths[i], handle);
+            // 尝试找 clGetPlatformIDs
+            void* sym = dlsym(handle, "clGetPlatformIDs");
+            MLLM_LOGI("[diagnostic]     clGetPlatformIDs 符号: %p", sym);
+            // 检查 OpenCL 版本相关符号
+            void* sym2 = dlsym(handle, "clGetDeviceInfo");
+            MLLM_LOGI("[diagnostic]     clGetDeviceInfo 符号: %p", sym2);
+            dlclose(handle);
+        } else {
+            MLLM_LOGI("[diagnostic]   ✗ dlopen(\"%s\") 失败: %s", lib_paths[i], dlerror());
+        }
+    }
+#else
+    MLLM_LOGI("[diagnostic]   (非 Android 平台，跳过 dlopen 测试)");
+#endif
+
+    MLLM_LOGI("[diagnostic] 步骤 5: dlopen(\"libvulkan.so\") 测试");
+#ifdef __ANDROID__
+    const char* vk_lib_paths[] = {
+        "libvulkan.so",
+        "/system/lib64/libvulkan.so",
+        "/vendor/lib64/libvulkan.so",
+    };
+    for (int i = 0; i < 3; i++) {
+        void* handle = dlopen(vk_lib_paths[i], RTLD_NOW | RTLD_LOCAL);
+        if (handle) {
+            MLLM_LOGI("[diagnostic]   ✓ dlopen(\"%s\") 成功: %p", vk_lib_paths[i], handle);
+            // Vulkan 基础函数符号
+            void* sym  = dlsym(handle, "vkCreateInstance");
+            void* sym2 = dlsym(handle, "vkEnumeratePhysicalDevices");
+            void* sym3 = dlsym(handle, "vkEnumerateInstanceVersion");
+            void* sym4 = dlsym(handle, "vkGetPhysicalDeviceProperties");
+            void* sym5 = dlsym(handle, "vkEnumerateInstanceExtensionProperties");
+            MLLM_LOGI("[diagnostic]     vkCreateInstance                  : %p", sym);
+            MLLM_LOGI("[diagnostic]     vkEnumeratePhysicalDevices        : %p", sym2);
+            MLLM_LOGI("[diagnostic]     vkEnumerateInstanceVersion        : %p", sym3);
+            MLLM_LOGI("[diagnostic]     vkGetPhysicalDeviceProperties     : %p", sym4);
+            MLLM_LOGI("[diagnostic]     vkEnumerateInstanceExtensionProps : %p", sym5);
+            dlclose(handle);
+        } else {
+            MLLM_LOGI("[diagnostic]   ✗ dlopen(\"%s\") 失败: %s", vk_lib_paths[i], dlerror());
+        }
+    }
+#else
+    MLLM_LOGI("[diagnostic]   (非 Android 平台，跳过 dlopen 测试)");
+#endif
+
+    MLLM_LOGI("=== mllm_run_diagnostics END ===");
+    close_log_file();
+    return 0;
 }
 #endif // MLLM_STUB

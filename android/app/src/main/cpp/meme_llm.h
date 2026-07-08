@@ -101,6 +101,12 @@ void mllm_free_string(char* str);
 // out_last_id: 输出本次返回的最后一条日志的 ID，供下次调用传入
 char* mllm_get_logs(uint64_t since_id, uint64_t* out_last_id);
 
+// 运行诊断：枚举所有可用后端及设备
+// 必须在 mllm_init 之前调用以收集诊断信息
+// log_file_path: 把诊断输出写入此文件（可为 NULL）
+// 返回 0 成功，非 0 失败
+int mllm_run_diagnostics(const char* log_file_path);
+
 // ---- Streaming API ----
 
 // 逐 token 回调：每次生成一个 token piece 时调用
