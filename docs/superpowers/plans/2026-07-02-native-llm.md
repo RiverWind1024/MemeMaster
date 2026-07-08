@@ -21,8 +21,8 @@
 - [ ] **Step 1: 解压 llama.cpp-master.zip 到项目根目录**
 
 ```bash
-unzip -q /home/jiangzifeng/下载/llama.cpp-master.zip -d /home/jiangzifeng/Project/MemeHelper/
-mv /home/jiangzifeng/Project/MemeHelper/llama.cpp-master /home/jiangzifeng/Project/MemeHelper/llama.cpp
+unzip -q <DOWNLOADS>/llama.cpp-master.zip -d <REPO_ROOT>/
+mv <REPO_ROOT>/llama.cpp-master <REPO_ROOT>/llama.cpp
 ```
 
 - [ ] **Step 2: 验证 llama.cpp/CMakeLists.txt 存在**
