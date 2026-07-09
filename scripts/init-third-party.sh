@@ -105,31 +105,32 @@ clone_with_fallback() {
 }
 
 # 构建 SPIRV-Headers
+# 注意: install_dir 路径需与 linux/cpp/CMakeLists.txt 中的查找路径一致
 build_spirv_headers() {
     local spirv_dir="$THIRD_PARTY/SPIRV-Headers"
-    local install_dir="$spirv_dir/install"
-    
+    local install_dir="$THIRD_PARTY/spirv-headers-install"  # 与 CMakeLists.txt 查找路径一致
+
     if [ -d "$install_dir" ] && [ -f "$install_dir/share/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake" ]; then
         log_success "SPIRV-Headers already built and installed"
         return 0
     fi
-    
+
     log_info "Building SPIRV-Headers..."
-    
+
     if [ ! -d "$spirv_dir" ]; then
         log_error "SPIRV-Headers not found at $spirv_dir"
         return 1
     fi
-    
+
     mkdir -p "$spirv_dir/build"
     cd "$spirv_dir/build"
-    
+
     cmake .. \
         -DCMAKE_INSTALL_PREFIX="$install_dir" \
         -DSPIRV_HEADERS_SKIP_EXAMPLES=ON
-    
+
     cmake --build . --target install
-    
+
     if [ -f "$install_dir/share/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake" ]; then
         log_success "SPIRV-Headers built and installed to $install_dir"
         return 0
@@ -203,13 +204,11 @@ echo ""
 # 创建第三方依赖目录
 mkdir -p "$THIRD_PARTY"
 
-# 定义所有依赖
-# 格式: "仓库名:GitHub URL:Gitee 镜像 URL"
 declare -A DEPS=(
-    ["llama.cpp"]="https://github.com/ggml-org/llama.cpp.git:https://gitee.com/你的用户名/llama.cpp.git"
-    ["OpenCL-Headers"]="https://github.com/KhronosGroup/OpenCL-Headers.git:none"
-    ["OpenCL-ICD-Loader"]="https://github.com/KhronosGroup/OpenCL-ICD-Loader.git:none"
-    ["SPIRV-Headers"]="https://github.com/KhronosGroup/SPIRV-Headers.git:none"
+    ["llama.cpp"]="https://github.com/ggml-org/llama.cpp.git:"
+    ["OpenCL-Headers"]="https://github.com/KhronosGroup/OpenCL-Headers.git:"
+    ["OpenCL-ICD-Loader"]="https://github.com/KhronosGroup/OpenCL-ICD-Loader.git:"
+    ["SPIRV-Headers"]="https://github.com/KhronosGroup/SPIRV-Headers.git:"
 )
 
 FAILED=()
