@@ -132,6 +132,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }();
   }
 
+  void _startReindex(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(reindexStateProvider.notifier);
+    notifier.startReindex();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(S.of(context).reindexStarted),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   void _showColorExtractionPage() {
     showDialog(
       context: context,
@@ -356,6 +367,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: Text(S.of(context).aiTagsDescription),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.pushNamed('llm-settings'),
+            ),
+          ),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.refresh),
+              title: Text(S.of(context).reindexMemes),
+              subtitle: Text(S.of(context).reindexDescription),
+              onTap: () => _startReindex(context, ref),
             ),
           ),
           const SizedBox(height: 24),

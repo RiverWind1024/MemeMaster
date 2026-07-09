@@ -669,13 +669,13 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
 
       // 确定 mmproj URL: 优先用预设，没有则自动发现
       var mmprojUrl = task.modelInfo.defaultMmprojUrl;
-      if (mmprojUrl == null && task.modelInfo.source == DownloadSource.huggingface) {
+      if (mmprojUrl == null && (task.modelInfo.source == DownloadSource.huggingface || task.modelInfo.source == DownloadSource.modelscope)) {
         try {
           final searchService = ModelSearchService();
           final repoId = '${task.modelInfo.author}/${task.modelInfo.repo}';
           _log?.info(_tag, '尝试自动发现 mmproj: repoId=$repoId');
           final mmprojFile = await searchService.findMmprojFile(
-            source: DownloadSource.huggingface,
+            source: task.modelInfo.source,
             modelId: repoId,
           );
           if (mmprojFile != null) {
@@ -1102,6 +1102,64 @@ class AnalysisProgress {
     this.running = 0,
   }) : total = queued + running;
   bool get isEmpty => total == 0;
+}
+
+// ---- 重新索引状态 ----
+
+class ReindexState {
+  final bool isRunning;
+  final int processed;
+  final int enqueued;
+  final int? totalMemes;
+
+  const ReindexState({
+    this.isRunning = false,
+    this.processed = 0,
+    this.enqueued = 0,
+    this.totalMemes,
+  });
+
+  bool get isEmpty => !isRunning && processed == 0;
+}
+
+final reindexStateProvider =
+    StateNotifierProvider<ReindexStateNotifier, ReindexState>((ref) {
+  return ReindexStateNotifier(ref);
+});
+
+class ReindexStateNotifier extends StateNotifier<ReindexState> {
+  final Ref _ref;
+
+  ReindexStateNotifier(this._ref) : super(const ReindexState());
+
+  Future<void> startReindex() async {
+    state = const ReindexState(isRunning: true);
+    try {
+      final repo = _ref.read(memeRepositoryProvider);
+      final result = await repo.reindexAll(
+        onProgress: (processed, enqueued) {
+          state = ReindexState(
+            isRunning: true,
+            processed: processed,
+            enqueued: enqueued,
+          );
+        },
+      );
+      state = ReindexState(
+        isRunning: false,
+        processed: result['total']!,
+        enqueued: result['enqueued']!,
+        totalMemes: result['total']!,
+      );
+    } catch (e) {
+      state = ReindexState(
+        isRunning: false,
+        processed: state.processed,
+        enqueued: state.enqueued,
+        totalMemes: state.totalMemes,
+      );
+    }
+  }
 }
 
 final analysisProgressProvider = StreamProvider<AnalysisProgress>((ref) async* {

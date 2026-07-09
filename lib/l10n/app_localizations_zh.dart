@@ -36,6 +36,9 @@ class SZh extends S {
   String get selectDirectoryToScan => '选择要扫描的目录';
 
   @override
+  String get scanningDirectory => '正在扫描目录...';
+
+  @override
   String scanningProgress(int completed, int total) {
     return '扫描中 $completed/$total';
   }
@@ -1225,4 +1228,13 @@ class SZh extends S {
   String configImportFailed(String error) {
     return '配置导入失败: $error';
   }
+
+  @override
+  String get reindexMemes => '重新索引所有表情';
+
+  @override
+  String get reindexDescription => '检查并补充缺失的分析数据';
+
+  @override
+  String get reindexStarted => '重新索引已开始，进度显示在图库顶部';
 }

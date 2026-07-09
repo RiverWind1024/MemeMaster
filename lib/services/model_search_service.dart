@@ -106,20 +106,26 @@ class ModelSearchService {
     required DownloadSource source,
     required String modelId,
   }) async {
-    if (source != DownloadSource.huggingface) return null;
-
     try {
-      final files = await _getHuggingFaceFiles(modelId);
-      // 筛选包含 mmproj 的文件，FP16 精度优先
+      final List<ModelFileInfo> files;
+      if (source == DownloadSource.huggingface) {
+        files = await _getHuggingFaceFiles(modelId);
+      } else if (source == DownloadSource.modelscope) {
+        files = await _getModelScopeFiles(modelId, mmprojMode: true);
+      } else {
+        return null;
+      }
+
+      // 筛选包含 mmproj 的文件，FP32 精度优先
       final candidates = files.where((f) =>
           f.path.toLowerCase().contains('mmproj'));
 
-      // 优先找 FP16 版本
-      final f16 = candidates.where((f) =>
-          f.path.contains('FP16') || f.path.contains('f16') || f.path.contains('F16'));
-      if (f16.isNotEmpty) return f16.first;
+      // 优先找 FP32 版本
+      final f32 = candidates.where((f) =>
+          f.path.contains('FP32') || f.path.contains('f32') || f.path.contains('F32'));
+      if (f32.isNotEmpty) return f32.first;
 
-      // 没有 FP16 就返回第一个 mmproj
+      // 没有 FP32 就返回第一个 mmproj
       if (candidates.isNotEmpty) return candidates.first;
 
       return null;
@@ -273,7 +279,7 @@ class ModelSearchService {
     }
   }
 
-  Future<List<ModelFileInfo>> _getModelScopeFiles(String modelId) async {
+  Future<List<ModelFileInfo>> _getModelScopeFiles(String modelId, {bool mmprojMode = false}) async {
     // ModelScope 获取文件列表 API: GET /api/v1/models/{owner}/{name}/repo/files?Recursive=true
     final parts = modelId.split('/');
     if (parts.length < 2) {
@@ -299,7 +305,11 @@ class ModelSearchService {
     final List<dynamic> files = data['Data']['Files'] ?? [];
 
     return files
-        .where((item) => (item['Path'] as String?)?.endsWith('.gguf') == true)
+        .where((item) {
+          final path = item['Path'] as String? ?? '';
+          if (mmprojMode) return path.contains('mmproj');
+          return path.endsWith('.gguf');
+        })
         .map((item) {
       final path = item['Path'] as String;
       return ModelFileInfo(
