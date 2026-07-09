@@ -98,6 +98,37 @@ class ModelSearchService {
     }
   }
 
+  /// 在模型仓库中自动发现 mmproj 投影文件
+  ///
+  /// 返回仓库中第一个匹配的 mmproj 文件（FP16 精度优先），
+  /// 用于 GGUF 主模型下载时自动附带下载。
+  Future<ModelFileInfo?> findMmprojFile({
+    required DownloadSource source,
+    required String modelId,
+  }) async {
+    if (source != DownloadSource.huggingface) return null;
+
+    try {
+      final files = await _getHuggingFaceFiles(modelId);
+      // 筛选包含 mmproj 的文件，FP16 精度优先
+      final candidates = files.where((f) =>
+          f.path.toLowerCase().contains('mmproj'));
+
+      // 优先找 FP16 版本
+      final f16 = candidates.where((f) =>
+          f.path.contains('FP16') || f.path.contains('f16') || f.path.contains('F16'));
+      if (f16.isNotEmpty) return f16.first;
+
+      // 没有 FP16 就返回第一个 mmproj
+      if (candidates.isNotEmpty) return candidates.first;
+
+      return null;
+    } catch (e) {
+      // 发现失败不影响主模型下载
+      return null;
+    }
+  }
+
   // ---- HuggingFace ----
 
   Future<SearchResult> _searchHuggingFace(String query, int page, int pageSize) async {

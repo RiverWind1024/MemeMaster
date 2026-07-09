@@ -27,6 +27,7 @@ import '../../services/s3_config.dart';
 import '../../services/s3_sync_service.dart';
 import '../../services/s3_sync_serializer.dart';
 import '../../services/import_service.dart';
+import '../../services/model_search_service.dart';
 import '../../services/search_service.dart';
 
 // ---- Persistence ----
@@ -659,8 +660,37 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
     )
         .then((_) async {
       // 主模型下载完成后，检查是否需要下载 mmproj
-      if (task.modelInfo.defaultMmprojUrl != null) {
-        _log?.info(_tag, '主模型下载完成，开始下载 mmproj: ${task.modelInfo.defaultMmprojUrl}');
+      // 如果本身已经是投影模型或没有主模型 URL，跳过
+      if (task.modelInfo.modelType == ModelType.projection || task.modelInfo.ggufUrl == null) {
+        completeDownload(taskId);
+        task.onComplete?.call(taskId);
+        return;
+      }
+
+      // 确定 mmproj URL: 优先用预设，没有则自动发现
+      var mmprojUrl = task.modelInfo.defaultMmprojUrl;
+      if (mmprojUrl == null && task.modelInfo.source == DownloadSource.huggingface) {
+        try {
+          final searchService = ModelSearchService();
+          final repoId = '${task.modelInfo.author}/${task.modelInfo.repo}';
+          _log?.info(_tag, '尝试自动发现 mmproj: repoId=$repoId');
+          final mmprojFile = await searchService.findMmprojFile(
+            source: DownloadSource.huggingface,
+            modelId: repoId,
+          );
+          if (mmprojFile != null) {
+            mmprojUrl = mmprojFile.downloadUrl;
+            _log?.info(_tag, '自动发现 mmproj 成功: $mmprojUrl');
+          } else {
+            _log?.info(_tag, '未发现 mmproj 文件');
+          }
+        } catch (e) {
+          _log?.warning(_tag, 'mmproj 自动发现失败: $e');
+        }
+      }
+
+      if (mmprojUrl != null) {
+        _log?.info(_tag, '主模型下载完成，开始下载 mmproj: $mmprojUrl');
         final mmprojTaskId = '${task.taskId}#mmproj';
         _cancelTokens[mmprojTaskId] = CancelToken();
         _tasks[mmprojTaskId] = _DownloadTask(
@@ -683,7 +713,6 @@ class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
           ...state,
           mmprojTaskId: DownloadState(modelId: mmprojTaskId, status: DownloadStatus.downloading),
         };
-        // 等待 mmproj 下载完成后再触发主模型完成
         await _runMmprojDownload(mmprojTaskId);
         completeDownload(taskId);
         task.onComplete?.call(taskId);

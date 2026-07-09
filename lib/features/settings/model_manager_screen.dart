@@ -451,8 +451,9 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
       name: model.name,
       description: model.description ?? '',
       source: source,
-      ggufUrl: isMmproj ? null : file.downloadUrl,
-      defaultMmprojUrl: isMmproj ? file.downloadUrl : null,
+      ggufUrl: file.downloadUrl,  // 无论什么类型，文件 URL 都作为主下载目标
+      // 从搜索结果下载时不知道 mmproj URL，设为 null
+      defaultMmprojUrl: null,
       sizeLabel: _formatBytes(file.size),
     );
 
