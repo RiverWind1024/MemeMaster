@@ -18,14 +18,55 @@
 
 ## 快速开始
 
+### Linux 桌面
+
 ```bash
-# 系统依赖（Linux）
+# 系统依赖
 sudo dnf install clang ninja-build libsecret-devel gtk3-devel
 
-# 运行
+# Flutter 依赖 + 启动
 flutter pub get
 flutter run -d linux
 ```
+
+### Android (首次构建必读)
+
+Android 构建除了 Flutter 依赖外,还需要把 C++ 原生依赖准备好(llama.cpp、Vulkan SPIRV-Headers、可选 OpenCL),脚本会从 GitHub 克隆并自动构建。
+
+```bash
+# 1. 系统依赖 (同 Linux)
+sudo dnf install clang ninja-build libsecret-devel gtk3-devel
+
+# 2. Flutter 依赖
+flutter pub get
+
+# 3. Android SDK 路径设置 (本项目约定 ~/Software/android-sdk)
+export ANDROID_HOME="$HOME/Software/android-sdk"
+export ANDROID_NDK="$ANDROID_NDK"  # 启用 OpenCL/Vulkan GPU 加速时必填
+export PATH="$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin"
+
+# 4. 克隆并构建 C++ 原生依赖 (llama.cpp / SPIRV-Headers / OpenCL-*)
+./scripts/init-third-party.sh
+#    国内网络可配 Gitee 镜像,编辑 DEPS 数组
+
+# 5. 构建 APK
+flutter build apk --release       # 产物: build/app/outputs/flutter-apk/app-release.apk
+flutter install                  # 安装到已连接设备
+```
+
+> 后续更新只需重跑 `flutter pub get` + `init-third-party.sh`(已克隆的依赖会跳过)。
+
+### 环境变量速查
+
+| 变量 | 必填 | 作用 |
+|---|---|---|
+| `ANDROID_HOME` | Android 编译 | Android SDK 根目录,Gradle 自动检测 |
+| `ANDROID_NDK` | GPU 加速 | NDK 根目录,OpenCL 交叉编译需要 |
+| `LLAMA_CPP_DIR` | 一般不用 | 覆盖默认 `third_party/llama.cpp` 位置 |
+
+CPU-only 构建只需 `ANDROID_HOME`,GPU 加速(`cmake/build.gradle.kts` 中 `-DENABLE_VULKAN=ON` / `-DENABLE_OPENCL=ON`)还需 `ANDROID_NDK`。
+
+完整环境配置见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md),GPU 加速配置见 [docs/GPU_ACCELERATION_FIX.md](docs/GPU_ACCELERATION_FIX.md)。
 
 ## 详细文档
 
@@ -33,6 +74,7 @@ flutter run -d linux
 |---|---|
 | [docs/USAGE.md](docs/USAGE.md) | 用户使用手册（导入/搜索/同步等完整功能） |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 开发者指南（环境搭建/构建/测试/架构） |
+| [docs/GPU_ACCELERATION_FIX.md](docs/GPU_ACCELERATION_FIX.md) | GPU 加速（Vulkan/OpenCL）配置与排错 |
 
 ## 路线图
 

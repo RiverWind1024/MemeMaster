@@ -60,22 +60,29 @@ clone_with_fallback() {
     local github_url="$2"
     local gitee_url="$3"
     local dir="$THIRD_PARTY/$name"
-    
-    # 如果已经存在，跳过
-    if [ -d "$dir" ]; then
+
+    # 已存在且是有效的 git 仓库: 跳过
+    if [ -d "$dir/.git" ]; then
         log_success "$name already exists"
         return 0
     fi
-    
+
+    # 目录存在但缺少 .git/ (可能是手动放置的副本或克隆中断残留)
+    # 警告并重新克隆,以保证状态一致
+    if [ -d "$dir" ]; then
+        log_warn "$name 目录存在但缺少 .git/,将重新克隆 (原数据会丢失)"
+        rm -rf "$dir"
+    fi
+
     # 尝试 GitHub
     echo "Cloning $name from GitHub..."
     if git clone --depth 1 "$github_url" "$dir" 2>/dev/null; then
         log_success "$name cloned from GitHub"
         return 0
     fi
-    
+
     log_warn "GitHub clone failed, trying Gitee fallback..."
-    
+
     # 尝试 Gitee
     if [ -n "$gitee_url" ]; then
         if git clone --depth 1 "$gitee_url" "$dir" 2>/dev/null; then
@@ -83,7 +90,7 @@ clone_with_fallback() {
             return 0
         fi
     fi
-    
+
     # 都失败了
     log_error "$name clone failed from all sources"
     return 1
