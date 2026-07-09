@@ -6,7 +6,7 @@
 
 - **图片导入** — 自动去重（SHA256 哈希），按日期归档存储
 - **颜色搜索** — HSV 滑块选色，CIE Lab ΔE 色差匹配
-- **OCR 文字识别** — Google ML Kit，支持中英文
+- **OCR 文字识别** — Android: Google ML Kit / Linux: Tesseract CLI，支持中英文
 - **AI 标签与描述** — OpenAI / Ollama / 本地 LLM 驱动，根据 OCR 结果自动生成标签和文字描述
 - **Token 用量追踪** — 记录每次 LLM 调用的 prompt/completion token 数，按日统计，支持查看今日用量和任意时间范围汇总
 - **统计页面** — 用户使用数据总览，包含 GitHub 风格热度图（贡献日历）、日期范围选择器（7/30/365 天）、导入/复制/收藏/Token 用量趋势列表
@@ -22,12 +22,18 @@
 
 ```bash
 # 系统依赖
-sudo dnf install clang ninja-build libsecret-devel gtk3-devel
+sudo dnf install clang ninja-build libsecret-devel gtk3-devel tesseract
 
 # Flutter 依赖 + 启动
 flutter pub get
 flutter run -d linux
+
+# 或构建 release 版本
+flutter build linux --release
+# 产物: build/linux/x64/release/bundle/meme_master
 ```
+
+> **注意**: Linux OCR 使用 Tesseract CLI（`google_mlkit_text_recognition` 不可用于 Linux）。需要安装 `tesseract` 和中文语言包 `tesseract-langpack-chi_sim`。
 
 ### Android (首次构建必读)
 
