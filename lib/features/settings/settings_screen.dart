@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/ocr/ocr_service.dart';
 import '../../services/config_exporter.dart';
 import '../../services/opencl_diagnostic.dart';
 import '../../services/s3_config.dart';
@@ -343,10 +346,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: Text(S.of(context).ocrTextRecognition),
               subtitle: Text(S.of(context).ocrDescription),
               value: ocrEnabled,
-              onChanged: (value) {
-                ref.read(ocrEnabledProvider.notifier).setEnabled(value);
-                ref.read(analysisSchedulerProvider).setOcrEnabled(value);
-              },
+              onChanged: (value) => _onOcrToggle(value, ref, context),
               secondary: const Icon(Icons.text_fields),
             ),
           ),
@@ -762,4 +762,59 @@ void _showLocalePicker(BuildContext context, WidgetRef ref) {
       ),
     ),
   );
+}
+
+Future<void> _onOcrToggle(bool value, WidgetRef ref, BuildContext ctx) async {
+  if (!value) {
+    // 关闭 OCR：直接禁用
+    ref.read(ocrEnabledProvider.notifier).setEnabled(false);
+    ref.read(analysisSchedulerProvider).setOcrEnabled(false);
+    return;
+  }
+
+  // 开启 OCR：检查依赖
+  if (Platform.isLinux) {
+    final installed = await OcrService.linuxCheckInstalled();
+    if (!installed) {
+      // 显示安装对话框
+      final confirmed = await showDialog<bool>(
+        context: ctx,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('需要安装 OCR 组件'),
+          content: const Text(
+            'OCR 功能需要 Tesseract。\n\n是否自动安装？\n安装过程需要管理员权限。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('安装'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return; // 用户取消
+
+      // 执行安装
+      final success = await OcrService.linuxTryInstall();
+      if (!success) {
+        if (ctx.mounted) {
+          ScaffoldMessenger.of(ctx).showSnackBar(
+            const SnackBar(
+              content: Text('安装失败，请检查网络连接后重试'),
+            ),
+          );
+        }
+        return;
+      }
+    }
+  }
+
+  // 启用 OCR
+  ref.read(ocrEnabledProvider.notifier).setEnabled(true);
+  ref.read(analysisSchedulerProvider).setOcrEnabled(true);
 }
