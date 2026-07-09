@@ -74,7 +74,15 @@ clone_with_fallback() {
         rm -rf "$dir"
     fi
 
-    # 尝试 GitHub
+    # 使用 gh-proxy.org 代理加速
+    local proxy_url="https://gh-proxy.org/$github_url"
+
+    echo "Cloning $name via gh-proxy.org..."
+    if git clone --depth 1 "$proxy_url" "$dir" 2>/dev/null; then
+        log_success "$name cloned via gh-proxy.org"
+        return 0
+    fi
+
     echo "Cloning $name from GitHub..."
     if git clone --depth 1 "$github_url" "$dir" 2>/dev/null; then
         log_success "$name cloned from GitHub"
