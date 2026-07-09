@@ -24,3 +24,16 @@ target_link_libraries(${BINARY_NAME} PRIVATE flutter)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::GTK)
 
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
+
+# ===== 本地 LLM (llama.cpp) =====
+# 编译 meme_llm.so 并安装到 bundle/lib 目录
+set(LOCAL_LLM_DIR "${CMAKE_SOURCE_DIR}/cpp")
+if(EXISTS "${LOCAL_LLM_DIR}/CMakeLists.txt" AND EXISTS "${LOCAL_LLM_DIR}/meme_llm.cpp")
+  message(STATUS "Including meme_llm build from ${LOCAL_LLM_DIR}")
+  add_subdirectory(${LOCAL_LLM_DIR} cpp_build)
+
+  # 将 meme_llm.so 安装到 bundle/lib
+  install(TARGETS meme_llm LIBRARY DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" COMPONENT Runtime)
+else()
+  message(STATUS "meme_llm source not found at ${LOCAL_LLM_DIR}, skipping local LLM build")
+endif()

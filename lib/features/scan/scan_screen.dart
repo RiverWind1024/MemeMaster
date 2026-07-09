@@ -254,73 +254,130 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   }
 
   Future<void> _pickDir() async {
-    // Android 上只能用目录选择器或手动输入路径
-    // 简单实现：预先提供几个常用目录
-    final dir = await showDialog<String>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: Text(S.of(context).selectScanDirectory),
-        children: [
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/Download'),
-            child: ListTile(
-              leading: Icon(Icons.download),
-              title: Text(S.of(context).directoryDownloads, overflow: TextOverflow.ellipsis),
+    String? dir;
+
+    if (Platform.isLinux) {
+      // Linux: 常用目录快捷入口 + 自定义
+      dir = await showDialog<String>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: Text(S.of(context).selectScanDirectory),
+          children: [
+            _buildDirOption(ctx, '~/Pictures', Icons.photo_library),
+            _buildDirOption(ctx, '~/Downloads', Icons.download),
+            _buildDirOption(ctx, '~/Desktop', Icons.desktop_windows),
+            _buildDirOption(ctx, '~/Images', Icons.image),
+            const Divider(height: 1),
+            _buildDirOption(ctx, 'CUSTOM', Icons.folder_open),
+          ],
+        ),
+      );
+
+      if (dir == 'CUSTOM') {
+        final customDir = await _pickDirectoryWithFileSelector();
+        if (customDir != null && mounted) {
+          setState(() {
+            _scanDir = customDir;
+            _safUri = null; // Linux 直接文件系统，无需 SAF
+            _allImages = [];
+            _memes = [];
+            _progress = null;
+          });
+          _startScan();
+        }
+        return;
+      }
+    } else {
+      // Android: 保留原有逻辑
+      dir = await showDialog<String>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: Text(S.of(context).selectScanDirectory),
+          children: [
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/Download'),
+              child: ListTile(
+                leading: Icon(Icons.download),
+                title: Text(S.of(context).directoryDownloads, overflow: TextOverflow.ellipsis),
+              ),
             ),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/Pictures'),
-            child: ListTile(
-              leading: Icon(Icons.photo_library),
-              title: Text(S.of(context).directoryPictures, overflow: TextOverflow.ellipsis),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/Pictures'),
+              child: ListTile(
+                leading: Icon(Icons.photo_library),
+                title: Text(S.of(context).directoryPictures, overflow: TextOverflow.ellipsis),
+              ),
             ),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/DCIM'),
-            child: ListTile(
-              leading: Icon(Icons.camera_alt),
-              title: Text(S.of(context).directoryCamera, overflow: TextOverflow.ellipsis),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/DCIM'),
+              child: ListTile(
+                leading: Icon(Icons.camera_alt),
+                title: Text(S.of(context).directoryCamera, overflow: TextOverflow.ellipsis),
+              ),
             ),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/tencent/MicroMsg/Download'),
-            child: ListTile(
-              leading: Icon(Icons.wechat),
-              title: Text(S.of(context).directoryWechat, overflow: TextOverflow.ellipsis),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, '/storage/emulated/0/tencent/MicroMsg/Download'),
+              child: ListTile(
+                leading: Icon(Icons.wechat),
+                title: Text(S.of(context).directoryWechat, overflow: TextOverflow.ellipsis),
+              ),
             ),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, '/storage/emulated/0'),
-            child: ListTile(
-              leading: Icon(Icons.storage),
-              title: Text(S.of(context).directoryStorage, overflow: TextOverflow.ellipsis),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, '/storage/emulated/0'),
+              child: ListTile(
+                leading: Icon(Icons.storage),
+                title: Text(S.of(context).directoryStorage, overflow: TextOverflow.ellipsis),
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          SimpleDialogOption(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _showCustomPathInput();
-            },
-            child: ListTile(
-              leading: Icon(Icons.edit),
-              title: Text(S.of(context).selectDirectoryEllipsis, overflow: TextOverflow.ellipsis),
+            const Divider(height: 1),
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _showCustomPathInput();
+              },
+              child: ListTile(
+                leading: Icon(Icons.edit),
+                title: Text(S.of(context).selectDirectoryEllipsis, overflow: TextOverflow.ellipsis),
+              ),
             ),
-          ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
+    }
 
     if (dir != null && mounted) {
       setState(() {
-        _scanDir = dir;
-        _safUri = _filePathToSafUri(dir);
+        _scanDir = _expandPath(dir!);
+        _safUri = Platform.isAndroid ? _filePathToSafUri(dir) : null;
         _allImages = [];
         _memes = [];
         _progress = null;
       });
       _startScan();
     }
+  }
+
+  /// 构建 Linux 目录选项
+  Widget _buildDirOption(BuildContext context, String path, IconData icon) {
+    final displayPath = path == 'CUSTOM'
+        ? S.of(context).selectDirectoryEllipsis
+        : _expandPath(path);
+    return SimpleDialogOption(
+      onPressed: () => Navigator.pop(context, path),
+      child: ListTile(
+        leading: Icon(icon),
+        title: Text(displayPath, overflow: TextOverflow.ellipsis),
+      ),
+    );
+  }
+
+  /// 展开 ~ 路径为完整路径
+  String _expandPath(String path) {
+    if (path.startsWith('~/')) {
+      final home = Platform.environment['HOME'] ?? '';
+      return path.replaceFirst('~', home);
+    }
+    return path;
   }
 
   /// 把 /storage/emulated/0/XXX 转成 SAF tree URI

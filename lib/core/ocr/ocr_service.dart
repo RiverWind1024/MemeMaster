@@ -26,14 +26,56 @@ class OcrBlock {
   const OcrBlock({required this.text, required this.boundingBox});
 }
 
-/// OCR 识别服务（Google ML Kit Text Recognition）
+/// OCR 识别服务
+///
+/// - Android/iOS: Google ML Kit Text Recognition
+/// - Linux: Tesseract 命令行
 ///
 /// 支持中文和英文文本识别。使用相机或图片文件进行 OCR。
 /// 每次使用后必须调用 [close] 释放资源。
 class OcrService {
+  final _MlKitOcrService? _mlKitService;
+  final _LinuxOcrService? _linuxService;
+
+  /// 工厂构造函数，根据平台返回对应实现
+  factory OcrService() {
+    if (Platform.isAndroid || Platform.isIOS) {
+      return OcrService._(mlKitService: _MlKitOcrService());
+    } else if (Platform.isLinux) {
+      return OcrService._(linuxService: _LinuxOcrService());
+    } else {
+      throw UnsupportedError('不支持的平台: ${Platform.operatingSystem}');
+    }
+  }
+
+  OcrService._({
+    _MlKitOcrService? mlKitService,
+    _LinuxOcrService? linuxService,
+  })  : _mlKitService = mlKitService,
+        _linuxService = linuxService;
+
   /// 识图图片文件中的文字
   ///
   /// [diagnostics] 不为空时，会填充各脚本的尝试结果（用于 LogViewer 诊断）。
+  Future<OcrResult> recognizeImage(String imagePath) async {
+    if (_mlKitService != null) {
+      return _mlKitService.recognizeImage(imagePath);
+    } else if (_linuxService != null) {
+      return _linuxService.recognizeImage(imagePath);
+    }
+    throw StateError('无可用的 OCR 服务');
+  }
+
+  /// 释放资源
+  void close() {
+    _mlKitService?.close();
+    _linuxService?.close();
+  }
+}
+
+/// Google ML Kit OCR 实现（Android/iOS）
+class _MlKitOcrService {
+  /// 识图图片文件中的文字
   Future<OcrResult> recognizeImage(String imagePath) async {
     final file = File(imagePath);
     if (!await file.exists()) {
@@ -70,7 +112,6 @@ class OcrService {
     return OcrResult(text: '', blocks: [], diagnostics: allDiagnostics);
   }
 
-  /// 用指定脚本识别一次，返回结果+诊断信息
   Future<OcrResult?> _tryRecognize(InputImage inputImage, TextRecognitionScript script) async {
     final recognizer = TextRecognizer(script: script);
     final diag = StringBuffer();
@@ -103,6 +144,104 @@ class OcrService {
     }
   }
 
-  /// 释放 TextRecognizer 资源（每个 _tryRecognize 已自行 close）
   void close() {}
+}
+
+/// Linux Tesseract OCR 实现
+///
+/// 通过调用系统 tesseract 命令进行 OCR 识别。
+/// 需要系统安装 tesseract 和对应语言包。
+class _LinuxOcrService {
+  bool _disposed = false;
+
+  /// 检查 tesseract 是否已安装
+  static Future<bool> isInstalled() async {
+    try {
+      final result = await Process.run('tesseract', ['--version']);
+      return result.exitCode == 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<OcrResult> recognizeImage(String imagePath) async {
+    if (_disposed) throw StateError('服务已释放');
+
+    final file = File(imagePath);
+    if (!await file.exists()) {
+      return OcrResult(text: '', blocks: [], diagnostics: ['文件不存在: $imagePath']);
+    }
+
+    final diag = StringBuffer();
+    diag.write('[Tesseract] ');
+
+    try {
+      // 检查 tesseract 是否可用
+      final installed = await isInstalled();
+      if (!installed) {
+        return OcrResult(
+          text: '',
+          blocks: [],
+          diagnostics: ['${diag}Tesseract 未安装，请运行: sudo dnf install tesseract leptonica'],
+        );
+      }
+
+      // 先尝试中文+英文
+      var result = await _runTesseract(imagePath, 'chi_sim+eng');
+      if (result.text.trim().isEmpty) {
+        // 降级到纯英文
+        result = await _runTesseract(imagePath, 'eng');
+      }
+
+      diag.write('语言=${result.language}, 文字="${_truncateText(result.text, 80)}"');
+      return OcrResult(
+        text: result.text,
+        blocks: [], // Tesseract 命令行不返回位置信息
+        diagnostics: [diag.toString()],
+      );
+    } catch (e) {
+      diag.write('识别异常: $e');
+      return OcrResult(text: '', blocks: [], diagnostics: [diag.toString()]);
+    }
+  }
+
+  Future<_TesseractResult> _runTesseract(String imagePath, String language) async {
+    final result = await Process.run('tesseract', [
+      imagePath,
+      'stdout',
+      '-l', language,
+      '--psm', '6', // 自动分页
+    ]);
+
+    return _TesseractResult(
+      text: result.stdout.toString().trim(),
+      language: language,
+      exitCode: result.exitCode,
+      stderr: result.stderr.toString(),
+    );
+  }
+
+  String _truncateText(String text, int maxLen) {
+    if (text.isEmpty) return '';
+    if (text.length <= maxLen) return text;
+    return '${text.substring(0, maxLen)}...';
+  }
+
+  void close() {
+    _disposed = true;
+  }
+}
+
+class _TesseractResult {
+  final String text;
+  final String language;
+  final int exitCode;
+  final String stderr;
+
+  _TesseractResult({
+    required this.text,
+    required this.language,
+    required this.exitCode,
+    required this.stderr,
+  });
 }
