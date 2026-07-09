@@ -38,6 +38,9 @@ class SEn extends S {
   String get selectDirectoryToScan => 'Select directory to scan';
 
   @override
+  String get scanningDirectory => 'Scanning directory...';
+
+  @override
   String scanningProgress(int completed, int total) {
     return 'Scanning $completed/$total';
   }
@@ -1241,4 +1244,13 @@ class SEn extends S {
   String configImportFailed(String error) {
     return 'Config import failed: $error';
   }
+
+  @override
+  String get reindexMemes => 'Re-index all memes';
+
+  @override
+  String get reindexDescription => 'Check and enqueue missing analysis data';
+
+  @override
+  String get reindexStarted => 'Reindex started, progress shown in gallery';
 }

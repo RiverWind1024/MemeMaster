@@ -151,6 +151,12 @@ abstract class S {
   /// **'选择要扫描的目录'**
   String get selectDirectoryToScan;
 
+  /// No description provided for @scanningDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在扫描目录...'**
+  String get scanningDirectory;
+
   /// No description provided for @scanningProgress.
   ///
   /// In zh, this message translates to:
@@ -2292,6 +2298,24 @@ abstract class S {
   /// In zh, this message translates to:
   /// **'配置导入失败: {error}'**
   String configImportFailed(String error);
+
+  /// 重新索引按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'重新索引所有表情'**
+  String get reindexMemes;
+
+  /// No description provided for @reindexDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查并补充缺失的分析数据'**
+  String get reindexDescription;
+
+  /// No description provided for @reindexStarted.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新索引已开始，进度显示在图库顶部'**
+  String get reindexStarted;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {
