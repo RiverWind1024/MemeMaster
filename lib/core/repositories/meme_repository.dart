@@ -94,6 +94,10 @@ class MemeRepository {
     await _queueDao.deleteByMemeId(id);
     await _colorDao.deleteByMemeId(id);
     await _tagDao.deleteByMemeId(id);
+    // 清理并行分析队列，避免外键约束异常
+    await _colorQueueDao.deleteByMemeId(id);
+    await _ocrQueueDao.deleteByMemeId(id);
+    await _aiQueueDao.deleteByMemeId(id);
     await _memeDao.delete(id);
 
     if (deleteFile && meme != null && meme.filePath.isNotEmpty) {
