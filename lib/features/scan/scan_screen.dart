@@ -70,6 +70,12 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
             const SizedBox(height: 8),
 
             // 扫描进度
+            if (_scanning && _progress == null) ...[
+              const LinearProgressIndicator(),
+              const SizedBox(height: 8),
+              Text(S.of(context).scanningDirectory,
+                  style: theme.textTheme.bodySmall),
+            ],
             if (_scanning && _progress != null) ...[
               LinearProgressIndicator(
                 value: _progress!.total > 0
@@ -478,11 +484,13 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
         log.info('Scan', 'SAF listing found ${images.length} files');
       } catch (e) {
         log.warning('Scan', 'SAF listing failed: $e, falling back to direct path');
-        images = MemeDetector.scanDirectory(_scanDir!, logger: (tag, msg) => log.info(tag, msg));
+        images = await MemeDetector.scanDirectoryAsync(
+            _scanDir!, logger: (tag, msg) => log.info(tag, msg));
       }
     } else {
-      log.info('Scan', 'scanDirectory: $_scanDir');
-      images = MemeDetector.scanDirectory(_scanDir!, logger: (tag, msg) => log.info(tag, msg));
+      log.info('Scan', 'scanDirectoryAsync: $_scanDir');
+      images = await MemeDetector.scanDirectoryAsync(
+          _scanDir!, logger: (tag, msg) => log.info(tag, msg));
     }
     _allImages = images;
     log.info('Scan', 'scanDirectory found ${images.length} images');

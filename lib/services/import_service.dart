@@ -82,17 +82,26 @@ class ImportService {
     final errors = <String>[];
     final skippedFiles = <String>[];
 
-    for (final path in sourcePaths) {
-      try {
-        final result = await importImage(path, source: source);
-        if (result != null) {
-          success++;
-        } else {
-          skipped++;
+    // 每批 5 张并发导入，避免大量图片时 UI 卡顿
+    for (int i = 0; i < sourcePaths.length; i += 5) {
+      final batch = sourcePaths.skip(i).take(5).toList();
+      final results = await Future.wait(batch.map((path) async {
+        try {
+          final result = await importImage(path, source: source);
+          if (result != null) return 'success';
           skippedFiles.add(path.split('/').last);
+          return 'skipped';
+        } catch (e) {
+          errors.add('$path: $e');
+          return 'error';
         }
-      } catch (e) {
-        errors.add('$path: $e');
+      }));
+      for (final r in results) {
+        if (r == 'success') {
+          success++;
+        } else if (r == 'skipped') {
+          skipped++;
+        }
       }
     }
 
