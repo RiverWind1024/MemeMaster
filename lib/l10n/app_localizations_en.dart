@@ -9,7 +9,7 @@ class SEn extends S {
   SEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'MemeManager';
+  String get appTitle => 'MemeMaster';
 
   @override
   String get tabGallery => 'Gallery';

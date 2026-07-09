@@ -262,7 +262,7 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
-      title: 'MemeManager',
+      title: 'MemeMaster',
       localizationsDelegates: const [
         S.delegate,
         GlobalMaterialLocalizations.delegate,

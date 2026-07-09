@@ -1,7 +1,7 @@
 {
   "@@locale": "zh",
 
-  "appTitle": "MemeManager",
+  "appTitle": "MemeMaster",
   "@appTitle": { "description": "应用标题" },
 
   "tabGallery": "图库",

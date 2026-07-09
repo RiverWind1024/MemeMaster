@@ -7,6 +7,7 @@ import '../database/daos/analysis_queue_dao.dart';
 import '../database/daos/color_analysis_queue_dao.dart';
 import '../database/daos/ocr_analysis_queue_dao.dart';
 import '../database/daos/ai_analysis_queue_dao.dart';
+import '../database/daos/album_dao.dart';
 import '../database/database.dart';
 import '../../services/file_storage_service.dart';
 
@@ -19,6 +20,7 @@ class MemeRepository {
   final ColorAnalysisQueueDao _colorQueueDao;
   final OcrAnalysisQueueDao _ocrQueueDao;
   final AiAnalysisQueueDao _aiQueueDao;
+  final AlbumDao _albumDao;
   final Uuid _uuid = const Uuid();
 
   MemeRepository({
@@ -29,9 +31,11 @@ class MemeRepository {
     ColorAnalysisQueueDao? colorQueueDao,
     OcrAnalysisQueueDao? ocrQueueDao,
     AiAnalysisQueueDao? aiQueueDao,
+    AlbumDao? albumDao,
   })  : _colorQueueDao = colorQueueDao ?? ColorAnalysisQueueDao(_memeDao.database),
         _ocrQueueDao = ocrQueueDao ?? OcrAnalysisQueueDao(_memeDao.database),
-        _aiQueueDao = aiQueueDao ?? AiAnalysisQueueDao(_memeDao.database);
+        _aiQueueDao = aiQueueDao ?? AiAnalysisQueueDao(_memeDao.database),
+        _albumDao = albumDao ?? AlbumDao(_memeDao.database);
 
   Future<Meme?> getById(String id) => _memeDao.getById(id);
 
@@ -98,6 +102,8 @@ class MemeRepository {
     await _colorQueueDao.deleteByMemeId(id);
     await _ocrQueueDao.deleteByMemeId(id);
     await _aiQueueDao.deleteByMemeId(id);
+    // 清理相册关联，避免外键约束异常
+    await _albumDao.removeMemeFromAllAlbums(id);
     await _memeDao.delete(id);
 
     if (deleteFile && meme != null && meme.filePath.isNotEmpty) {

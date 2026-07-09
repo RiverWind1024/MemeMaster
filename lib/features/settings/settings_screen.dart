@@ -468,7 +468,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Card(
             child: ListTile(
               leading: Icon(Icons.info_outline),
-              title: Text('MemeManager'),
+              title: Text('MemeMaster'),
               subtitle: Text('v1.0.0'),
               onTap: _onVersionTap,
             ),
