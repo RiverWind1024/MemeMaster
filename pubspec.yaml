@@ -72,6 +72,7 @@ dependencies:
   minio: ^3.5.8
   file_picker: ^11.0.2
   archive: ^4.0.9
+  super_clipboard: ^0.9.1
 
 dev_dependencies:
   flutter_test:

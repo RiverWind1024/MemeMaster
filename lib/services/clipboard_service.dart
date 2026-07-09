@@ -1,8 +1,8 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:super_clipboard/super_clipboard.dart';
 
 class ClipboardService {
   static const _channel = MethodChannel('com.mememaster.app/clipboard');
@@ -25,15 +25,60 @@ class ClipboardService {
       }
 
       final bytes = await file.readAsBytes();
-      final mimeType = _mimeFromExtension(filePath);
 
-      await _channel.invokeMethod('copyImageToClipboard', {
-        'bytes': bytes,
-        'mimeType': mimeType,
-      });
-      return true;
+      // Android 使用 MethodChannel
+      if (Platform.isAndroid || Platform.isIOS) {
+        final mimeType = _mimeFromExtension(filePath);
+        await _channel.invokeMethod('copyImageToClipboard', {
+          'bytes': bytes,
+          'mimeType': mimeType,
+        });
+        return true;
+      }
+
+      // Linux/macOS/Windows 使用 super_clipboard
+      if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
+        return await _copyImageWithSuperClipboard(bytes, filePath);
+      }
+
+      return false;
     } catch (e) {
       print('复制到剪贴板失败: $e');
+      return false;
+    }
+  }
+
+  /// 使用 super_clipboard 复制图片到剪贴板
+  static Future<bool> _copyImageWithSuperClipboard(
+    Uint8List bytes,
+    String filePath,
+  ) async {
+    try {
+      final item = DataWriterItem();
+      final ext = filePath.split('.').last.toLowerCase();
+
+      if (ext == 'png') {
+        item.add(Formats.png(bytes));
+      } else if (ext == 'gif') {
+        item.add(Formats.gif(bytes));
+      } else if (ext == 'webp') {
+        item.add(Formats.webp(bytes));
+      } else if (ext == 'bmp') {
+        item.add(Formats.bmp(bytes));
+      } else {
+        item.add(Formats.jpeg(bytes));
+      }
+
+      final clipboard = SystemClipboard.instance;
+      if (clipboard == null) {
+        print('ClipboardService: 系统剪贴板不可用');
+        return false;
+      }
+
+      await clipboard.write([item]);
+      return true;
+    } catch (e) {
+      print('super_clipboard 复制失败: $e');
       return false;
     }
   }
