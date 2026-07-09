@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:ui' show Rect;
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 /// OCR 识别结果
@@ -70,6 +72,35 @@ class OcrService {
   void close() {
     _mlKitService?.close();
     _linuxService?.close();
+  }
+
+  /// Linux: 检查 Tesseract 是否已安装
+  static Future<bool> linuxCheckInstalled() async {
+    if (!Platform.isLinux) return false;
+    return _LinuxOcrService.isInstalled();
+  }
+
+  /// Linux: 后台检测 Tesseract，未安装时打印日志提示
+  /// 注意：UI 提示需要在 Widget tree 构建后通过 context 获取 ScaffoldMessenger
+  /// 这里只打印 debug 日志，实际提示由 recognizeImage 的诊断结果提供
+  static void linuxCheckAndNotify() {
+    if (!Platform.isLinux) return;
+    Future.microtask(() async {
+      final installed = await _LinuxOcrService.isInstalled();
+      if (!installed) {
+        debugPrint('[Linux] Tesseract not found. To install run:');
+        debugPrint('[Linux]   sudo dnf install tesseract tesseract-langpack-chi_sim leptonica');
+        debugPrint('[Linux] Or use pkexec for GUI prompt: OcrService.linuxTryInstall()');
+      }
+    });
+  }
+
+  /// Linux: 尝试自动安装 Tesseract OCR 及语言包
+  /// 需要用户输入密码（通过 polkit 弹窗）
+  /// 返回安装是否成功
+  static Future<bool> linuxTryInstall() async {
+    if (!Platform.isLinux) return false;
+    return _LinuxOcrService.tryInstall();
   }
 }
 
@@ -164,6 +195,20 @@ class _LinuxOcrService {
     }
   }
 
+  /// 尝试自动安装 tesseract（需要 root 权限）
+  /// 返回安装是否成功
+  static Future<bool> tryInstall() async {
+    try {
+      // 尝试使用 pkexec 调用 dnf 安装（会弹窗请求密码）
+      final result = await Process.run('pkexec', [
+        'dnf', 'install', '-y', 'tesseract', 'tesseract-langpack-chi_sim', 'leptonica'
+      ]);
+      return result.exitCode == 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<OcrResult> recognizeImage(String imagePath) async {
     if (_disposed) throw StateError('服务已释放');
 
@@ -182,7 +227,7 @@ class _LinuxOcrService {
         return OcrResult(
           text: '',
           blocks: [],
-          diagnostics: ['${diag}Tesseract 未安装，请运行: sudo dnf install tesseract leptonica'],
+          diagnostics: ['${diag}Tesseract 未安装。尝试自动安装: OcrService.linuxTryInstall()'],
         );
       }
 
