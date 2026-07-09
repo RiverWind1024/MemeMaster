@@ -100,7 +100,7 @@ abstract class S {
   /// 应用标题
   ///
   /// In zh, this message translates to:
-  /// **'MemeManager'**
+  /// **'MemeMaster'**
   String get appTitle;
 
   /// No description provided for @tabGallery.

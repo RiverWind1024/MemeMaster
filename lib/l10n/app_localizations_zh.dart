@@ -9,7 +9,7 @@ class SZh extends S {
   SZh([String locale = 'zh']) : super(locale);
 
   @override
-  String get appTitle => 'MemeManager';
+  String get appTitle => 'MemeMaster';
 
   @override
   String get tabGallery => '图库';
