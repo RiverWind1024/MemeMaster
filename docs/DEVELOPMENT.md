@@ -43,7 +43,11 @@ flutter --version
 ### 2. Linux 桌面依赖
 
 ```bash
-sudo dnf install clang ninja-build libsecret-devel gtk3-devel
+# 核心依赖
+sudo dnf install clang ninja-build libsecret-devel gtk3-devel tesseract
+
+# Vulkan GPU 加速（可选，用于本地 LLM）
+sudo dnf install vulkan-loader glslc glslang
 ```
 
 ### 3. Android SDK
@@ -61,6 +65,21 @@ export PATH="$PATH:$ANDROID_HOME/platform-tools"
 flutter pub get
 ```
 
+### 5. 第三方 C++ 依赖（本地 LLM 需要）
+
+如果需要本地 LLM 推理功能（包括 Vulkan GPU 加速），需要初始化第三方依赖：
+
+```bash
+# 克隆并构建 llama.cpp、SPIRV-Headers 等
+./scripts/init-third-party.sh
+
+# 构建完成后会输出类似：
+# third_party/
+# ├── llama.cpp/
+# ├── SPIRV-Headers/
+# └── spirv-headers-install/  ← CMake 会自动查找这个路径
+```
+
 ---
 
 ## 构建命令速查
@@ -69,10 +88,38 @@ flutter pub get
 |---|---|---|
 | Linux 桌面 (调试) | `flutter build linux --debug` | `build/linux/x64/debug/bundle/meme_helper` |
 | Linux 桌面 (运行) | `flutter run -d linux` | — |
+| Linux 桌面 (Vulkan GPU) | 见下方「Linux GPU 构建」 | `build/linux/x64/release/bundle/` |
 | Android APK (调试) | `flutter build apk --debug` | `build/app/outputs/flutter-apk/app-debug.apk` |
 | Android APK (发布) | `flutter build apk --release` | `build/app/outputs/flutter-apk/app-release.apk` |
 | Android AAB | `flutter build appbundle` | `build/app/outputs/bundle/release/app-release.aab` |
 | 安装到已连接设备 | `flutter install` | — |
+
+### Linux GPU 构建
+
+本地 LLM 使用 Vulkan GPU 加速需要特殊构建：
+
+```bash
+# 完整构建命令
+rm -rf build/linux
+SPIRV_HEADERS_DIR=/path/to/project/third_party/spirv-headers/install \
+LLAMA_CPP_DIR=/path/to/project/third_party/llama.cpp \
+ENABLE_VULKAN=ON \
+flutter build linux --release
+
+# 验证产物
+ls -la build/linux/x64/release/bundle/lib/libmeme_llm.so
+# 应该是 ~57MB（完整 Vulkan 版本），而不是 ~12KB（stub 版本）
+
+# 验证 Vulkan 符号
+nm build/linux/x64/release/bundle/lib/libmeme_llm.so | grep ggml_vulkan
+```
+
+**CPU-only 版本构建**（无 GPU 加速）：
+```bash
+rm -rf build/linux
+flutter build linux --release
+# 会生成 libmeme_llm_empty.so（stub 版本）
+```
 
 ---
 
@@ -210,7 +257,7 @@ dart run build_runner watch --delete-conflicting-outputs
 # 修改前
 target_compile_options(${TARGET} PRIVATE -Wall -Werror)
 
-# 修改后  
+# 修改后
 target_compile_options(${TARGET} PRIVATE -Wall)
 ```
 
@@ -223,9 +270,91 @@ rm -rf build/linux
 flutter build linux --debug
 ```
 
+### Linux Vulkan GPU 构建：llama.cpp 找不到
+
+**现象**：CMake 输出 "llama.cpp not found"，生成 stub 版本。
+
+**原因**：CMake 查找路径 `third_party/llama.cpp` 不对。
+
+**解决**：设置环境变量明确指定路径：
+```bash
+LLAMA_CPP_DIR=/path/to/project/third_party/llama.cpp \
+ENABLE_VULKAN=ON \
+flutter build linux --release
+```
+
+### Linux Vulkan GPU 构建：glslc/glslangValidator 缺失
+
+**现象**：CMake 输出 "glslc not found - Vulkan GPU acceleration disabled"
+
+**原因**：缺少 Vulkan 着色器编译器。
+
+**解决**：
+```bash
+sudo dnf install glslc glslang
+```
+
+### Linux Vulkan GPU 构建：SPIRV-Headers 找不到
+
+**现象**：CMake 报错 "Could not find a package configuration file provided by SPIRV-Headers"
+
+**原因**：`third_party/spirv-headers-install` 目录不存在。
+
+**解决**：运行脚本构建并安装 SPIRV-Headers：
+```bash
+./scripts/init-third-party.sh
+# 脚本会自动构建并安装到 third_party/spirv-headers-install
+```
+
+### Linux Vulkan GPU 构建：链接错误 R_X86_64_32S
+
+**现象**：`relocation R_X86_64_32S against .rodata can not be used when making a shared object`
+
+**原因**：llama.cpp 静态库未使用 -fPIC 编译。
+
+**解决**：项目已添加 `CMAKE_POSITION_INDEPENDENT_CODE ON`，清理后重建：
+```bash
+rm -rf build/linux
+flutter build linux --release
+```
+
+### Linux Vulkan GPU 构建：android/log.h 找不到
+
+**现象**：编译错误 "fatal error: 'android/log.h' file not found"
+
+**原因**：`linux/cpp/meme_llm.cpp` 中 `android/log.h` 缺少平台保护。
+
+**解决**：项目已修复，将 `android/log.h` 放在 `#ifdef __ANDROID__` 保护下。
+
 ### Android 构建：首次 Gradle 下载慢
 
 首次 Android 构建会下载 Gradle 依赖，可能耗时 10–20 分钟。后续增量构建会快得多。
+
+### Linux Vulkan GPU 后端诊断
+
+如果 GPU 加速不工作，可通过以下方式诊断：
+
+1. **检查 Vulkan 驱动**：
+   ```bash
+   vulkaninfo --summary  # 或安装 vulkan-tools 包
+   ```
+
+2. **检查编译产物**：
+   ```bash
+   # 完整 Vulkan 版本应该 ~57MB
+   ls -lh build/linux/x64/release/bundle/lib/libmeme_llm.so
+
+   # 检查符号表
+   nm build/linux/x64/release/bundle/lib/libmeme_llm.so | grep ggml_vulkan
+   ```
+
+3. **检查 CMake 配置**：
+   ```bash
+   # 在 build 目录查看配置日志
+   grep -E "(VULKAN|llama|SPIRV)" build/linux/x64/release/CMakeCache.txt
+   ```
+
+4. **运行时日志**：启动应用后查看 LLM 相关日志，确认 GPU 后端是否加载。
 
 ---
 
