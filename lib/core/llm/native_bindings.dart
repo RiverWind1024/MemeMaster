@@ -1,4 +1,5 @@
 import 'dart:ffi';
+import 'dart:io' show Platform;
 import 'package:ffi/ffi.dart';
 
 typedef MllmInitC = Pointer<Void> Function(Pointer<Utf8>, Pointer<Utf8>, Int32, Int32, Int32, Int32, Pointer<Utf8>, Pointer<Utf8>);
@@ -38,7 +39,15 @@ class NativeLlmBindings {
   /// 构造函数尝试加载动态库，捕获异常避免闪退
   NativeLlmBindings() {
     try {
-      _dylib = DynamicLibrary.open('libmeme_llm.so');
+      if (Platform.isLinux) {
+        _dylib = DynamicLibrary.open('libmeme_llm.so');
+      } else if (Platform.isMacOS) {
+        _dylib = DynamicLibrary.open('libmeme_llm.dylib');
+      } else if (Platform.isAndroid) {
+        _dylib = DynamicLibrary.open('libmeme_llm.so');
+      } else {
+        return;
+      }
       mllmInit = _dylib!.lookupFunction<MllmInitC, MllmInitDart>('mllm_init');
       mllmMultimodalChat =
           _dylib!.lookupFunction<MllmMultimodalChatC, MllmMultimodalChatDart>(

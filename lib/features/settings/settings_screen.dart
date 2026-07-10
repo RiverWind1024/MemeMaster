@@ -831,6 +831,20 @@ Future<void> _onOcrToggle(bool value, WidgetRef ref, BuildContext ctx) async {
         return;
       }
     }
+  } else if (Platform.isMacOS) {
+    // macOS: 只检查 Tesseract 是否安装，不提供自动安装
+    final installed = await OcrService.macOSCheckInstalled();
+    if (!installed) {
+      if (ctx.mounted) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          const SnackBar(
+            content: Text('Tesseract 未安装。请运行: brew install tesseract tesseract-langpack-chi_sim'),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+      return;
+    }
   }
 
   // 启用 OCR
