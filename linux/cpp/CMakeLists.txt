@@ -105,6 +105,7 @@ if(NOT ENABLE_VULKAN AND NOT ENABLE_OPENCL AND NOT ENABLE_CUDA)
 endif()
 
 # ===== llama.cpp 子项目配置 =====
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(BUILD_SHARED_LIBS OFF)
 set(GGML_STATIC ON)
 set(LLAMA_STATIC ON)
@@ -124,7 +125,7 @@ set(GGML_CUDA ${ENABLE_CUDA})
 set(MEME_LLM_LIBS llama ggml mtmd pthread dl m)
 
 if(VULKAN_FOUND)
-    list(APPEND MEME_LLM_LIBS Vulkan::Vulkan)
+    list(APPEND MEME_LLM_LIBS ${VULKAN_LIBRARIES})
 endif()
 
 if(OPENCL_FOUND)
