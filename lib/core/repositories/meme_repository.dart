@@ -7,6 +7,7 @@ import '../database/daos/analysis_queue_dao.dart';
 import '../database/daos/color_analysis_queue_dao.dart';
 import '../database/daos/ocr_analysis_queue_dao.dart';
 import '../database/daos/ai_analysis_queue_dao.dart';
+import '../database/daos/album_dao.dart';
 import '../database/database.dart';
 import '../../services/file_storage_service.dart';
 
@@ -19,6 +20,7 @@ class MemeRepository {
   final ColorAnalysisQueueDao _colorQueueDao;
   final OcrAnalysisQueueDao _ocrQueueDao;
   final AiAnalysisQueueDao _aiQueueDao;
+  final AlbumDao _albumDao;
   final Uuid _uuid = const Uuid();
 
   MemeRepository({
@@ -29,9 +31,11 @@ class MemeRepository {
     ColorAnalysisQueueDao? colorQueueDao,
     OcrAnalysisQueueDao? ocrQueueDao,
     AiAnalysisQueueDao? aiQueueDao,
+    AlbumDao? albumDao,
   })  : _colorQueueDao = colorQueueDao ?? ColorAnalysisQueueDao(_memeDao.database),
         _ocrQueueDao = ocrQueueDao ?? OcrAnalysisQueueDao(_memeDao.database),
-        _aiQueueDao = aiQueueDao ?? AiAnalysisQueueDao(_memeDao.database);
+        _aiQueueDao = aiQueueDao ?? AiAnalysisQueueDao(_memeDao.database),
+        _albumDao = albumDao ?? AlbumDao(_memeDao.database);
 
   Future<Meme?> getById(String id) => _memeDao.getById(id);
 
@@ -94,6 +98,12 @@ class MemeRepository {
     await _queueDao.deleteByMemeId(id);
     await _colorDao.deleteByMemeId(id);
     await _tagDao.deleteByMemeId(id);
+    // 清理并行分析队列，避免外键约束异常
+    await _colorQueueDao.deleteByMemeId(id);
+    await _ocrQueueDao.deleteByMemeId(id);
+    await _aiQueueDao.deleteByMemeId(id);
+    // 清理相册关联，避免外键约束异常
+    await _albumDao.removeMemeFromAllAlbums(id);
     await _memeDao.delete(id);
 
     if (deleteFile && meme != null && meme.filePath.isNotEmpty) {
@@ -150,6 +160,92 @@ class MemeRepository {
 
   Future<void> updateSource(String id, String source) =>
       _memeDao.updateSource(id, source);
+
+  /// 对指定 meme 重新索引缺失的分析维度
+  ///
+  /// 检查 colorAnalysisStatus / ocrAnalysisStatus / aiAnalysisStatus，
+  /// 仅对不是 'done' 的维度入队分析。返回实际入队的数量。
+  Future<int> reindexMeme(String memeId) async {
+    final meme = await _memeDao.getById(memeId);
+    if (meme == null) return 0;
+
+    int enqueued = 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final uuid = _uuid.v4();
+
+    if (meme.colorAnalysisStatus != 'done') {
+      await _colorQueueDao.insert(ColorAnalysisQueueItem(
+        id: '${uuid}_color',
+        memeId: memeId,
+        status: 'pending',
+        priority: 0,
+        retryCount: 0,
+        createdAt: now,
+      ));
+      enqueued++;
+    }
+
+    if (meme.ocrAnalysisStatus != 'done') {
+      await _ocrQueueDao.insert(OcrAnalysisQueueItem(
+        id: '${uuid}_ocr',
+        memeId: memeId,
+        status: 'pending',
+        priority: 0,
+        retryCount: 0,
+        createdAt: now,
+      ));
+      enqueued++;
+    }
+
+    if (meme.aiAnalysisStatus != 'done') {
+      await _aiQueueDao.insert(AiAnalysisQueueItem(
+        id: '${uuid}_ai',
+        memeId: memeId,
+        status: 'pending',
+        priority: 0,
+        retryCount: 0,
+        createdAt: now,
+      ));
+      enqueued++;
+    }
+
+    if (enqueued > 0) {
+      await _memeDao.updateAnalysisStatus(memeId, 'pending');
+    }
+
+    return enqueued;
+  }
+
+  /// 批量重新索引所有 meme
+  ///
+  /// 遍历所有 meme，对每个 meme 缺失的分析维度入队。
+  /// [onProgress] 回调参数为 (已处理数, 已入队数)。
+  Future<Map<String, int>> reindexAll({
+    void Function(int processed, int enqueued)? onProgress,
+  }) async {
+    int total = 0, enqueued = 0, failed = 0;
+
+    const batchSize = 50;
+    int offset = 0;
+    List<Meme> batch;
+
+    do {
+      batch = await _memeDao.getAll(limit: batchSize, offset: offset);
+      for (final meme in batch) {
+        try {
+          final n = await reindexMeme(meme.id);
+          enqueued += n;
+          total++;
+          onProgress?.call(total, enqueued);
+        } catch (e) {
+          failed++;
+        }
+      }
+      offset += batchSize;
+    } while (batch.length == batchSize);
+
+    return {'total': total, 'enqueued': enqueued, 'failed': failed};
+  }
 
   // ---- 并行分析队列状态 ----
 

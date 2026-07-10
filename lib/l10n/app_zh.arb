@@ -1,7 +1,7 @@
 {
   "@@locale": "zh",
 
-  "appTitle": "MemeManager",
+  "appTitle": "MemeMaster",
   "@appTitle": { "description": "应用标题" },
 
   "tabGallery": "图库",
@@ -14,6 +14,7 @@
 
   "scanMeme": "扫描 Meme",
   "selectDirectoryToScan": "选择要扫描的目录",
+  "scanningDirectory": "正在扫描目录...",
   "scanningProgress": "扫描中 {completed}/{total}",
   "@scanningProgress": { "placeholders": { "completed": { "type": "int" }, "total": { "type": "int" } } },
   "hasText": "有文字",
@@ -457,5 +458,11 @@
   "@exportFailed": { "placeholders": { "error": { "type": "String" } } },
   "@importMemePack": {},
   "@importMemePackResult": { "placeholders": { "success": { "type": "int" }, "skipped": { "type": "int" }, "errors": { "type": "int" } } },
-  "@importMemePackFailed": { "placeholders": { "error": { "type": "String" } } }
+  "@importMemePackFailed": { "placeholders": { "error": { "type": "String" } } },
+  "reindexMemes": "重新索引所有表情",
+  "@reindexMemes": { "description": "重新索引按钮" },
+  "reindexDescription": "检查并补充缺失的分析数据",
+  "@reindexDescription": {},
+  "reindexStarted": "重新索引已开始，进度显示在图库顶部",
+  "@reindexStarted": {}
 }
