@@ -86,10 +86,18 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
     );
 
     if (confirmed == true) {
-      await ref.read(memeRepositoryProvider).delete(meme.id);
-      ref.invalidate(memeListProvider);
-      ref.invalidate(memeCountProvider);
-      if (context.mounted) context.pop();
+      try {
+        await ref.read(memeRepositoryProvider).delete(meme.id);
+        ref.invalidate(memeListProvider);
+        ref.invalidate(memeCountProvider);
+        if (context.mounted) context.pop();
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('删除失败: $e')),
+          );
+        }
+      }
     }
   }
 

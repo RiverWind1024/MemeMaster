@@ -233,6 +233,32 @@ class MemeDetector {
     return images;
   }
 
+  /// 异步扫描目录，避免阻塞 UI 线程
+  static Future<List<String>> scanDirectoryAsync(String dirPath,
+      {DetectorLogger? logger, void Function(int found)? onProgress}) async {
+    final dir = Directory(dirPath);
+    if (!dir.existsSync()) {
+      _log('scanDirectoryAsync: dir not found: $dirPath', logger: logger);
+      return [];
+    }
+    final images = <String>[];
+    const exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.avif'};
+    try {
+      await for (final entity in dir.list(recursive: true)) {
+        if (entity is File) {
+          final name = entity.path.toLowerCase();
+          if (!exts.any((e) => name.endsWith(e))) continue;
+          images.add(entity.path);
+          onProgress?.call(images.length);
+        }
+      }
+    } catch (e) {
+      _log('scanDirectoryAsync error: $e', logger: logger);
+    }
+    _log('scanDirectoryAsync found ${images.length} images in $dirPath', logger: logger);
+    return images;
+  }
+
   static Stream<ScanProgress> batchDetect(List<String> imagePaths, {DetectorLogger? logger}) async* {
     final detector = MemeDetector(logger: logger);
     int memesFound = 0, textFound = 0, noText = 0, completed = 0;

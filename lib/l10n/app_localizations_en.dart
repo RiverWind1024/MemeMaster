@@ -9,7 +9,7 @@ class SEn extends S {
   SEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'MemeManager';
+  String get appTitle => 'MemeMaster';
 
   @override
   String get tabGallery => 'Gallery';
@@ -36,6 +36,9 @@ class SEn extends S {
 
   @override
   String get selectDirectoryToScan => 'Select directory to scan';
+
+  @override
+  String get scanningDirectory => 'Scanning directory...';
 
   @override
   String scanningProgress(int completed, int total) {
@@ -1241,4 +1244,13 @@ class SEn extends S {
   String configImportFailed(String error) {
     return 'Config import failed: $error';
   }
+
+  @override
+  String get reindexMemes => 'Re-index all memes';
+
+  @override
+  String get reindexDescription => 'Check and enqueue missing analysis data';
+
+  @override
+  String get reindexStarted => 'Reindex started, progress shown in gallery';
 }

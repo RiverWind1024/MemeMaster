@@ -1,7 +1,7 @@
 {
   "@@locale": "en",
 
-  "appTitle": "MemeManager",
+  "appTitle": "MemeMaster",
 
   "tabGallery": "Gallery",
   "tabSearch": "Search",
@@ -13,6 +13,7 @@
 
   "scanMeme": "Scan Memes",
   "selectDirectoryToScan": "Select directory to scan",
+  "scanningDirectory": "Scanning directory...",
   "scanningProgress": "Scanning {completed}/{total}",
   "hasText": "Has text",
   "noText": "No text",
@@ -403,5 +404,11 @@
   "@exportFailed": { "placeholders": { "error": { "type": "String" } } },
   "@importMemePack": {},
   "@importMemePackResult": { "placeholders": { "success": { "type": "int" }, "skipped": { "type": "int" }, "errors": { "type": "int" } } },
-  "@importMemePackFailed": { "placeholders": { "error": { "type": "String" } } }
+  "@importMemePackFailed": { "placeholders": { "error": { "type": "String" } } },
+  "reindexMemes": "Re-index all memes",
+  "@reindexMemes": { "description": "Reindex button" },
+  "reindexDescription": "Check and enqueue missing analysis data",
+  "@reindexDescription": {},
+  "reindexStarted": "Reindex started, progress shown in gallery",
+  "@reindexStarted": {}
 }

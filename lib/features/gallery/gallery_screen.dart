@@ -446,11 +446,44 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   }
 
   Widget _buildAnalysisBanner() {
+    final theme = Theme.of(context);
+    final s = S.of(context);
+    final reindexState = ref.watch(reindexStateProvider);
+
+    // 优先显示重新索引进度
+    if (reindexState.isRunning) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: theme.colorScheme.primaryContainer,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.colorScheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '重新索引中... 已处理 ${reindexState.processed} 个，已入队 ${reindexState.enqueued} 个',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onPrimaryContainer,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 分析进度
     final progressAsync = ref.watch(analysisProgressProvider);
     final progress = progressAsync.valueOrNull;
     if (progress == null || progress.isEmpty) return const SizedBox.shrink();
-    final theme = Theme.of(context);
-    final s = S.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
