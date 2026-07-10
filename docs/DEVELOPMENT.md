@@ -50,7 +50,17 @@ sudo dnf install clang ninja-build libsecret-devel gtk3-devel tesseract
 sudo dnf install vulkan-loader glslc glslang
 ```
 
-### 3. Android SDK
+### 3. macOS 桌面依赖
+
+```bash
+# Xcode Command Line Tools
+xcode-select --install
+
+# Tesseract OCR（Homebrew）
+brew install tesseract tesseract-langpack-chi_sim leptonica
+```
+
+### 4. Android SDK
 
 已配置在 `~/Software/android-sdk`，包含 platforms 33–36、build-tools、NDK 等。需设置环境变量：
 
@@ -89,6 +99,9 @@ flutter pub get
 | Linux 桌面 (调试) | `flutter build linux --debug` | `build/linux/x64/debug/bundle/meme_helper` |
 | Linux 桌面 (运行) | `flutter run -d linux` | — |
 | Linux 桌面 (Vulkan GPU) | 见下方「Linux GPU 构建」 | `build/linux/x64/release/bundle/` |
+| macOS 桌面 (调试) | `flutter build macos --debug` | `build/macos/Build/Products/Debug/` |
+| macOS 桌面 (运行) | `flutter run -d macos` | — |
+| macOS 桌面 (Metal GPU) | 见下方「macOS GPU 构建」 | `build/macos/Build/Products/Release/` |
 | Android APK (调试) | `flutter build apk --debug` | `build/app/outputs/flutter-apk/app-debug.apk` |
 | Android APK (发布) | `flutter build apk --release` | `build/app/outputs/flutter-apk/app-release.apk` |
 | Android AAB | `flutter build appbundle` | `build/app/outputs/bundle/release/app-release.aab` |
@@ -119,6 +132,25 @@ nm build/linux/x64/release/bundle/lib/libmeme_llm.so | grep ggml_vulkan
 rm -rf build/linux
 flutter build linux --release
 # 会生成 libmeme_llm_empty.so（stub 版本）
+```
+
+### macOS GPU 构建
+
+macOS 本地 LLM 使用 Metal GPU 加速（Apple Silicon M1+ 推荐）：
+
+```bash
+# 1. 先构建 C++ 原生库
+./scripts/build-macos-llm.sh
+
+# 2. 然后构建 Flutter 应用
+flutter build macos --release
+
+# 验证产物
+ls -la build/macos/Build/Products/Release/meme_master
+ls -la build/macos/Build/Products/Release/lib/libmeme_llm.dylib
+
+# 验证 Metal 符号
+nm build/macos/Build/Products/Release/lib/libmeme_llm.dylib | grep ggml_metal
 ```
 
 ---
@@ -329,6 +361,27 @@ flutter build linux --release
 ### Android 构建：首次 Gradle 下载慢
 
 首次 Android 构建会下载 Gradle 依赖，可能耗时 10–20 分钟。后续增量构建会快得多。
+
+### macOS 构建：llama.cpp 找不到
+
+**现象**：CMake 输出 "llama.cpp not found at ..."
+
+**解决**：确保已运行 `./scripts/init-third-party.sh`，然后检查 `LLAMA_CPP_DIR` 环境变量：
+
+```bash
+LLAMA_CPP_DIR=/path/to/project/third_party/llama.cpp \
+./scripts/build-macos-llm.sh
+```
+
+### macOS Metal GPU 构建
+
+**系统依赖**：
+- Xcode Command Line Tools (`xcode-select --install`)
+- Homebrew (`brew install tesseract tesseract-langpack-chi_sim`)
+
+**Apple Silicon** (M1/M2/M3)：Metal 原生支持，开箱即用。
+
+**Intel Mac**：Metal 支持有限，GPU 加速可能不可用，回退到 CPU。
 
 ### Linux Vulkan GPU 后端诊断
 

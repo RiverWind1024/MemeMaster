@@ -1,12 +1,12 @@
 # MemeMaster
 
-表情包管理工具 —— 导入、组织、智能搜索、颜色识别、语义分析。支持 Linux / Android 双平台。
+表情包管理工具 —— 导入、组织、智能搜索、颜色识别、语义分析。支持 Linux / macOS / Android 多平台。
 
 ## 功能
 
 - **图片导入** — 自动去重（SHA256 哈希），按日期归档存储
 - **颜色搜索** — HSV 滑块选色，CIE Lab ΔE 色差匹配
-- **OCR 文字识别** — Android: Google ML Kit / Linux: Tesseract CLI，支持中英文
+- **OCR 文字识别** — Android: Google ML Kit / Linux/macOS: Tesseract CLI，支持中英文
 - **AI 标签与描述** — OpenAI / Ollama / 本地 LLM 驱动，根据 OCR 结果自动生成标签和文字描述
 - **Token 用量追踪** — 记录每次 LLM 调用的 prompt/completion token 数，按日统计，支持查看今日用量和任意时间范围汇总
 - **统计页面** — 用户使用数据总览，包含 GitHub 风格热度图（贡献日历）、日期范围选择器（7/30/365 天）、导入/复制/收藏/Token 用量趋势列表
@@ -63,6 +63,35 @@ nm build/linux/x64/release/bundle/lib/libmeme_llm.so | grep vulkan
 > - Linux OCR 使用 Tesseract CLI（`google_mlkit_text_recognition` 不可用于 Linux）
 > - 需要安装 `tesseract` 和中文语言包 `tesseract-langpack-chi_sim`
 > - Vulkan 模式需要 Intel/AMD/NVIDIA GPU 驱动支持
+
+### macOS 桌面
+
+#### 系统依赖
+
+```bash
+# Xcode Command Line Tools（必须）
+xcode-select --install
+
+# Tesseract OCR（Homebrew）
+brew install tesseract tesseract-langpack-chi_sim leptonica
+```
+
+#### 构建
+
+```bash
+# 克隆并构建 C++ 原生依赖
+./scripts/init-third-party.sh
+
+# 构建 C++ 原生库（Metal GPU）
+./scripts/build-macos-llm.sh
+
+# 构建 release 版本
+flutter build macos --release
+# 产物: build/macos/Build/Products/Release/meme_master
+```
+
+> **注意**: macOS OCR 使用 Tesseract CLI（`google_mlkit_text_recognition` 不可用于 macOS）。
+> **GPU 加速**: macOS 使用 Metal GPU 加速（Apple Silicon M1+ 推荐，Intel Mac 需 OpenCL）。
 
 ### Android (首次构建必读)
 
