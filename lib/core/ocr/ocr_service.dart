@@ -31,13 +31,14 @@ class OcrBlock {
 /// OCR 识别服务
 ///
 /// - Android/iOS: Google ML Kit Text Recognition
-/// - Linux: Tesseract 命令行
+/// - Linux/macOS: Tesseract 命令行
 ///
 /// 支持中文和英文文本识别。使用相机或图片文件进行 OCR。
 /// 每次使用后必须调用 [close] 释放资源。
 class OcrService {
   final _MlKitOcrService? _mlKitService;
   final _LinuxOcrService? _linuxService;
+  final _MacOSOcrService? _macOSService;
 
   /// 工厂构造函数，根据平台返回对应实现
   factory OcrService() {
@@ -45,6 +46,8 @@ class OcrService {
       return OcrService._(mlKitService: _MlKitOcrService());
     } else if (Platform.isLinux) {
       return OcrService._(linuxService: _LinuxOcrService());
+    } else if (Platform.isMacOS) {
+      return OcrService._(macOSService: _MacOSOcrService());
     } else {
       throw UnsupportedError('不支持的平台: ${Platform.operatingSystem}');
     }
@@ -53,8 +56,10 @@ class OcrService {
   OcrService._({
     _MlKitOcrService? mlKitService,
     _LinuxOcrService? linuxService,
+    _MacOSOcrService? macOSService,
   })  : _mlKitService = mlKitService,
-        _linuxService = linuxService;
+        _linuxService = linuxService,
+        _macOSService = macOSService;
 
   /// 识图图片文件中的文字
   ///
@@ -64,6 +69,8 @@ class OcrService {
       return _mlKitService.recognizeImage(imagePath);
     } else if (_linuxService != null) {
       return _linuxService.recognizeImage(imagePath);
+    } else if (_macOSService != null) {
+      return _macOSService.recognizeImage(imagePath);
     }
     throw StateError('无可用的 OCR 服务');
   }
@@ -72,6 +79,7 @@ class OcrService {
   void close() {
     _mlKitService?.close();
     _linuxService?.close();
+    _macOSService?.close();
   }
 
   /// Linux: 检查 Tesseract 是否已安装
@@ -102,7 +110,30 @@ class OcrService {
     if (!Platform.isLinux) return false;
     return _LinuxOcrService.tryInstall();
   }
+
+  /// macOS: 检查 Tesseract 是否已安装
+  static Future<bool> macOSCheckInstalled() async {
+    if (!Platform.isMacOS) return false;
+    return _LinuxOcrService.isInstalled();
+  }
+
+  /// macOS: 后台检测 Tesseract，未安装时打印日志提示
+  static void macOSCheckAndNotify() {
+    if (!Platform.isMacOS) return;
+    Future.microtask(() async {
+      final installed = await _LinuxOcrService.isInstalled();
+      if (!installed) {
+        debugPrint('[macOS] Tesseract not found. To install run:');
+        debugPrint('[macOS]   brew install tesseract tesseract-langpack-chi_sim');
+      }
+    });
+  }
 }
+
+/// macOS Tesseract OCR 实现
+///
+/// 与 Linux 共用相同的 Tesseract 命令行实现
+typedef _MacOSOcrService = _LinuxOcrService;
 
 /// Google ML Kit OCR 实现（Android/iOS）
 class _MlKitOcrService {

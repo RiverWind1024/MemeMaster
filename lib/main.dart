@@ -45,9 +45,11 @@ void main() async {
 
   debugPrint('[Startup] runApp: ${DateTime.now().difference(t0).inMilliseconds}ms');
 
-  // Linux: 检测 Tesseract OCR 依赖（延迟检测，避免阻塞启动）
+  // Linux/macOS: 检测 Tesseract OCR 依赖（延迟检测，避免阻塞启动）
   if (Platform.isLinux) {
     OcrService.linuxCheckAndNotify();
+  } else if (Platform.isMacOS) {
+    OcrService.macOSCheckAndNotify();
   }
 
   runApp(MemeManagerApp(prefs: prefs, storageDir: modelsDir.path));

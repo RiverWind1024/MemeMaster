@@ -262,8 +262,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   Future<void> _pickDir() async {
     String? dir;
 
-    if (Platform.isLinux) {
-      // Linux: 常用目录快捷入口 + 自定义
+    if (Platform.isLinux || Platform.isMacOS) {
+      // Linux/macOS: 常用目录快捷入口 + 自定义
       dir = await showDialog<String>(
         context: context,
         builder: (ctx) => SimpleDialog(
