@@ -1,4 +1,64 @@
-# Android GPU 加速修复指南
+# GPU 加速修复指南
+
+本文档涵盖 Android 和 Linux 平台的 llama.cpp GPU 加速配置与排错。
+
+---
+
+## Linux Vulkan GPU 加速
+
+### 系统依赖
+
+```bash
+# Fedora/RHEL/CentOS
+sudo dnf install vulkan-loader glslc glslang
+
+# Ubuntu/Debian
+sudo apt install libvulkan1 glslang-tools spirv-tools
+```
+
+### 第三方依赖
+
+```bash
+# 克隆并构建 llama.cpp、SPIRV-Headers 等
+./scripts/init-third-party.sh
+```
+
+### 构建命令
+
+```bash
+# 清理之前的构建
+rm -rf build/linux
+
+# 构建带 Vulkan GPU 加速的 Linux 版本
+SPIRV_HEADERS_DIR=/path/to/project/third_party/spirv-headers/install \
+LLAMA_CPP_DIR=/path/to/project/third_party/llama.cpp \
+ENABLE_VULKAN=ON \
+flutter build linux --release
+```
+
+### 验证 GPU 加速
+
+```bash
+# 检查库文件大小（完整 Vulkan 版本 ~57MB，stub 版本 ~12KB）
+ls -lh build/linux/x64/release/bundle/lib/libmeme_llm.so
+
+# 检查 Vulkan 符号
+nm build/linux/x64/release/bundle/lib/libmeme_llm.so | grep ggml_vulkan
+```
+
+### 已知问题与解决
+
+| 问题 | 原因 | 解决 |
+|------|------|------|
+| "llama.cpp not found" | CMake 路径解析问题 | 设置 `LLAMA_CPP_DIR` 环境变量 |
+| "glslc not found" | 缺少着色器编译器 | `sudo dnf install glslc glslang` |
+| "SPIRV-Headers not found" | 未构建安装 | 运行 `./scripts/init-third-party.sh` |
+| "R_X86_64_32S relocation error" | 静态库未用 -fPIC | 项目已修复，清理重建 |
+| android/log.h 找不到 | 缺少平台保护 | 项目已修复 |
+
+---
+
+## Android GPU 加速修复指南
 
 ## 重要说明
 

@@ -20,9 +20,14 @@
 
 ### Linux 桌面
 
+#### 基本依赖
+
 ```bash
-# 系统依赖
+# 核心依赖
 sudo dnf install clang ninja-build libsecret-devel gtk3-devel tesseract
+
+# Vulkan GPU 加速依赖（可选，用于本地 LLM 加速）
+sudo dnf install vulkan-loader glslc glslang
 
 # Flutter 依赖 + 启动
 flutter pub get
@@ -33,7 +38,31 @@ flutter build linux --release
 # 产物: build/linux/x64/release/bundle/meme_master
 ```
 
-> **注意**: Linux OCR 使用 Tesseract CLI（`google_mlkit_text_recognition` 不可用于 Linux）。需要安装 `tesseract` 和中文语言包 `tesseract-langpack-chi_sim`。
+#### Vulkan GPU 加速构建（可选）
+
+如果需要本地 LLM 推理使用 GPU 加速，需要额外配置：
+
+```bash
+# 1. 确保 SPIRV-Headers 已构建
+./scripts/init-third-party.sh
+
+# 2. 使用 Vulkan 构建
+SPIRV_HEADERS_DIR=/path/to/project/third_party/spirv-headers/install \
+LLAMA_CPP_DIR=/path/to/project/third_party/llama.cpp \
+ENABLE_VULKAN=ON \
+flutter build linux --release
+```
+
+**验证 GPU 库**：
+```bash
+# 检查是否生成了包含 Vulkan 符号的 libmeme_llm.so
+nm build/linux/x64/release/bundle/lib/libmeme_llm.so | grep vulkan
+```
+
+> **注意**:
+> - Linux OCR 使用 Tesseract CLI（`google_mlkit_text_recognition` 不可用于 Linux）
+> - 需要安装 `tesseract` 和中文语言包 `tesseract-langpack-chi_sim`
+> - Vulkan 模式需要 Intel/AMD/NVIDIA GPU 驱动支持
 
 ### Android (首次构建必读)
 
