@@ -31,8 +31,8 @@ int mllm_run_diagnostics(const char*) { return 0; }
 #include <sys/time.h>
 #include <signal.h>
 #include <csetjmp>
-#include <android/log.h>
 #ifdef __ANDROID__
+#include <android/log.h>
 #include <dlfcn.h>
 #endif
 
