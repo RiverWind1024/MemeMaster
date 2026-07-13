@@ -57,29 +57,60 @@ jobs:
 
       - name: Patch cargokit plugin.gradle for Gradle 8 Groovy 4
         run: |
-          python3 << 'EOF'
-          import os, re
-          for root, dirs, files in os.walk(os.path.expanduser('~/.pub-cache')):
-              for fname in files:
-                  if fname == 'plugin.gradle' and 'cargokit' in root:
-                      fpath = os.path.join(root, fname)
-                      with open(fpath) as f:
-                          content = f.read()
-                      if "commandLine 'chmod'" in content:
-                          # Fix: Gradle 8 Groovy 4 - executable/commandLine must be set via methods
-                          content = re.sub(
-                              r"project\.exec \{\s*commandLine 'chmod', '\+x', path\s*\}",
-                              "project.exec { setCommandLine(['chmod', '+x', path.toString()]); }",
-                              content)
-                          content = re.sub(
-                              r"project\.exec \{\s*executable path\s*",
-                              "project.exec { setExecutable(path.toString());\n            ",
-                              content)
-                          content = content.replace('args "build-gradle"', 'args("build-gradle")')
-                          with open(fpath, 'w') as f:
-                              f.write(content)
-                          print(f"Patched: {fpath}")
-          EOF
+          python3 << 'PYEOF'
+          import os, glob
+          for gradle_file in glob.glob(os.path.expanduser('~/.pub-cache/**/cargokit/gradle/plugin.gradle'), recursive=True):
+              with open(gradle_file) as f:
+                  content = f.read()
+              if "commandLine 'chmod'" not in content:
+                  continue
+              # Rewrite the entire build() method - replace the old exec blocks with Groovy 4 compatible code
+              old_chmod = """        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
+            project.exec {
+                commandLine 'chmod', '+x', path
+            }
+        }"""
+              new_chmod = """        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
+            project.exec { setCommandLine(['chmod', '+x', path.toString()]); }
+        }"""
+              old_exec_block = """        project.exec {
+            executable path
+            args "build-gradle"
+            environment "CARGOKIT_ROOT_PROJECT_DIR", rootProjectDir
+            environment "CARGOKIT_TOOL_TEMP_DIR", "${buildDir}/build_tool"
+            environment "CARGOKIT_MANIFEST_DIR", manifestDir
+            environment "CARGOKIT_CONFIGURATION", buildMode
+            environment "CARGOKIT_TARGET_TEMP_DIR", buildDir
+            environment "CARGOKIT_OUTPUT_DIR", outputDir
+            environment "CARGOKIT_NDK_VERSION", ndkVersion
+            environment "CARGOKIT_SDK_DIR", sdkDirectory
+            environment "CARGOKIT_COMPILE_SDK_VERSION", compileSdkVersion
+            environment "CARGOKIT_MIN_SDK_VERSION", minSdkVersion
+            environment "CARGOKIT_TARGET_PLATFORMS", targetPlatforms.join(",")
+            environment "CARGOKIT_JAVA_HOME", System.properties['java.home']
+        }"""
+              new_exec_block = """        project.exec {
+            setExecutable(path.toString())
+            args("build-gradle")
+            environment([CARGOKIT_ROOT_PROJECT_DIR: rootProjectDir,
+                         CARGOKIT_TOOL_TEMP_DIR: "${buildDir}/build_tool",
+                         CARGOKIT_MANIFEST_DIR: manifestDir,
+                         CARGOKIT_CONFIGURATION: buildMode,
+                         CARGOKIT_TARGET_TEMP_DIR: buildDir,
+                         CARGOKIT_OUTPUT_DIR: outputDir,
+                         CARGOKIT_NDK_VERSION: ndkVersion,
+                         CARGOKIT_SDK_DIR: sdkDirectory,
+                         CARGOKIT_COMPILE_SDK_VERSION: compileSdkVersion,
+                         CARGOKIT_MIN_SDK_VERSION: minSdkVersion,
+                         CARGOKIT_TARGET_PLATFORMS: targetPlatforms.join(","),
+                         CARGOKIT_JAVA_HOME: System.properties['java.home']])
+        }"""
+              content = content.replace(old_chmod, new_chmod)
+              content = content.replace(old_exec_block, new_exec_block)
+              with open(gradle_file, 'w') as f:
+                  f.write(content)
+              print(f"Patched: {gradle_file}")
+          PYEOF
 
       - name: Build Android APK
         run: flutter build apk --release
