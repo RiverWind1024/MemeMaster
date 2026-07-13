@@ -26,11 +26,13 @@ jobs:
           fi
           echo "$HOME/flutter/bin" >> $GITHUB_PATH
 
-      - name: Get dependencies (without super_clipboard for Android)
+      - name: Remove super_clipboard for Android (cargokit incompatible with Gradle 8)
         run: |
-          # super_clipboard uses cargokit which fails on Gradle 8 - not needed for Android
-          grep -v "super_clipboard:" pubspec.yaml > pubspec.android.yaml
-          flutter pub get -f pubspec.android.yaml
+          # super_clipboard is desktop-only; cargokit fails on Gradle 8 - not needed for Android APK
+          cp pubspec.yaml pubspec.yaml.bak
+          sed -i '/^  super_clipboard:/d' pubspec.yaml
+          flutter pub get
+          mv pubspec.yaml.bak pubspec.yaml
 
       - name: Init third-party dependencies
         run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
