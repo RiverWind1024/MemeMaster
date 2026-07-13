@@ -36,15 +36,18 @@ android {
                 arguments += listOf("-DCMAKE_ANDROID_PROCESS_MAX=4")
                 // OpenCL 后端在 Android CI 环境中 cmake 找不到系统 OpenCL 库，默认禁用
                 arguments += listOf("-DENABLE_OPENCL=OFF")
-                // Vulkan GPU 加速（需要 SPIRV-Headers 安装完成）
-                arguments += listOf("-DENABLE_VULKAN=ON")
-                // Vulkan 编译工具路径：glslc 优先从环境变量 ANDROID_NDK 解析,
-                // 找不到时尝试 SDK 默认位置 (注意:这条仅在你的本地开发机配置下成立)
-                val ndkRoot = System.getenv("ANDROID_NDK")
-                    ?: providers.gradleProperty("android.ndkDirectory").orNull
-                    ?: "${android.sdkDirectory}/ndk/${android.ndkVersion}"
-                arguments += listOf("-DVulkan_GLSLC_EXECUTABLE=$ndkRoot/shader-tools/linux-x86_64/glslc")
-                arguments += listOf("-DSPIRV-Headers_DIR=${project.rootDir}/../third_party/spirv-headers-install/share/cmake/SPIRV-Headers")
+                // Vulkan: CI 环境（NDK 缺少 vulkan.hpp C++ bindings）禁用；本地开发保留
+                val isCi = System.getenv("CI") == "true"
+                if (!isCi) {
+                    arguments += listOf("-DENABLE_VULKAN=ON")
+                    val ndkRoot = System.getenv("ANDROID_NDK")
+                        ?: providers.gradleProperty("android.ndkDirectory").orNull
+                        ?: "${android.sdkDirectory}/ndk/${android.ndkVersion}"
+                    arguments += listOf("-DVulkan_GLSLC_EXECUTABLE=$ndkRoot/shader-tools/linux-x86_64/glslc")
+                    arguments += listOf("-DSPIRV-Headers_DIR=${project.rootDir}/../third_party/spirv-headers-install/share/cmake/SPIRV-Headers")
+                } else {
+                    arguments += listOf("-DENABLE_VULKAN=OFF")
+                }
                 
                 // GPU 后端编译优化标志
                 cppFlags += listOf("-O3", "-DNDEBUG")
