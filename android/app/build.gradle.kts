@@ -44,7 +44,7 @@ android {
                     ?: providers.gradleProperty("android.ndkDirectory").orNull
                     ?: "${android.sdkDirectory}/ndk/${android.ndkVersion}"
                 arguments += listOf("-DVulkan_GLSLC_EXECUTABLE=$ndkRoot/shader-tools/linux-x86_64/glslc")
-                arguments += listOf("-DSPIRV-Headers_DIR=${project.rootDir}/../third_party/SPIRV-Headers/install/share/cmake/SPIRV-Headers")
+                arguments += listOf("-DSPIRV-Headers_DIR=${project.rootDir}/../third_party/spirv-headers-install/share/cmake/SPIRV-Headers")
                 
                 // GPU 后端编译优化标志
                 cppFlags += listOf("-O3", "-DNDEBUG")
