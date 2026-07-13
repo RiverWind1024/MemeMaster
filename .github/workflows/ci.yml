@@ -24,10 +24,12 @@ jobs:
           fetch-depth: 1
 
       - name: Setup Flutter
-        uses: flutter-community/setup-flutter@v5
-        with:
-          flutter-version: ${{ env.flutter-version }}
-          channel: 'stable'
+        run: |
+          FLUTTER_VERSION=3.44.0
+          if [ ! -d "$HOME/flutter" ]; then
+            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
+          fi
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
 
       - name: Get dependencies
         run: flutter pub get
@@ -51,10 +53,12 @@ jobs:
             tesseract tesseract-langpack-chi_sim vulkan-loader spirv-tools
 
       - name: Setup Flutter
-        uses: flutter-community/setup-flutter@v5
-        with:
-          flutter-version: ${{ env.flutter-version }}
-          channel: 'stable'
+        run: |
+          FLUTTER_VERSION=3.44.0
+          if [ ! -d "$HOME/flutter" ]; then
+            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
+          fi
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
 
       - name: Get dependencies
         run: flutter pub get
@@ -114,13 +118,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             cmake ninja-build clang libsecret-1-dev libgtk-3-dev \
-            tesseract tesseract-langpack-chi_sim
+            tesseract tesseract-langpack-chi_sim curl xz-utils
 
       - name: Setup Flutter
-        uses: flutter-community/setup-flutter@v5
-        with:
-          flutter-version: ${{ env.flutter-version }}
-          channel: 'stable'
+        run: |
+          FLUTTER_VERSION=3.44.0
+          if [ ! -d "$HOME/flutter" ]; then
+            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
+          fi
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
 
       - name: Get dependencies
         run: flutter pub get
@@ -155,20 +161,17 @@ jobs:
           brew install tesseract tesseract-langpack-chi_sim leptonica
 
       - name: Setup Flutter
-        uses: flutter-community/setup-flutter@v5
-        with:
-          flutter-version: ${{ env.flutter-version }}
-          channel: 'stable'
+        run: |
+          FLUTTER_VERSION=3.44.0
+          if [ ! -d "$HOME/flutter" ]; then
+            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
+          fi
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
 
       - name: Get dependencies
         run: flutter pub get
 
       - name: Init third-party
-        run: ./scripts/init-third-party.sh
-        env:
-          LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
-
-      - name: Build C++ library (Metal GPU)
         run: ./scripts/build-macos-llm.sh
         env:
           LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
@@ -209,7 +212,7 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build unzip
+          sudo apt-get install -y cmake ninja-build unzip curl xz-utils
 
       - name: Setup Java
         uses: actions/setupJava@v4
@@ -218,10 +221,12 @@ jobs:
           java-version: ${{ env.java-version }}
 
       - name: Setup Flutter
-        uses: flutter-community/setup-flutter@v5
-        with:
-          flutter-version: ${{ env.flutter-version }}
-          channel: 'stable'
+        run: |
+          FLUTTER_VERSION=3.44.0
+          if [ ! -d "$HOME/flutter" ]; then
+            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
+          fi
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
 
       - name: Get dependencies
         run: flutter pub get
@@ -267,7 +272,7 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build unzip
+          sudo apt-get install -y cmake ninja-build unzip curl xz-utils
 
       - name: Setup Java
         uses: actions/setupJava@v4
@@ -276,10 +281,12 @@ jobs:
           java-version: ${{ env.java-version }}
 
       - name: Setup Flutter
-        uses: flutter-community/setup-flutter@v5
-        with:
-          flutter-version: ${{ env.flutter-version }}
-          channel: 'stable'
+        run: |
+          FLUTTER_VERSION=3.44.0
+          if [ ! -d "$HOME/flutter" ]; then
+            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
+          fi
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
 
       - name: Get dependencies
         run: flutter pub get
