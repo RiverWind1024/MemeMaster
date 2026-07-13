@@ -237,6 +237,14 @@ jobs:
       - name: Init third-party
         run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
 
+      - name: Debug SPIRV-Headers install
+        run: |
+          echo "=== SPIRV-Headers install ==="
+          ls -la third_party/spirv-headers-install/ 2>/dev/null || echo "NOT FOUND"
+          echo ""
+          echo "=== SPIRV-HeadersConfig.cmake ==="
+          find third_party -name "SPIRV-HeadersConfig.cmake" 2>/dev/null || echo "NOT FOUND"
+
       - name: Configure Gradle memory
         run: |
           mkdir -p android
@@ -304,6 +312,14 @@ jobs:
 
       - name: Init third-party
         run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
+
+      - name: Debug SPIRV-Headers install
+        run: |
+          echo "=== SPIRV-Headers install ==="
+          ls -la third_party/spirv-headers-install/ 2>/dev/null || echo "NOT FOUND"
+          echo ""
+          echo "=== SPIRV-HeadersConfig.cmake ==="
+          find third_party -name "SPIRV-HeadersConfig.cmake" 2>/dev/null || echo "NOT FOUND"
 
       - name: Configure Gradle memory
         run: |
