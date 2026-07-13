@@ -36,7 +36,7 @@ android {
                 arguments += listOf("-DCMAKE_ANDROID_PROCESS_MAX=4")
                 // 注意：OpenCL 后端尚未在真实设备上验证，标记为实验性
                 arguments += listOf("-DENABLE_OPENCL=ON")
-                // 可选：启用 Vulkan（通常比 CPU 慢，不推荐）
+                // Vulkan GPU 加速（需要 SPIRV-Headers 安装完成）
                 arguments += listOf("-DENABLE_VULKAN=ON")
                 // Vulkan 编译工具路径：glslc 优先从环境变量 ANDROID_NDK 解析,
                 // 找不到时尝试 SDK 默认位置 (注意:这条仅在你的本地开发机配置下成立)
