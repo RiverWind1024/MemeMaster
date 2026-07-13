@@ -1,5 +1,5 @@
 #!/bin/bash
-# =================================────────────────
+# =========================================================
 # 第三方依赖初始化脚本
 # 用法: ./scripts/init-third-party.sh
 #
@@ -9,6 +9,8 @@
 # =========================================================
 
 # 注意: 不使用 set -e，因为构建失败是允许的（某些平台/依赖缺失只是警告）
+
+echo "DEBUG: script started, bash version: $BASH_VERSION"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
