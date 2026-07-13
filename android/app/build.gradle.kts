@@ -36,14 +36,22 @@ android {
                 arguments += listOf("-DCMAKE_ANDROID_PROCESS_MAX=4")
                 // OpenCL 后端在 Android CI 环境中 cmake 找不到系统 OpenCL 库，默认禁用
                 arguments += listOf("-DENABLE_OPENCL=OFF")
-                // Vulkan GPU 加速（需要 SPIRV-Headers + Vulkan-Headers）
-                arguments += listOf("-DENABLE_VULKAN=ON")
-                val ndkRoot = System.getenv("ANDROID_NDK")
-                    ?: providers.gradleProperty("android.ndkDirectory").orNull
-                    ?: "${android.sdkDirectory}/ndk/${android.ndkVersion}"
-                arguments += listOf("-DVulkan_GLSLC_EXECUTABLE=$ndkRoot/shader-tools/linux-x86_64/glslc")
-                arguments += listOf("-DSPIRV-Headers_DIR=${project.rootDir}/../third_party/spirv-headers-install/share/cmake/SPIRV-Headers")
-                arguments += listOf("-DVulkan_INCLUDE_DIRS=${project.rootDir}/../third_party/Vulkan-Headers/include")
+                // Vulkan GPU 加速（需要 SPIRV-Headers + Vulkan-Headers）。两者都存在才启用
+                val vulkanHeadersDir = "${project.rootDir}/../third_party/Vulkan-Headers"
+                val spirvHeadersConfig = "${project.rootDir}/../third_party/spirv-headers-install/share/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake"
+                val hasVulkanHeaders = File(vulkanHeadersDir, "include/vulkan/vulkan.hpp").exists()
+                val hasSpirvHeaders = File(spirvHeadersConfig).exists()
+                if (hasVulkanHeaders && hasSpirvHeaders) {
+                    val ndkRoot = System.getenv("ANDROID_NDK")
+                        ?: providers.gradleProperty("android.ndkDirectory").orNull
+                        ?: "${android.sdkDirectory}/ndk/${android.ndkVersion}"
+                    arguments += listOf("-DENABLE_VULKAN=ON")
+                    arguments += listOf("-DVulkan_GLSLC_EXECUTABLE=$ndkRoot/shader-tools/linux-x86_64/glslc")
+                    arguments += listOf("-DSPIRV-Headers_DIR=${project.rootDir}/../third_party/spirv-headers-install/share/cmake/SPIRV-Headers")
+                    arguments += listOf("-DVulkan_INCLUDE_DIRS=${project.rootDir}/../third_party/Vulkan-Headers/include")
+                } else {
+                    arguments += listOf("-DENABLE_VULKAN=OFF")
+                }
                 
                 // GPU 后端编译优化标志
                 cppFlags += listOf("-O3", "-DNDEBUG")
