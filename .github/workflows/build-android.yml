@@ -59,20 +59,123 @@ jobs:
         run: |
           cat > /tmp/patch_cargokit.py << 'SCRIPT'
           import os, glob
-          for gradle_file in glob.glob(os.path.expanduser('~/.pub-cache/**/cargokit/gradle/plugin.gradle'), recursive=True):
+          pub_cache = os.path.expanduser('~/.pub-cache')
+          for gradle_file in glob.glob(pub_cache + '/hosted/pub.dev/irondash_engine_context-0.5.5/cargokit/gradle/plugin.gradle'):
               with open(gradle_file) as f:
                   content = f.read()
               if "commandLine 'chmod'" not in content:
+                  print("Already patched or different version: " + gradle_file)
                   continue
-              old_chmod = "        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {\n            project.exec {\n                commandLine 'chmod', '+x', path\n            }\n        }"
-              new_chmod = "        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {\n            project.exec { setCommandLine(['chmod', '+x', path.toString()]); }\n        }"
-              old_exec = "        project.exec {\n            executable path\n            args \"build-gradle\"\n            environment \"CARGOKIT_ROOT_PROJECT_DIR\", rootProjectDir\n            environment \"CARGOKIT_TOOL_TEMP_DIR\", \"${buildDir}/build_tool\"\n            environment \"CARGOKIT_MANIFEST_DIR\", manifestDir\n            environment \"CARGOKIT_CONFIGURATION\", buildMode\n            environment \"CARGOKIT_TARGET_TEMP_DIR\", buildDir\n            environment \"CARGOKIT_OUTPUT_DIR\", outputDir\n            environment \"CARGOKIT_NDK_VERSION\", ndkVersion\n            environment \"CARGOKIT_SDK_DIR\", sdkDirectory\n            environment \"CARGOKIT_COMPILE_SDK_VERSION\", compileSdkVersion\n            environment \"CARGOKIT_MIN_SDK_VERSION\", minSdkVersion\n            environment \"CARGOKIT_TARGET_PLATFORMS\", targetPlatforms.join(\",\")\n            environment \"CARGOKIT_JAVA_HOME\", System.properties['java.home']\n        }"
-              new_exec = "        project.exec {\n            setExecutable(path.toString())\n            args(\"build-gradle\")\n            environment([CARGOKIT_ROOT_PROJECT_DIR: rootProjectDir,\n                         CARGOKIT_TOOL_TEMP_DIR: \"${buildDir}/build_tool\",\n                         CARGOKIT_MANIFEST_DIR: manifestDir,\n                         CARGOKIT_CONFIGURATION: buildMode,\n                         CARGOKIT_TARGET_TEMP_DIR: buildDir,\n                         CARGOKIT_OUTPUT_DIR: outputDir,\n                         CARGOKIT_NDK_VERSION: ndkVersion,\n                         CARGOKIT_SDK_DIR: sdkDirectory,\n                         CARGOKIT_COMPILE_SDK_VERSION: compileSdkVersion,\n                         CARGOKIT_MIN_SDK_VERSION: minSdkVersion,\n                         CARGOKIT_TARGET_PLATFORMS: targetPlatforms.join(\",\"),\n                         CARGOKIT_JAVA_HOME: System.properties['java.home']])\n        }"
-              content = content.replace(old_chmod, new_chmod)
-              content = content.replace(old_exec, new_exec)
-              with open(gradle_file, 'w') as f:
-                  f.write(content)
-              print("Patched: " + gradle_file)
+              # Fix project.exec {} closure syntax for Groovy 4
+              # Replace the entire build() method's exec blocks
+              old = (
+                  "        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {\\n"
+                  "            project.exec {\\n"
+                  "                commandLine 'chmod', '+x', path\\n"
+                  "            }\\n"
+                  "        }\\n"
+                  "\\n"
+                  "        project.exec {\\n"
+                  "            executable path\\n"
+                  "            args \"build-gradle\"\\n"
+                  "            environment \"CARGOKIT_ROOT_PROJECT_DIR\", rootProjectDir\\n"
+                  "            environment \"CARGOKIT_TOOL_TEMP_DIR\", \"${buildDir}/build_tool\"\\n"
+                  "            environment \"CARGOKIT_MANIFEST_DIR\", manifestDir\\n"
+                  "            environment \"CARGOKIT_CONFIGURATION\", buildMode\\n"
+                  "            environment \"CARGOKIT_TARGET_TEMP_DIR\", buildDir\\n"
+                  "            environment \"CARGOKIT_OUTPUT_DIR\", outputDir\\n"
+                  "            environment \"CARGOKIT_NDK_VERSION\", ndkVersion\\n"
+                  "            environment \"CARGOKIT_SDK_DIR\", sdkDirectory\\n"
+                  "            environment \"CARGOKIT_COMPILE_SDK_VERSION\", compileSdkVersion\\n"
+                  "            environment \"CARGOKIT_MIN_SDK_VERSION\", minSdkVersion\\n"
+                  "            environment \"CARGOKIT_TARGET_PLATFORMS\", targetPlatforms.join(\",\")\\n"
+                  "            environment \"CARGOKIT_JAVA_HOME\", System.properties['java.home']\\n"
+                  "        }"
+              )
+              new = (
+                  "        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {\\n"
+                  "            ['chmod', '+x', path.toString()].execute()\\n"
+                  "        }\\n"
+                  "\\n"
+                  "        def proc = [path.toString(), 'build-gradle'].execute()\\n"
+                  "        proc.environment[CARGOKIT_ROOT_PROJECT_DIR] = rootProjectDir\\n"
+                  "        proc.environment[CARGOKIT_TOOL_TEMP_DIR] = \"${buildDir}/build_tool\"\\n"
+                  "        proc.environment[CARGOKIT_MANIFEST_DIR] = manifestDir\\n"
+                  "        proc.environment[CARGOKIT_CONFIGURATION] = buildMode\\n"
+                  "        proc.environment[CARGOKIT_TARGET_TEMP_DIR] = buildDir\\n"
+                  "        proc.environment[CARGOKIT_OUTPUT_DIR] = outputDir\\n"
+                  "        proc.environment[CARGOKIT_NDK_VERSION] = ndkVersion\\n"
+                  "        proc.environment[CARGOKIT_SDK_DIR] = sdkDirectory\\n"
+                  "        proc.environment[CARGOKIT_COMPILE_SDK_VERSION] = String.valueOf(compileSdkVersion)\\n"
+                  "        proc.environment[CARGOKIT_MIN_SDK_VERSION] = String.valueOf(minSdkVersion)\\n"
+                  "        proc.environment[CARGOKIT_TARGET_PLATFORMS] = targetPlatforms.join(\",\")\\n"
+                  "        proc.environment[CARGOKIT_JAVA_HOME] = System.properties['java.home']\\n"
+                  "        proc.waitFor()"
+              )
+              if old in content:
+                  content = content.replace(old, new)
+                  with open(gradle_file, 'w') as f:
+                      f.write(content)
+                  print("Patched: " + gradle_file)
+              else:
+                  print("Pattern not found in: " + gradle_file)
+          for gradle_file in glob.glob(pub_cache + '/hosted/pub.dev/super_native_extensions-0.9.1/cargokit/gradle/plugin.gradle'):
+              with open(gradle_file) as f:
+                  content = f.read()
+              if "commandLine 'chmod'" not in content:
+                  print("Already patched or different version: " + gradle_file)
+                  continue
+              old = (
+                  "        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {\\n"
+                  "            project.exec {\\n"
+                  "                commandLine 'chmod', '+x', path\\n"
+                  "            }\\n"
+                  "        }\\n"
+                  "\\n"
+                  "        project.exec {\\n"
+                  "            executable path\\n"
+                  "            args \"build-gradle\"\\n"
+                  "            environment \"CARGOKIT_ROOT_PROJECT_DIR\", rootProjectDir\\n"
+                  "            environment \"CARGOKIT_TOOL_TEMP_DIR\", \"${buildDir}/build_tool\"\\n"
+                  "            environment \"CARGOKIT_MANIFEST_DIR\", manifestDir\\n"
+                  "            environment \"CARGOKIT_CONFIGURATION\", buildMode\\n"
+                  "            environment \"CARGOKIT_TARGET_TEMP_DIR\", buildDir\\n"
+                  "            environment \"CARGOKIT_OUTPUT_DIR\", outputDir\\n"
+                  "            environment \"CARGOKIT_NDK_VERSION\", ndkVersion\\n"
+                  "            environment \"CARGOKIT_SDK_DIR\", sdkDirectory\\n"
+                  "            environment \"CARGOKIT_COMPILE_SDK_VERSION\", compileSdkVersion\\n"
+                  "            environment \"CARGOKIT_MIN_SDK_VERSION\", minSdkVersion\\n"
+                  "            environment \"CARGOKIT_TARGET_PLATFORMS\", targetPlatforms.join(\",\")\\n"
+                  "            environment \"CARGOKIT_JAVA_HOME\", System.properties['java.home']\\n"
+                  "        }"
+              )
+              new = (
+                  "        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {\\n"
+                  "            ['chmod', '+x', path.toString()].execute()\\n"
+                  "        }\\n"
+                  "\\n"
+                  "        def proc = [path.toString(), 'build-gradle'].execute()\\n"
+                  "        proc.environment[CARGOKIT_ROOT_PROJECT_DIR] = rootProjectDir\\n"
+                  "        proc.environment[CARGOKIT_TOOL_TEMP_DIR] = \"${buildDir}/build_tool\"\\n"
+                  "        proc.environment[CARGOKIT_MANIFEST_DIR] = manifestDir\\n"
+                  "        proc.environment[CARGOKIT_CONFIGURATION] = buildMode\\n"
+                  "        proc.environment[CARGOKIT_TARGET_TEMP_DIR] = buildDir\\n"
+                  "        proc.environment[CARGOKIT_OUTPUT_DIR] = outputDir\\n"
+                  "        proc.environment[CARGOKIT_NDK_VERSION] = ndkVersion\\n"
+                  "        proc.environment[CARGOKIT_SDK_DIR] = sdkDirectory\\n"
+                  "        proc.environment[CARGOKIT_COMPILE_SDK_VERSION] = String.valueOf(compileSdkVersion)\\n"
+                  "        proc.environment[CARGOKIT_MIN_SDK_VERSION] = String.valueOf(minSdkVersion)\\n"
+                  "        proc.environment[CARGOKIT_TARGET_PLATFORMS] = targetPlatforms.join(\",\")\\n"
+                  "        proc.environment[CARGOKIT_JAVA_HOME] = System.properties['java.home']\\n"
+                  "        proc.waitFor()"
+              )
+              if old in content:
+                  content = content.replace(old, new)
+                  with open(gradle_file, 'w') as f:
+                      f.write(content)
+                  print("Patched: " + gradle_file)
+              else:
+                  print("Pattern not found in: " + gradle_file)
           SCRIPT
           python3 /tmp/patch_cargokit.py
 
