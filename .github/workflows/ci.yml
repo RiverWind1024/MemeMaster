@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 1
 
       - name: Setup Flutter
-        uses: actions/setupFlutter@v5
+        uses: flutter-community/setup-flutter@v5
         with:
           flutter-version: ${{ env.flutter-version }}
           channel: 'stable'
@@ -51,7 +51,7 @@ jobs:
             tesseract tesseract-langpack-chi_sim vulkan-loader spirv-tools
 
       - name: Setup Flutter
-        uses: actions/setupFlutter@v5
+        uses: flutter-community/setup-flutter@v5
         with:
           flutter-version: ${{ env.flutter-version }}
           channel: 'stable'
@@ -117,7 +117,7 @@ jobs:
             tesseract tesseract-langpack-chi_sim
 
       - name: Setup Flutter
-        uses: actions/setupFlutter@v5
+        uses: flutter-community/setup-flutter@v5
         with:
           flutter-version: ${{ env.flutter-version }}
           channel: 'stable'
@@ -155,7 +155,7 @@ jobs:
           brew install tesseract tesseract-langpack-chi_sim leptonica
 
       - name: Setup Flutter
-        uses: actions/setupFlutter@v5
+        uses: flutter-community/setup-flutter@v5
         with:
           flutter-version: ${{ env.flutter-version }}
           channel: 'stable'
@@ -218,7 +218,7 @@ jobs:
           java-version: ${{ env.java-version }}
 
       - name: Setup Flutter
-        uses: actions/setupFlutter@v5
+        uses: flutter-community/setup-flutter@v5
         with:
           flutter-version: ${{ env.flutter-version }}
           channel: 'stable'
@@ -276,7 +276,7 @@ jobs:
           java-version: ${{ env.java-version }}
 
       - name: Setup Flutter
-        uses: actions/setupFlutter@v5
+        uses: flutter-community/setup-flutter@v5
         with:
           flutter-version: ${{ env.flutter-version }}
           channel: 'stable'
