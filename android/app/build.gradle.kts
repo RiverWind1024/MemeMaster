@@ -49,7 +49,7 @@ android {
                     arguments += listOf("-DVulkan_GLSLC_EXECUTABLE=$ndkRoot/shader-tools/linux-x86_64/glslc")
                     arguments += listOf("-DSPIRV-Headers_DIR=${project.rootDir}/../third_party/spirv-headers-install/share/cmake/SPIRV-Headers")
                     // CMAKE_INCLUDE_PATH 确保 find_package(Vulkan) 能找到 vulkan.hpp
-                    arguments += listOf("-DCMAKE_CXX_FLAGS=-I${project.rootDir}/../third_party/Vulkan-Headers/include")
+                    arguments += listOf("-DCMAKE_CXX_FLAGS=-I${project.rootDir}/../third_party/Vulkan-Headers/include -I${project.rootDir}/../third_party/spirv-headers-install/include")
                 } else {
                     arguments += listOf("-DENABLE_VULKAN=OFF")
                 }
