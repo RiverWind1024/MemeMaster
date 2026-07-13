@@ -36,25 +36,23 @@ android {
                 arguments += listOf("-DCMAKE_ANDROID_PROCESS_MAX=4")
                 // OpenCL 后端在 Android CI 环境中 cmake 找不到系统 OpenCL 库，默认禁用
                 arguments += listOf("-DENABLE_OPENCL=OFF")
-// Vulkan GPU 加速（需要 SPIRV-Headers + Vulkan-Headers）。两者都存在才启用
+                // Vulkan 启用判断：third_party/Vulkan-Headers 和 SPIRV-Headers 都存在
                 val vulkanHeadersDir = "${project.rootDir}/../third_party/Vulkan-Headers"
                 val spirvHeadersConfig = "${project.rootDir}/../third_party/spirv-headers-install/share/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake"
-                val hasVulkanHeaders = File(vulkanHeadersDir, "include/vulkan/vulkan.hpp").exists()
-                val hasSpirvHeaders = File(spirvHeadersConfig).exists()
-                if (hasVulkanHeaders && hasSpirvHeaders) {
+                val hasVulkanDeps = File(vulkanHeadersDir, "include/vulkan/vulkan.hpp").exists() &&
+                                    File(spirvHeadersConfig).exists()
+                arguments += listOf("-DENABLE_VULKAN=${if (hasVulkanDeps) "ON" else "OFF"}")
+                // Vulkan glslc 路径（NDK 自带）
+                if (hasVulkanDeps) {
                     val ndkRoot = System.getenv("ANDROID_NDK")
                         ?: providers.gradleProperty("android.ndkDirectory").orNull
                         ?: "${android.sdkDirectory}/ndk/${android.ndkVersion}"
-                    val vulkanLib = "$ndkRoot/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/29/libvulkan.so"
-                    arguments += listOf("-DENABLE_VULKAN=ON")
                     arguments += listOf("-DVulkan_GLSLC_EXECUTABLE=$ndkRoot/shader-tools/linux-x86_64/glslc")
                     arguments += listOf("-DSPIRV-Headers_DIR=${project.rootDir}/../third_party/spirv-headers-install/share/cmake/SPIRV-Headers")
-                    arguments += listOf("-DCMAKE_CXX_FLAGS=-I${project.rootDir}/../third_party/Vulkan-Headers/include -I${project.rootDir}/../third_party/spirv-headers-install/include")
-                    arguments += listOf("-DVulkan_LIBRARY=$vulkanLib")
-                } else {
-                    arguments += listOf("-DENABLE_VULKAN=OFF")
+                    // 关键：注入 Vulkan Android 预加载脚本（处理 ABI 特定的 libvulkan.so 路径）
+                    arguments += listOf("-DCMAKE_PROJECT_INCLUDE_BEFORE=${project.rootDir}/src/main/cpp/cmake/vulkan-android-prelude.cmake")
                 }
-                
+
                 // GPU 后端编译优化标志
                 cppFlags += listOf("-O3", "-DNDEBUG")
                 targets += listOf("meme_llm")

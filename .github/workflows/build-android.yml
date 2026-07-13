@@ -80,7 +80,7 @@ jobs:
           echo "android.enableJetifier=false" >> android/gradle.properties
 
       - name: Build Android APK
-        run: flutter build apk --release --target-platform=android-arm64
+        run: flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
