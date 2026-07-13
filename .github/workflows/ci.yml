@@ -38,7 +38,6 @@ jobs:
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
   linux:
-    needs: analyze
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -106,7 +105,6 @@ jobs:
           retention-days: 7
 
   linux-cpu:
-    needs: analyze
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -149,7 +147,6 @@ jobs:
           retention-days: 7
 
   macos:
-    needs: analyze
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -202,7 +199,6 @@ jobs:
           retention-days: 7
 
   android:
-    needs: analyze
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -278,7 +274,6 @@ jobs:
           retention-days: 7
 
   android-debug:
-    needs: analyze
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
