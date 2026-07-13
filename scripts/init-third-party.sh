@@ -210,17 +210,17 @@ echo ""
 mkdir -p "$THIRD_PARTY"
 
 declare -A DEPS=(
-    ["llama.cpp"]="https://github.com/ggml-org/llama.cpp.git:"
-    ["OpenCL-Headers"]="https://github.com/KhronosGroup/OpenCL-Headers.git:"
-    ["OpenCL-ICD-Loader"]="https://github.com/KhronosGroup/OpenCL-ICD-Loader.git:"
-    ["SPIRV-Headers"]="https://github.com/KhronosGroup/SPIRV-Headers.git:"
+    ["llama.cpp"]="https://github.com/ggml-org/llama.cpp.git||"
+    ["OpenCL-Headers"]="https://github.com/KhronosGroup/OpenCL-Headers.git||"
+    ["OpenCL-ICD-Loader"]="https://github.com/KhronosGroup/OpenCL-ICD-Loader.git||"
+    ["SPIRV-Headers"]="https://github.com/KhronosGroup/SPIRV-Headers.git||"
 )
 
 FAILED=()
 
 for name in "${!DEPS[@]}"; do
-    # 分割 GitHub URL 和 Gitee URL
-    IFS=':' read -r github_url gitee_url <<< "${DEPS[$name]}"
+    # 分割 GitHub URL 和 Gitee URL（使用 || 分隔符避免 URL 中的 : 干扰）
+    IFS='||' read -r github_url gitee_url <<< "${DEPS[$name]}"
     
     if ! clone_with_fallback "$name" "$github_url" "$gitee_url"; then
         FAILED+=("$name")
