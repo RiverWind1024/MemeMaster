@@ -4,7 +4,8 @@
 # 用法: ./scripts/init-third-party.sh
 #
 # 功能: 自动克隆、构建项目所需的 C++ 依赖库
-# 优先级: GitHub > Gitee 镜像（如果配置了）
+# 优先级: GitHub > gh-proxy.org > Gitee
+# CI 中直接用 GitHub；都失败则提示用户在本地运行
 # =========================================================
 
 set -e
@@ -74,26 +75,25 @@ clone_with_fallback() {
         rm -rf "$dir"
     fi
 
-    # 使用 gh-proxy.org 代理加速
-    local proxy_url="https://gh-proxy.org/$github_url"
-
-    echo "Cloning $name via gh-proxy.org..."
-    if git clone --depth 1 "$proxy_url" "$dir" 2>/dev/null; then
-        log_success "$name cloned via gh-proxy.org"
-        return 0
-    fi
-
+    # 优先使用 GitHub 直接下载（GitHub Actions 可以访问 GitHub）
     echo "Cloning $name from GitHub..."
-    if git clone --depth 1 "$github_url" "$dir" 2>/dev/null; then
+    if git clone --depth 1 "$github_url" "$dir" 2>&1; then
         log_success "$name cloned from GitHub"
         return 0
     fi
 
-    log_warn "GitHub clone failed, trying Gitee fallback..."
+    # GitHub 失败时尝试 gh-proxy.org（国内加速）
+    local proxy_url="https://gh-proxy.org/$github_url"
+    echo "Cloning $name via gh-proxy.org..."
+    if git clone --depth 1 "$proxy_url" "$dir" 2>&1; then
+        log_success "$name cloned via gh-proxy.org"
+        return 0
+    fi
 
-    # 尝试 Gitee
+    # 最后尝试 Gitee
     if [ -n "$gitee_url" ]; then
-        if git clone --depth 1 "$gitee_url" "$dir" 2>/dev/null; then
+        echo "Cloning $name from Gitee..."
+        if git clone --depth 1 "$gitee_url" "$dir" 2>&1; then
             log_success "$name cloned from Gitee"
             return 0
         fi
@@ -101,6 +101,11 @@ clone_with_fallback() {
 
     # 都失败了
     log_error "$name clone failed from all sources"
+    echo ""
+    echo "请在本地运行以下命令完成初始化（需开启代理）："
+    echo "  ./scripts/init-third-party.sh"
+    echo ""
+    echo "完成后 push 到 GitHub 即可触发 CI 构建。"
     return 1
 }
 

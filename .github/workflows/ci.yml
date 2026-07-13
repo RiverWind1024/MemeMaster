@@ -65,10 +65,7 @@ jobs:
           ndk-version: r28b
 
       - name: Init third-party (Vulkan)
-        run: |
-          if ! ./scripts/init-third-party.sh; then
-            echo "⚠️ Third-party init failed - building CPU-only stub"
-          fi
+        run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
         env:
           LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
           SPIRV_HEADERS_DIR: ${{ github.workspace }}/third_party/spirv-headers-install
@@ -233,11 +230,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Init third-party
-        run: |
-          if ! ./scripts/init-third-party.sh; then
-            echo "⚠️ Third-party init failed - network or missing deps"
-            echo "Building with stub native library..."
-          fi
+        run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
 
       - name: Build Android APK
         run: |
@@ -298,10 +291,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Init third-party
-        run: |
-          if ! ./scripts/init-third-party.sh; then
-            echo "⚠️ Third-party init failed - building with stub"
-          fi
+        run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
 
       - name: Build Android APK (debug)
         run: |
