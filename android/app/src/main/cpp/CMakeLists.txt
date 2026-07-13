@@ -3,6 +3,9 @@ project(meme_llm C CXX)
 
 set(CMAKE_BUILD_PARALLEL_LEVEL 4)
 
+# 加载自定义 Find 模块（备用）
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+
 if(NOT DEFINED LLAMA_CPP_DIR)
     if(DEFINED ENV{LLAMA_CPP_DIR})
         set(LLAMA_CPP_DIR $ENV{LLAMA_CPP_DIR})
@@ -24,7 +27,8 @@ endif()
 option(ENABLE_OPENCL "Enable OpenCL backend (requires OpenCL-ICD-Loader)" OFF)
 
 # Vulkan 支持（默认关闭）
-# 启用需要安装 Vulkan SDK 或使用 Android NDK 自带的 vulkan-headers
+# Android 上的 Vulkan 路径由 gradle 通过 CMAKE_PROJECT_INCLUDE_BEFORE 注入的
+# vulkan-android-prelude.cmake 自动配置（按 ABI 选 libvulkan.so、加 vulkan.hpp 头文件路径）
 option(ENABLE_VULKAN "Enable Vulkan backend" OFF)
 
 # 为 arm64-v8a 和 x86_64 构建，其他 ABI 跳过
