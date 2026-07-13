@@ -214,6 +214,7 @@ declare -A DEPS=(
     ["OpenCL-Headers"]="https://github.com/KhronosGroup/OpenCL-Headers.git||"
     ["OpenCL-ICD-Loader"]="https://github.com/KhronosGroup/OpenCL-ICD-Loader.git||"
     ["SPIRV-Headers"]="https://github.com/KhronosGroup/SPIRV-Headers.git||"
+    ["Vulkan-Headers"]="https://github.com/LunarG/VulkanHeaders.git||"
 )
 
 FAILED=()
