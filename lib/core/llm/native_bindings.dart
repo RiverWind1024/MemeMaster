@@ -37,24 +37,39 @@ class NativeLlmBindings {
 
   /// 构造函数尝试加载动态库，捕获异常避免闪退
   NativeLlmBindings() {
-    try {
-      _dylib = DynamicLibrary.open('libmeme_llm.so');
-      mllmInit = _dylib!.lookupFunction<MllmInitC, MllmInitDart>('mllm_init');
-      mllmMultimodalChat =
-          _dylib!.lookupFunction<MllmMultimodalChatC, MllmMultimodalChatDart>(
-              'mllm_multimodal_chat');
-      mllmClose = _dylib!.lookupFunction<MllmCloseC, MllmCloseDart>('mllm_close');
-      mllmFreeString = _dylib!.lookupFunction<MllmFreeStringC, MllmFreeStringDart>('mllm_free_string');
-      mllmGetLogs = _dylib!.lookupFunction<MllmGetLogsC, MllmGetLogsDart>('mllm_get_logs');
-      mllmIsMtmdLoaded = _dylib!.lookupFunction<MllmIsMtmdLoadedC, MllmIsMtmdLoadedDart>('mllm_is_mtmd_loaded');
-      mllmRunDiagnostics = _dylib!.lookupFunction<MllmRunDiagnosticsC, MllmRunDiagnosticsDart>('mllm_run_diagnostics');
-    } catch (e) {
-      // 加载失败时不抛异常，后续调用通过 mllmInit==null 判断不可用
-      // 防止因 ABI 不匹配或 .so 缺失导致 app 启动时直接闪退
+    // 优先加载完整版，失败则回退到 stub
+    final candidates = ['libmeme_llm.so', 'libmeme_llm_empty.so'];
+    for (final name in candidates) {
+      try {
+        _dylib = DynamicLibrary.open(name);
+        _isStub = name.contains('empty');
+        mllmInit = _dylib!.lookupFunction<MllmInitC, MllmInitDart>('mllm_init');
+        mllmMultimodalChat =
+            _dylib!.lookupFunction<MllmMultimodalChatC, MllmMultimodalChatDart>(
+                'mllm_multimodal_chat');
+        mllmClose = _dylib!.lookupFunction<MllmCloseC, MllmCloseDart>('mllm_close');
+        mllmFreeString = _dylib!.lookupFunction<MllmFreeStringC, MllmFreeStringDart>('mllm_free_string');
+        mllmGetLogs = _dylib!.lookupFunction<MllmGetLogsC, MllmGetLogsDart>('mllm_get_logs');
+        mllmIsMtmdLoaded = _dylib!.lookupFunction<MllmIsMtmdLoadedC, MllmIsMtmdLoadedDart>('mllm_is_mtmd_loaded');
+        mllmRunDiagnostics = _dylib!.lookupFunction<MllmRunDiagnosticsC, MllmRunDiagnosticsDart>('mllm_run_diagnostics');
+        break;
+      } catch (e) {
+        _dylib = null;
+        _isStub = false;
+        mllmInit = null;
+        mllmMultimodalChat = null;
+        mllmClose = null;
+        mllmFreeString = null;
+        mllmGetLogs = null;
+        mllmIsMtmdLoaded = null;
+        mllmRunDiagnostics = null;
+      }
     }
   }
 
+  bool _isStub = false;
   bool get isLoaded => _dylib != null;
+  bool get isStub => _isStub;
 
   Pointer<Void> init(
     String modelPath,
