@@ -237,6 +237,14 @@ jobs:
       - name: Init third-party
         run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
 
+      - name: Configure Gradle memory
+        run: |
+          mkdir -p android
+          echo "org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=512m" > android/gradle.properties
+          echo "org.gradle.parallel=true" >> android/gradle.properties
+          echo "android.useAndroidX=true" >> android/gradle.properties
+          echo "android.enableJetifier=false" >> android/gradle.properties
+
       - name: Build Android APK
         run: flutter build apk --release
         env:
@@ -296,6 +304,14 @@ jobs:
 
       - name: Init third-party
         run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
+
+      - name: Configure Gradle memory
+        run: |
+          mkdir -p android
+          echo "org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=512m" > android/gradle.properties
+          echo "org.gradle.parallel=true" >> android/gradle.properties
+          echo "android.useAndroidX=true" >> android/gradle.properties
+          echo "android.enableJetifier=false" >> android/gradle.properties
 
       - name: Build Android APK (debug)
         run: flutter build apk --debug
