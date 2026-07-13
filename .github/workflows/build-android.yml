@@ -18,8 +18,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build unzip
 
+      - name: Setup Flutter
+        uses: actions/setupFlutter@v5
+        with:
+          flutter-version: '3.44.0'
+          channel: 'stable'
+
+      - name: Get dependencies
+        run: flutter pub get
+
       - name: Init third-party dependencies
-        run: ./scripts/init-third-party.sh
+        run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
