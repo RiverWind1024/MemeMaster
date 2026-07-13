@@ -35,7 +35,15 @@ jobs:
           mv pubspec.yaml.bak pubspec.yaml
 
       - name: Init third-party dependencies
-        run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
+        run: |
+          echo "=== Running init-third-party.sh ==="
+          ./scripts/init-third-party.sh 2>&1 | tee /tmp/init-output.txt
+          INIT_EXIT=${PIPESTATUS[0]}
+          echo ""
+          echo "=== init-third-party.sh exit code: $INIT_EXIT ==="
+          if [ $INIT_EXIT -ne 0 ]; then
+            echo "⚠️ Script exited with error (see above)"
+          fi
 
       - name: Debug SPIRV-Headers install
         run: |
@@ -48,6 +56,17 @@ jobs:
           echo "=== SPIRV-HeadersConfig.cmake ==="
           find third_party -name "SPIRV-HeadersConfig.cmake" 2>/dev/null
           find third_party -name "spirv-headers*" -type d 2>/dev/null
+          echo ""
+          echo "=== Manual SPIRV-Headers cmake (if needed) ==="
+          if [ ! -f third_party/spirv-headers-install/share/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake ]; then
+            echo "Running cmake manually to diagnose..."
+            cd third_party/SPIRV-Headers
+            mkdir -p build
+            cd build
+            cmake .. -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/third_party/spirv-headers-install" -DSPIRV_HEADERS_SKIP_EXAMPLES=ON 2>&1 | tail -20
+            echo "--- cmake build ---"
+            cmake --build . --target install 2>&1 | tail -30
+          fi
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
