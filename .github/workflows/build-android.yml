@@ -55,6 +55,27 @@ jobs:
           echo "android.useAndroidX=true" >> android/gradle.properties
           echo "android.enableJetifier=false" >> android/gradle.properties
 
+      - name: Patch cargokit for Gradle 8 compatibility
+        run: |
+          for gradle_file in $(find ~/.pub-cache -path "*/cargokit/gradle/plugin.gradle" 2>/dev/null); do
+            # Fix: Gradle 8 Groovy 4 - use explicit setter methods instead of property-style
+            # project.exec { commandLine 'cmd', ... } -> project.exec { setCommandLine(['cmd', ...]) }
+            sed -i \
+              "s/commandLine 'chmod', '+x', path/setCommandLine(['chmod', '+x', path.toString()])/g" \
+              "$gradle_file"
+            # executable/key value style -> method calls
+            sed -i \
+              "s/executable path$/setExecutable(path.toString())/g" \
+              "$gradle_file"
+            sed -i \
+              's/args "build-gradle"/args("build-gradle")/g' \
+              "$gradle_file"
+            sed -i \
+              's/environment "/environment("/g' \
+              "$gradle_file"
+            echo "Patched: $gradle_file"
+          done
+
       - name: Build Android APK
         run: flutter build apk --release
 
