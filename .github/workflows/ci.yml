@@ -49,7 +49,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             cmake ninja-build clang libsecret-1-dev libgtk-3-dev \
-            tesseract tesseract-langpack-chi_sim vulkan-loader spirv-tools
+            tesseract tesseract-ocr-chi-sim vulkan-loader spirv-tools glslang-tools
 
       - name: Setup Flutter
         run: |
@@ -62,11 +62,6 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Install Android NDK (for glslc)
-        uses: ntt241298-lab/setup-ndk@v1
-        with:
-          ndk-version: r28b
-
       - name: Init third-party (Vulkan)
         run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
         env:
@@ -76,8 +71,6 @@ jobs:
       - name: Build Linux (Vulkan GPU)
         run: |
           rm -rf build/linux
-          export ANDROID_NDK=${{ github.workspace }}/ndk/28b
-          export GLSLC_DIR=${{ github.workspace }}/ndk/28b/shader-tools/linux-x86_64
           flutter build linux --release
 
       - name: Verify GPU library
@@ -116,7 +109,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             cmake ninja-build clang libsecret-1-dev libgtk-3-dev \
-            tesseract tesseract-langpack-chi_sim curl xz-utils
+            tesseract tesseract-ocr-chi-sim curl xz-utils
 
       - name: Setup Flutter
         run: |
@@ -155,7 +148,7 @@ jobs:
 
       - name: Install macOS dependencies
         run: |
-          brew install tesseract tesseract-langpack-chi_sim leptonica
+          brew install tesseract tesseract-lang leptonica
 
       - name: Setup Flutter
         run: |
@@ -211,7 +204,7 @@ jobs:
           sudo apt-get install -y cmake ninja-build unzip curl xz-utils
 
       - name: Setup Java
-        uses: actions/setupJava@v4
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: ${{ env.java-version }}
@@ -286,7 +279,7 @@ jobs:
           sudo apt-get install -y cmake ninja-build unzip curl xz-utils
 
       - name: Setup Java
-        uses: actions/setupJava@v4
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: ${{ env.java-version }}
