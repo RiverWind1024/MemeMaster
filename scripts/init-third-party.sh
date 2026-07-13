@@ -8,7 +8,7 @@
 # CI 中直接用 GitHub；都失败则提示用户在本地运行
 # =========================================================
 
-set -e
+# 注意: 不使用 set -e，因为构建失败是允许的（某些平台/依赖缺失只是警告）
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
