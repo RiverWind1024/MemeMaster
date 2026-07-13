@@ -55,26 +55,31 @@ jobs:
           echo "android.useAndroidX=true" >> android/gradle.properties
           echo "android.enableJetifier=false" >> android/gradle.properties
 
-      - name: Patch cargokit for Gradle 8 compatibility
+      - name: Patch cargokit plugin.gradle for Gradle 8 Groovy 4
         run: |
-          for gradle_file in $(find ~/.pub-cache -path "*/cargokit/gradle/plugin.gradle" 2>/dev/null); do
-            # Fix: Gradle 8 Groovy 4 - use explicit setter methods instead of property-style
-            # project.exec { commandLine 'cmd', ... } -> project.exec { setCommandLine(['cmd', ...]) }
-            sed -i \
-              "s/commandLine 'chmod', '+x', path/setCommandLine(['chmod', '+x', path.toString()])/g" \
-              "$gradle_file"
-            # executable/key value style -> method calls
-            sed -i \
-              "s/executable path$/setExecutable(path.toString())/g" \
-              "$gradle_file"
-            sed -i \
-              's/args "build-gradle"/args("build-gradle")/g' \
-              "$gradle_file"
-            sed -i \
-              's/environment "/environment("/g' \
-              "$gradle_file"
-            echo "Patched: $gradle_file"
-          done
+          python3 << 'EOF'
+          import os, re
+          for root, dirs, files in os.walk(os.path.expanduser('~/.pub-cache')):
+              for fname in files:
+                  if fname == 'plugin.gradle' and 'cargokit' in root:
+                      fpath = os.path.join(root, fname)
+                      with open(fpath) as f:
+                          content = f.read()
+                      if "commandLine 'chmod'" in content:
+                          # Fix: Gradle 8 Groovy 4 - executable/commandLine must be set via methods
+                          content = re.sub(
+                              r"project\.exec \{\s*commandLine 'chmod', '\+x', path\s*\}",
+                              "project.exec { setCommandLine(['chmod', '+x', path.toString()]); }",
+                              content)
+                          content = re.sub(
+                              r"project\.exec \{\s*executable path\s*",
+                              "project.exec { setExecutable(path.toString());\n            ",
+                              content)
+                          content = content.replace('args "build-gradle"', 'args("build-gradle")')
+                          with open(fpath, 'w') as f:
+                              f.write(content)
+                          print(f"Patched: {fpath}")
+          EOF
 
       - name: Build Android APK
         run: flutter build apk --release
