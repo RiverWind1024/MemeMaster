@@ -36,15 +36,12 @@ android {
                 arguments += listOf("-DCMAKE_ANDROID_PROCESS_MAX=4")
                 // OpenCL 后端在 Android CI 环境中 cmake 找不到系统 OpenCL 库，默认禁用
                 arguments += listOf("-DENABLE_OPENCL=OFF")
-                // Vulkan GPU 加速（需要 SPIRV-Headers + Vulkan-Headers）。两者都存在且明确启用才开启
-                // CI 默认禁用，因为 gradle externalNativeBuild 会为所有 ABI 都编译，需要 ABI 特定的 Vulkan_LIBRARY 路径
-                // 本地启用方式：设置环境变量 ENABLE_VULKAN_FOR_CI=1 并确保 NDK 路径正确
-                val enableVulkan = System.getenv("ENABLE_VULKAN_FOR_CI") == "1"
+// Vulkan GPU 加速（需要 SPIRV-Headers + Vulkan-Headers）。两者都存在才启用
                 val vulkanHeadersDir = "${project.rootDir}/../third_party/Vulkan-Headers"
                 val spirvHeadersConfig = "${project.rootDir}/../third_party/spirv-headers-install/share/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake"
                 val hasVulkanHeaders = File(vulkanHeadersDir, "include/vulkan/vulkan.hpp").exists()
                 val hasSpirvHeaders = File(spirvHeadersConfig).exists()
-                if (enableVulkan && hasVulkanHeaders && hasSpirvHeaders) {
+                if (hasVulkanHeaders && hasSpirvHeaders) {
                     val ndkRoot = System.getenv("ANDROID_NDK")
                         ?: providers.gradleProperty("android.ndkDirectory").orNull
                         ?: "${android.sdkDirectory}/ndk/${android.ndkVersion}"
