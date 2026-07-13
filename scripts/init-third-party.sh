@@ -230,25 +230,14 @@ for name in "${!DEPS[@]}"; do
     fi
 done
 
-# 报告克隆结果
+# 报告克隆结果（克隆失败不阻止构建继续，因为部分依赖是可选的）
 if [ ${#FAILED[@]} -gt 0 ]; then
     echo ""
-    log_error "以下依赖获取失败，请手动处理："
-    echo ""
+    log_warn "以下依赖获取失败，将跳过相关构建步骤："
     for name in "${FAILED[@]}"; do
-        github_url="${DEPS[$name]%%:*}"
         echo "  - $name"
-        echo "    GitHub: $github_url"
-        echo ""
     done
-    echo "手动克隆示例："
-    echo "  git clone --depth 1 ${DEPS[llama.cpp]%%:*} third_party/llama.cpp"
     echo ""
-    echo "如果是网络问题，可以："
-    echo "  1. 配置 Git 代理: git config --global http.proxy http://127.0.0.1:7890"
-    echo "  2. 或使用 Gitee 镜像（需要自行创建）"
-    echo "=========================================="
-    exit 1
 fi
 
 echo ""
