@@ -45,11 +45,12 @@ android {
                     val ndkRoot = System.getenv("ANDROID_NDK")
                         ?: providers.gradleProperty("android.ndkDirectory").orNull
                         ?: "${android.sdkDirectory}/ndk/${android.ndkVersion}"
+                    val vulkanLib = "$ndkRoot/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/29/libvulkan.so"
                     arguments += listOf("-DENABLE_VULKAN=ON")
                     arguments += listOf("-DVulkan_GLSLC_EXECUTABLE=$ndkRoot/shader-tools/linux-x86_64/glslc")
                     arguments += listOf("-DSPIRV-Headers_DIR=${project.rootDir}/../third_party/spirv-headers-install/share/cmake/SPIRV-Headers")
-                    // CMAKE_INCLUDE_PATH 确保 find_package(Vulkan) 能找到 vulkan.hpp
                     arguments += listOf("-DCMAKE_CXX_FLAGS=-I${project.rootDir}/../third_party/Vulkan-Headers/include -I${project.rootDir}/../third_party/spirv-headers-install/include")
+                    arguments += listOf("-DVulkan_LIBRARY=$vulkanLib")
                 } else {
                     arguments += listOf("-DENABLE_VULKAN=OFF")
                 }
