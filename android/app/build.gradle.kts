@@ -34,8 +34,8 @@ android {
                 arguments += listOf("-DCMAKE_BUILD_TYPE=Release")
                 arguments += listOf("-DCMAKE_EXPORT_COMPILE_COMMANDS=ON")
                 arguments += listOf("-DCMAKE_ANDROID_PROCESS_MAX=4")
-                // 注意：OpenCL 后端尚未在真实设备上验证，标记为实验性
-                arguments += listOf("-DENABLE_OPENCL=ON")
+                // OpenCL 后端在 Android CI 环境中 cmake 找不到系统 OpenCL 库，默认禁用
+                arguments += listOf("-DENABLE_OPENCL=OFF")
                 // Vulkan GPU 加速（需要 SPIRV-Headers 安装完成）
                 arguments += listOf("-DENABLE_VULKAN=ON")
                 // Vulkan 编译工具路径：glslc 优先从环境变量 ANDROID_NDK 解析,
