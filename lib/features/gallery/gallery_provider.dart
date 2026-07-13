@@ -788,6 +788,18 @@ final modelManagerProvider = Provider<ModelManager>((ref) {
 class OcrEnabledNotifier extends Notifier<bool> {
   @override
   bool build() {
+    // Linux: 检查 Tesseract 是否安装，未安装则强制关闭 OCR
+    if (Platform.isLinux) {
+      try {
+        final result = Process.runSync('tesseract', ['--version']);
+        if (result.exitCode != 0) {
+          return false;
+        }
+      } catch (_) {
+        return false;
+      }
+    }
+
     try {
       return ref.read(sharedPreferencesProvider).getBool('ocr_enabled') ?? true;
     } catch (_) {

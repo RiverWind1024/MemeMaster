@@ -208,6 +208,12 @@ class LocalLlmService implements LlmService {
     if (_config.modelPath == null) {
       throw StateError('模型未加载，请先下载模型');
     }
+    if (!_bindings.isLoaded) {
+      throw StateError('本地 LLM 不可用（库加载失败）');
+    }
+    if (_bindings.isStub) {
+      throw StateError('本地 LLM stub 版本不支持模型加载，请重新构建启用 GPU 加速');
+    }
     final t0 = DateTime.now();
     final effectiveThreads = _config.effectiveThreads;
     _log.info('[LocalLlmService]', '开始加载模型: ${_config.modelPath} (threads=$effectiveThreads, ctx=${_config.contextSize})');
