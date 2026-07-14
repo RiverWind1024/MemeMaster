@@ -503,10 +503,5 @@ jobs:
           files: |
             artifacts/mememaster-${{ env.VERSION }}-linux-x64-vulkan/bundle/libmeme_llm.so
             artifacts/mememaster-${{ env.VERSION }}-linux-x64-vulkan/bundle/meme_master
-            artifacts/mememaster-${{ env.VERSION }}-linux-x64-cpu/bundle/libmeme_llm.so
-            artifacts/mememaster-${{ env.VERSION }}-linux-x64-cpu/bundle/meme_master
-            artifacts/mememaster-${{ env.VERSION }}-macos-arm64-metal/MemeMaster.app.zip
-            artifacts/mememaster-${{ env.VERSION }}-macos-arm64-cpu/MemeMaster.app.zip
-            artifacts/mememaster-${{ env.VERSION }}-android-arm64-vulkan/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
