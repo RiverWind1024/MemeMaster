@@ -216,25 +216,23 @@ echo ""
 # 创建第三方依赖目录
 mkdir -p "$THIRD_PARTY"
 
-declare -A DEPS=(
-    ["llama_cpp"]="https://github.com/ggml-org/llama.cpp.git||llama.cpp"
-    ["OpenCL-Headers"]="https://github.com/KhronosGroup/OpenCL-Headers.git||OpenCL-Headers"
-    ["OpenCL-ICD-Loader"]="https://github.com/KhronosGroup/OpenCL-ICD-Loader.git||OpenCL-ICD-Loader"
-    ["SPIRV-Headers"]="https://github.com/KhronosGroup/SPIRV-Headers.git||SPIRV-Headers"
-    ["Vulkan-Headers"]="https://github.com/KhronosGroup/Vulkan-Headers.git||Vulkan-Headers"
+# Bash 3.2 (macOS default) 不支持 declare -A（关联数组），
+# 使用 indexed array + 自定义分隔符兼容
+# 格式: "逻辑名|github_url|gitee_url|实际目录名"
+DEPS=(
+    "llama_cpp|https://github.com/ggml-org/llama.cpp.git||llama.cpp"
+    "OpenCL-Headers|https://github.com/KhronosGroup/OpenCL-Headers.git||OpenCL-Headers"
+    "OpenCL-ICD-Loader|https://github.com/KhronosGroup/OpenCL-ICD-Loader.git||OpenCL-ICD-Loader"
+    "SPIRV-Headers|https://github.com/KhronosGroup/SPIRV-Headers.git||SPIRV-Headers"
+    "Vulkan-Headers|https://github.com/KhronosGroup/Vulkan-Headers.git||Vulkan-Headers"
 )
-
-# 兼容旧 key 'llama.cpp'（含点号在 bash 3.2 / macOS 上会当算术表达式解析）
-# 用 [key]=url||actual_dirname 的格式，actual_dirname 是 checkout 后的实际目录名
 
 FAILED=()
 
-for name in "${!DEPS[@]}"; do
-    # 分割 GitHub URL、Gitee URL 和实际目录名（使用 || 分隔符）
-    # 格式: "github_url||gitee_url||actual_dirname"
-    IFS='||' read -r github_url gitee_url actual_dirname <<< "${DEPS[$name]}"
+for dep in "${DEPS[@]}"; do
+    # 用 | 分隔（URL 中不会有 |）
+    IFS='|' read -r name github_url gitee_url actual_dirname <<< "$dep"
     if [ -z "$actual_dirname" ]; then
-        # 向后兼容：旧格式只有 url||gitee，actual_dirname 用 $name
         actual_dirname="$name"
     fi
     
