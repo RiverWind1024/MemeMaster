@@ -134,6 +134,13 @@ if(OPENCL_FOUND)
     list(APPEND MEME_LLM_LIBS ${OPENCL_LIBRARIES})
 endif()
 
+# 强制使用 shared libgomp，static libgomp.a 没有 -fPIC 无法链接进 shared library
+find_library(GOMP_SHARED gomp)
+if(GOMP_SHARED)
+    set(OpenMP_gomp_LIBRARY "${GOMP_SHARED}")
+    message(STATUS "Using shared libgomp: ${GOMP_SHARED}")
+endif()
+
 # ===== 添加子项目 =====
 add_subdirectory(${LLAMA_CPP_DIR} llama.cpp EXCLUDE_FROM_ALL)
 add_subdirectory(${MTMD_DIR} mtmd EXCLUDE_FROM_ALL)

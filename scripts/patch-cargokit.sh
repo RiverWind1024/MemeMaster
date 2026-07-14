@@ -1,14 +1,17 @@
 #!/bin/bash
 # Patch cargokit plugin.gradle for Gradle 8 compatibility
 # Gradle 8 removed project.exec(Closure); must use project.exec(Action<ExecSpec>)
-#
-# Handles two file shapes:
-#   irondash_engine_context-0.5.5: project.exec { ... }  (trailing lambda, no parens)
-#   super_native_extensions-0.9.1: already has ({...} as Action<ExecSpec>) — skip
+set -euo pipefail
 
-set -e
+PUB_CACHE="${PUB_CACHE:-$HOME/.pub-cache/hosted/pub.dev}"
 
-PATCHED_COUNT=0
+echo "=== Patching cargokit plugin.gradle for Gradle 8 ==="
+echo "PUB_CACHE: $PUB_CACHE"
+
+if [ ! -d "$PUB_CACHE" ]; then
+    echo "❌ PUB_CACHE directory not found: $PUB_CACHE"
+    exit 1
+fi
 
 patch_file() {
     local f="$1"
@@ -28,8 +31,6 @@ result = []
 i = 0
 while i < len(lines):
     line = lines[i]
-    # Match: project.exec { OR project.exec({
-    # Both represent the start of an exec block that needs Action<ExecSpec> wrapping
     m = re.match(r'^(\s*)project\.exec[\s]*\{', line.rstrip())
     if m:
         base_indent = m.group(1)
@@ -41,11 +42,7 @@ while i < len(lines):
             stripped = cur.lstrip()
             cur_indent = cur[:len(cur) - len(stripped)] if stripped else cur
             if stripped.startswith('}') and depth == 1 and cur_indent == base_indent:
-                rest = stripped[1:].lstrip()
-                if rest.startswith(')'):
-                    exec_lines.append(cur_indent + '} as Action<ExecSpec>)')
-                else:
-                    exec_lines.append(cur_indent + '} as Action<ExecSpec>)')
+                exec_lines.append(cur_indent + '} as Action<ExecSpec>)')
                 depth -= 1
                 i += 1
                 break
@@ -66,42 +63,43 @@ content = '\n'.join(result)
 
 with open(p, 'w') as fp:
     fp.write(content)
-print('  patched', p)
+print('  patched:', p)
 " "$f"
 }
 
-# 使用 process substitution 避免子 shell 问题（set -e 会在子 shell 中丢失）
+PATCHED=0
+
+# 用 grep -rl 直接找包含 project.exec 的 plugin.gradle，比 find -path 更可靠
 while IFS= read -r f; do
     echo "Patching $f"
     patch_file "$f"
-    PATCHED_COUNT=$((PATCHED_COUNT + 1))
-done < <(find "$HOME/.pub-cache/hosted/pub.dev" -name "plugin.gradle" -path "*irondash_engine_context*cargokit*" 2>/dev/null)
+    PATCHED=$((PATCHED + 1))
+done < <(grep -rl "project\.exec" "$PUB_CACHE" --include="plugin.gradle" 2>/dev/null || true)
 
-while IFS= read -r f; do
-    echo "Patching $f"
-    patch_file "$f"
-    PATCHED_COUNT=$((PATCHED_COUNT + 1))
-done < <(find "$HOME/.pub-cache/hosted/pub.dev" -name "plugin.gradle" -path "*super_native_extensions*cargokit*" 2>/dev/null)
+echo ""
+echo "=== Results ==="
+echo "Patched: $PATCHED file(s)"
 
-# 验证: 检查是否至少处理了一个文件
-if [ "$PATCHED_COUNT" -eq 0 ]; then
-    echo "⚠️  No cargokit plugin.gradle files found"
-    echo "   This may be OK if irondash_engine_context/super_native_extensions aren't used"
-else
-    echo "✓ Patched $PATCHED_COUNT cargokit file(s)"
+if [ "$PATCHED" -eq 0 ]; then
+    echo "❌ No cargokit plugin.gradle files found needing patches"
+    echo "   Checked: $PUB_CACHE"
+    echo "   This means irondash_engine_context or super_native_extensions may not be installed"
+    exit 1
 fi
 
 # 验证: 确认 patched 的文件确实包含 Action<ExecSpec>
+echo ""
+echo "=== Verification ==="
 FAIL=0
-for f in $(find "$HOME/.pub-cache/hosted/pub.dev" -name "plugin.gradle" -path "*irondash_engine_context*cargokit*" 2>/dev/null); do
-    if ! grep -q "as Action<ExecSpec>)" "$f"; then
-        echo "❌ $f was NOT patched correctly"
+while IFS= read -r f; do
+    if grep -q "project\.exec" "$f" && ! grep -q "as Action<ExecSpec>)" "$f"; then
+        echo "❌ $f still has unpatched exec()"
         FAIL=1
     fi
-done
+done < <(grep -rl "project\.exec" "$PUB_CACHE" --include="plugin.gradle" 2>/dev/null || true)
 
 if [ "$FAIL" -ne 0 ]; then
-    echo "❌ Verification failed"
+    echo "❌ Verification failed - some files were not patched correctly"
     exit 1
 fi
 
