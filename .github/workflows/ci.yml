@@ -465,18 +465,34 @@ jobs:
 
       - name: Debug artifacts
         run: |
-          echo "=== Artifacts structure ==="
-          find artifacts -type d -name "*.app" | head -5
-          echo "=== Root artifacts ==="
-          ls -la artifacts/
+          echo "=== Artifacts structure ===" > /tmp/debug.txt
+          find artifacts -type d -name "*.app" >> /tmp/debug.txt 2>&1
+          echo "=== Root artifacts ===" >> /tmp/debug.txt
+          ls -la artifacts/ >> /tmp/debug.txt 2>&1
+          echo "=== Metal artifact ===" >> /tmp/debug.txt
+          ls -la "artifacts/mememaster-${{ env.VERSION }}-macos-arm64-metal/" >> /tmp/debug.txt 2>&1
+          echo "=== CPU artifact ===" >> /tmp/debug.txt
+          ls -la "artifacts/mememaster-${{ env.VERSION }}-macos-arm64-cpu/" >> /tmp/debug.txt 2>&1
+          cat /tmp/debug.txt
+
+      - name: Upload debug artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-artifacts
+          path: /tmp/debug.txt
+          retention-days: 1
 
       - name: Zip macOS apps
         run: |
           cd artifacts
-          ls -la mememaster-${{ env.VERSION }}-macos-arm64-metal/
-          ls -la mememaster-${{ env.VERSION }}-macos-arm64-cpu/
-          zip -r mememaster-${{ env.VERSION }}-macos-arm64-metal/MemeMaster.app.zip mememaster-${{ env.VERSION }}-macos-arm64-metal/MemeMaster.app
-          zip -r mememaster-${{ env.VERSION }}-macos-arm64-cpu/MemeMaster.app.zip mememaster-${{ env.VERSION }}-macos-arm64-cpu/MemeMaster.app
+          echo "=== Zipping Metal ==="
+          zip -r "mememaster-${{ env.VERSION }}-macos-arm64-metal/MemeMaster.app.zip" "mememaster-${{ env.VERSION }}-macos-arm64-metal/MemeMaster.app" 2>&1 || echo "Metal zip failed"
+          echo "=== Zipping CPU ==="
+          zip -r "mememaster-${{ env.VERSION }}-macos-arm64-cpu/MemeMaster.app.zip" "mememaster-${{ env.VERSION }}-macos-arm64-cpu/MemeMaster.app" 2>&1 || echo "CPU zip failed"
+          echo "=== Zip done ==="
+          ls -la "mememaster-${{ env.VERSION }}-macos-arm64-metal/"*.zip 2>/dev/null || echo "No metal zip"
+          ls -la "mememaster-${{ env.VERSION }}-macos-arm64-cpu/"*.zip 2>/dev/null || echo "No cpu zip"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
