@@ -498,13 +498,12 @@ jobs:
           ls -la "mememaster-${{ env.VERSION }}-macos-arm64-cpu/"*.zip 2>/dev/null || echo "No cpu zip"
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          files: |
-            artifacts/mememaster-${{ env.VERSION }}-linux-x64-vulkan/bundle/libmeme_llm.so
+        run: |
+          echo "=== Release files ==="
+          ls -la artifacts/mememaster-${{ env.VERSION }}-linux-x64-vulkan/bundle/
+          echo "=== Creating release with gh CLI ==="
+          gh release create v${{ env.VERSION }} --title "MemeMaster v${{ env.VERSION }}" --notes "Release v${{ env.VERSION }}" \
+            artifacts/mememaster-${{ env.VERSION }}-linux-x64-vulkan/bundle/libmeme_llm.so \
             artifacts/mememaster-${{ env.VERSION }}-linux-x64-vulkan/bundle/meme_master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
