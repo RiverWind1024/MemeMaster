@@ -231,9 +231,6 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Patch cargokit plugin for Gradle 8
-        run: ./scripts/patch-cargokit.sh
-
       - name: Init third-party (clone deps)
         run: |
           echo "=== Running init-third-party.sh ==="
@@ -314,9 +311,6 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Patch cargokit plugin for Gradle 8
-        run: ./scripts/patch-cargokit.sh
-
       - name: Init third-party (CPU only)
         run: ./scripts/init-third-party.sh
         env:
@@ -386,9 +380,6 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Patch cargokit plugin for Gradle 8
-        run: ./scripts/patch-cargokit.sh
-
       - name: Setup Android SDK and NDK
         uses: android-actions/setup-android@v3
 
@@ -431,17 +422,6 @@ jobs:
            echo "org.gradle.parallel=true" >> android/gradle.properties
            echo "android.useAndroidX=true" >> android/gradle.properties
            echo "android.enableJetifier=false" >> android/gradle.properties
-
-      # Re-apply patch immediately before build in case previous step
-      # regenerated pub-cache. We use a more aggressive patcher.
-      - name: Ensure cargokit patched (pre-build)
-        run: |
-          for f in $(find "$HOME/.pub-cache/hosted/pub.dev" -name "plugin.gradle" -path "*/cargokit/*"); do
-            if grep -q "project\.exec {" "$f" 2>/dev/null; then
-              echo "Force-patching: $f"
-              perl -0777 -pi -e 's/(project\.exec)\s*\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}/$1({$2} as Action<ExecSpec>)/g;' "$f"
-            fi
-          done
 
       - name: Build Android APK
         run: flutter build apk --release
