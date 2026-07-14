@@ -31,6 +31,8 @@ endif()
 
 if(SPIRV_HEADERS_DIR)
     list(APPEND CMAKE_PREFIX_PATH "${SPIRV_HEADERS_DIR}")
+    # 同时添加 include 路径，Vulkan 后端直接 #include <spirv/unified1/spirv.hpp>
+    include_directories("${SPIRV_HEADERS_DIR}/include")
     message(STATUS "SPIRV_HEADERS_DIR: ${SPIRV_HEADERS_DIR}")
 endif()
 
