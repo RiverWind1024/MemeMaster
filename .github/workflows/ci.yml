@@ -49,7 +49,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             cmake ninja-build clang libsecret-1-dev libgtk-3-dev \
-            tesseract tesseract-ocr-chi-sim vulkan-loader spirv-tools glslang-tools
+            unzip curl xz-utils tesseract-ocr tesseract-ocr-chi-sim \
+            libvulkan1 mesa-vulkan-drivers vulkan-validationlayers \
+            glslang-tools spirv-tools
 
       - name: Setup Flutter
         run: |
@@ -109,7 +111,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             cmake ninja-build clang libsecret-1-dev libgtk-3-dev \
-            tesseract tesseract-ocr-chi-sim curl xz-utils
+            unzip curl xz-utils tesseract-ocr tesseract-ocr-chi-sim
 
       - name: Setup Flutter
         run: |
@@ -154,7 +156,10 @@ jobs:
         run: |
           FLUTTER_VERSION=3.44.0
           if [ ! -d "$HOME/flutter" ]; then
-            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
+            # macos 用 zip 格式（不是 tar.xz），用 unzip 解压
+            curl -sSL "https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_${FLUTTER_VERSION}-stable.zip" -o /tmp/flutter.zip
+            unzip -q /tmp/flutter.zip -d $HOME
+            rm /tmp/flutter.zip
           fi
           echo "$HOME/flutter/bin" >> $GITHUB_PATH
 

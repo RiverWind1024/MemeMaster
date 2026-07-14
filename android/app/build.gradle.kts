@@ -44,13 +44,23 @@ android {
                 arguments += listOf("-DENABLE_VULKAN=${if (hasVulkanDeps) "ON" else "OFF"}")
                 // Vulkan glslc 路径（NDK 自带）
                 if (hasVulkanDeps) {
+                    // ndkRoot 解析：env > project property > sdk+version > sdk/ndk/default
                     val ndkRoot = System.getenv("ANDROID_NDK")
                         ?: providers.gradleProperty("android.ndkDirectory").orNull
                         ?: "${android.sdkDirectory}/ndk/${android.ndkVersion}"
-                    arguments += listOf("-DVulkan_GLSLC_EXECUTABLE=$ndkRoot/shader-tools/linux-x86_64/glslc")
+                    if (ndkRoot.isBlank()) {
+                        // 兜底：直接看 SDK 默认目录
+                        val defaultNdk = file("${android.sdkDirectory}/ndk")
+                            .listFiles()?.firstOrNull { it.isDirectory }
+                        if (defaultNdk != null) {
+                            arguments += listOf("-DVulkan_GLSLC_EXECUTABLE=${defaultNdk.absolutePath}/shader-tools/linux-x86_64/glslc")
+                        }
+                    } else {
+                        arguments += listOf("-DVulkan_GLSLC_EXECUTABLE=$ndkRoot/shader-tools/linux-x86_64/glslc")
+                    }
                     arguments += listOf("-DSPIRV-Headers_DIR=${project.rootDir}/../third_party/spirv-headers-install/share/cmake/SPIRV-Headers")
                     // 关键：注入 Vulkan Android 预加载脚本（处理 ABI 特定的 libvulkan.so 路径）
-                    arguments += listOf("-DCMAKE_PROJECT_INCLUDE_BEFORE=${project.rootDir}/src/main/cpp/cmake/vulkan-android-prelude.cmake")
+                    arguments += listOf("-DCMAKE_PROJECT_INCLUDE_BEFORE=${project.rootDir}/app/src/main/cpp/cmake/vulkan-android-prelude.cmake")
                 }
 
                 // GPU 后端编译优化标志
