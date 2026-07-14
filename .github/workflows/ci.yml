@@ -455,13 +455,14 @@ jobs:
             exit 1
           fi
 
-      - name: Upload Android artifact
+      - name: Find and copy APK
         run: |
           APK=$(find . -name "*.apk" -type f 2>/dev/null | head -1)
-          if [ -n "$APK" ]; then
-            echo "Uploading: $APK"
-            cp "$APK" android.apk
-          fi
+          echo "Found APK: $APK"
+          cp "$APK" ./android.apk
+          ls -la ./android.apk
+
+      - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
           name: mememaster-${{ env.VERSION }}-android-arm64-vulkan
