@@ -436,8 +436,15 @@ jobs:
 
       - name: Verify APK size
         run: |
-          find android/app/build/outputs -name "*.apk" 2>&1
-          APK=$(find android/app/build/outputs -name "*.apk" | head -1)
+          echo "=== Find all APK files ==="
+          find . -name "*.apk" 2>&1 | head -20
+          echo "=== Check android/app/build ==="
+          ls -la android/app/build/ 2>&1 || echo "No build dir"
+          echo "=== Check outputs ==="
+          ls -la android/app/build/outputs/ 2>&1 || echo "No outputs dir"
+          ls -laR android/app/build/outputs/apk/ 2>&1 || echo "No apk dir"
+          echo "=== Final check ==="
+          APK=$(find . -path "*/build/outputs/apk/release/*.apk" 2>/dev/null | head -1)
           if [ -n "$APK" ]; then
             SIZE=$(stat -c%s "$APK" | numfmt --to=iec)
             echo "APK: $APK"
