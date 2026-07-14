@@ -28,13 +28,15 @@ fi
 echo "Using $NPROC parallel jobs"
 
 # 配置 CMake（使用系统 Metal 框架）
+echo "=== cmake configure ==="
 cmake "$LLM_DIR" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="$BUILD_DIR/install" \
-    -DENABLE_METAL=ON
+    -DENABLE_METAL=ON 2>&1 | tail -30
 
 # 构建
-cmake --build . --config Release -j"$NPROC"
+echo "=== cmake build ==="
+cmake --build . --config Release -j"$NPROC" 2>&1 | tail -50
 
 # 检查产物
 if [ -f "libmeme_llm.dylib" ]; then
