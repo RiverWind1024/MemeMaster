@@ -51,7 +51,7 @@ jobs:
             cmake ninja-build clang libsecret-1-dev libgtk-3-dev \
             unzip curl xz-utils tesseract-ocr tesseract-ocr-chi-sim \
             libvulkan1 libvulkan-dev mesa-vulkan-drivers vulkan-validationlayers \
-            glslang-tools spirv-tools
+            glslang-dev glslang-tools spirv-tools
 
       - name: Setup Flutter
         run: |
@@ -360,6 +360,8 @@ jobs:
       # Pre-fetch gradle distribution to avoid timeout during gradlew run
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
 
       - name: Init third-party
         run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
@@ -396,10 +398,11 @@ jobs:
           echo "android.enableJetifier=false" >> android/gradle.properties
 
       - name: Build Android APK
-        run: flutter build apk --release
+        run: flutter build apk --release --no-build-cache
         env:
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
           ANDROID_NDK: ${{ env.ANDROID_NDK }}
+          GRADLE_OPTS: "-Dorg.gradle.caching=false"
 
       - name: Verify APK size
         run: |
