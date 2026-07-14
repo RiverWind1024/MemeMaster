@@ -212,6 +212,9 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Patch cargokit plugin for Gradle 8
+        run: ./scripts/patch-cargokit.sh
+
       - name: Init third-party (clone deps)
         run: |
           echo "=== Running init-third-party.sh ==="
@@ -283,6 +286,9 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Patch cargokit plugin for Gradle 8
+        run: ./scripts/patch-cargokit.sh
+
       - name: Init third-party (CPU only)
         run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
         env:
@@ -344,6 +350,9 @@ jobs:
 
       - name: Get dependencies
         run: flutter pub get
+
+      - name: Patch cargokit plugin for Gradle 8
+        run: ./scripts/patch-cargokit.sh
 
       - name: Setup Android SDK and NDK
         uses: android-actions/setup-android@v3

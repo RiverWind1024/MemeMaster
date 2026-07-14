@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
-// Conditional import: 桌面平台用真正的 super_clipboard，移动平台用 stub
-// 避免 Android 上因为删 super_clipboard 而编译失败
-import 'clipboard_stub.dart'
-    if (dart.library.io && (Platform.isLinux || Platform.isMacOS || Platform.isWindows))
-    'package:super_clipboard/super_clipboard.dart';
+// super_clipboard 在所有平台都 import，但只在桌面平台调用。
+// Android 上不调用（已经走 MethodChannel），所以不会触发 cargokit 的 native 代码
+// 实际上 Android 编译仍会触发 cargokit（取决于 super_native_extensions 包的配置），
+// 所以我们 patch cargokit 的 plugin.gradle 让 Gradle 8 兼容
+import 'package:super_clipboard/super_clipboard.dart';
 
 class ClipboardService {
   static const _channel = MethodChannel('com.mememaster.app/clipboard');
