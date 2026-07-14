@@ -172,7 +172,7 @@ jobs:
           LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
 
       - name: Build LLM (Metal)
-        run: ./scripts/build-macos-llm.sh
+        run: bash -x ./scripts/build-macos-llm.sh 2>&1 | tail -100
         env:
           LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
 
