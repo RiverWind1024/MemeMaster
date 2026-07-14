@@ -6,17 +6,18 @@
 
 set -e
 
+# Use python3 -c with inline code (avoids heredoc / file issues on macOS,
+# where some runtimes may not have stdin support in the right way)
 patch_file() {
     local f="$1"
-    # Match `project.exec {` and find the matching `}` by counting braces.
-    # Replace with `project.exec(new Action<ExecSpec>() { ... })` so Gradle 8
-    # accepts the call. We use Python for robust multi-line replacement
-    # (BSD/GNU sed can't reliably count braces).
-    python3 - "$f" <<'PYEOF'
+    # Replace `project.exec {` with `project.exec({` and the matching `}` with
+    # `} as Action<ExecSpec>)`. This is the simplest correct transformation:
+    # the original closure becomes an explicit Action<ExecSpec> via cast.
+    python3 -c "
 import sys
 p = sys.argv[1]
-with open(p) as f:
-    s = f.read()
+with open(p) as fp:
+    s = fp.read()
 
 new = []
 i = 0
@@ -26,7 +27,7 @@ while i < len(s):
         new.append(s[i:])
         break
     new.append(s[i:idx])
-    new.append('project.exec(new Action<ExecSpec>() {')
+    new.append('project.exec({')
     j = idx + len('project.exec {')
     depth = 1
     while j < len(s) and depth > 0:
@@ -35,25 +36,25 @@ while i < len(s):
         elif s[j] == '}':
             depth -= 1
         j += 1
-    # s[idx+len('project.exec {'):j-1] is the inner block, j-1 is matching `}`
+    # s[idx+len('project.exec {'):j-1] is the inner block, j-1 is matching '}'
     inner = s[idx + len('project.exec {'):j - 1]
     new.append(inner)
-    new.append('})')
+    new.append('} as Action<ExecSpec>)')
     i = j
 
-with open(p, 'w') as f:
-    f.write(''.join(new))
-print(f"  patched {p}")
-PYEOF
+with open(p, 'w') as fp:
+    fp.write(''.join(new))
+print('  patched', p)
+" "$f"
 }
 
 # Find all cargokit plugin.gradle under pub-cache (version may change)
-find "$HOME/.pub-cache/hosted/pub.dev" -name "plugin.gradle" -path "*super_native_extensions*cargokit*" | while read f; do
+find "$HOME/.pub-cache/hosted/pub.dev" -name "plugin.gradle" -path "*super_native_extensions*cargokit*" 2>/dev/null | while read f; do
     echo "Patching $f"
     patch_file "$f"
 done
 
-find "$HOME/.pub-cache/hosted/pub.dev" -name "plugin.gradle" -path "*irondash_engine_context*cargokit*" | while read f; do
+find "$HOME/.pub-cache/hosted/pub.dev" -name "plugin.gradle" -path "*irondash_engine_context*cargokit*" 2>/dev/null | while read f; do
     echo "Patching $f"
     patch_file "$f"
 done
