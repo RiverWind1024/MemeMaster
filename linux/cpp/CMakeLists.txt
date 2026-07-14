@@ -122,6 +122,7 @@ set(MTMD_VIDEO OFF)
 set(GGML_VULKAN ${ENABLE_VULKAN})
 set(GGML_OPENCL ${ENABLE_OPENCL})
 set(GGML_CUDA ${ENABLE_CUDA})
+set(GGML_OPENMP OFF)
 
 # ===== 链接库 =====
 set(MEME_LLM_LIBS llama ggml mtmd pthread dl m)
@@ -132,13 +133,6 @@ endif()
 
 if(OPENCL_FOUND)
     list(APPEND MEME_LLM_LIBS ${OPENCL_LIBRARIES})
-endif()
-
-# 强制使用 shared libgomp，static libgomp.a 没有 -fPIC 无法链接进 shared library
-find_library(GOMP_SHARED gomp)
-if(GOMP_SHARED)
-    set(OpenMP_gomp_LIBRARY "${GOMP_SHARED}")
-    message(STATUS "Using shared libgomp: ${GOMP_SHARED}")
 endif()
 
 # ===== 添加子项目 =====
