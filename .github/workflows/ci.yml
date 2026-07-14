@@ -14,6 +14,7 @@ concurrency:
 env:
   flutter-version: '3.44.0'
   java-version: '17'
+  VERSION: '1.0.0'
 
 jobs:
   analyze:
@@ -129,7 +130,7 @@ jobs:
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
-          name: linux-release-vulkan-${{ github.sha }}
+          name: mememaster-${{ env.VERSION }}-linux-x64-vulkan
           path: build/linux/x64/release/bundle/
           retention-days: 7
 
@@ -202,7 +203,7 @@ jobs:
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
-          name: linux-release-cpu-${{ github.sha }}
+          name: mememaster-${{ env.VERSION }}-linux-x64-cpu
           path: build/linux/x64/release/bundle/
           retention-days: 7
 
@@ -282,7 +283,7 @@ jobs:
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macos-release-${{ github.sha }}
+          name: mememaster-${{ env.VERSION }}-macos-arm64-metal
           # 只上传 .app，跳过 .dSYM（debug symbols，会膨胀到 200MB+）
           path: build/macos/Build/Products/Release/*.app
           retention-days: 7
@@ -354,7 +355,7 @@ jobs:
       - name: Upload macOS CPU artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macos-release-cpu-${{ github.sha }}
+          name: mememaster-${{ env.VERSION }}-macos-arm64-cpu
           path: build/macos/Build/Products/Release/*.app
           retention-days: 7
 
@@ -444,6 +445,37 @@ jobs:
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk-${{ github.sha }}
+          name: mememaster-${{ env.VERSION }}-android-arm64-vulkan
           path: android/app/build/outputs/apk/release/*.apk
           retention-days: 7
+
+  release:
+    needs: [linux, linux-cpu, macos, macos-cpu, android]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            artifacts/mememaster-${{ env.VERSION }}-linux-x64-vulkan/libmeme_llm.so
+            artifacts/mememaster-${{ env.VERSION }}-linux-x64-vulkan/meme_master
+            artifacts/mememaster-${{ env.VERSION }}-linux-x64-cpu/libmeme_llm.so
+            artifacts/mememaster-${{ env.VERSION }}-linux-x64-cpu/meme_master
+            artifacts/mememaster-${{ env.VERSION }}-macos-arm64-metal/*.app
+            artifacts/mememaster-${{ env.VERSION }}-macos-arm64-cpu/*.app
+            artifacts/mememaster-${{ env.VERSION }}-android-arm64-vulkan/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
