@@ -290,14 +290,13 @@ jobs:
         run: ./scripts/patch-cargokit.sh
 
       - name: Init third-party (CPU only)
-        run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
+        run: ./scripts/init-third-party.sh
         env:
           LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
 
       - name: Build LLM (CPU)
         run: bash -x ./scripts/build-macos-llm.sh 2>&1 | tail -100
         env:
-          # 禁用 Metal
           LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
           ENABLE_METAL: "OFF"
 
@@ -398,7 +397,7 @@ jobs:
           echo "android.enableJetifier=false" >> android/gradle.properties
 
       - name: Build Android APK
-        run: flutter build apk --release --no-build-cache
+        run: flutter build apk --release
         env:
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
           ANDROID_NDK: ${{ env.ANDROID_NDK }}
