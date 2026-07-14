@@ -436,13 +436,15 @@ jobs:
 
       - name: Verify APK size
         run: |
-          APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          find android/app/build/outputs -name "*.apk" 2>&1
+          APK=$(find android/app/build/outputs -name "*.apk" | head -1)
           if [ -n "$APK" ]; then
             SIZE=$(stat -c%s "$APK" | numfmt --to=iec)
             echo "APK: $APK"
             echo "Size: $SIZE"
           else
             echo "⚠ No APK found"
+            exit 1
           fi
 
       - name: Upload Android artifact
