@@ -166,7 +166,12 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Init third-party
+      - name: Init third-party (clone deps)
+        run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
+        env:
+          LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
+
+      - name: Build LLM (Metal)
         run: ./scripts/build-macos-llm.sh
         env:
           LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
@@ -233,11 +238,26 @@ jobs:
 
       - name: Debug SPIRV-Headers install
         run: |
-          echo "=== SPIRV-Headers install ==="
+          echo "=== third_party contents ==="
+          ls -la third_party/
+          echo ""
+          echo "=== spirv-headers-install ==="
           ls -la third_party/spirv-headers-install/ 2>/dev/null || echo "NOT FOUND"
           echo ""
           echo "=== SPIRV-HeadersConfig.cmake ==="
-          find third_party -name "SPIRV-HeadersConfig.cmake" 2>/dev/null || echo "NOT FOUND"
+          find third_party -name "SPIRV-HeadersConfig.cmake" 2>/dev/null
+          find third_party -name "spirv-headers*" -type d 2>/dev/null
+          echo ""
+          echo "=== Manual SPIRV-Headers cmake (if needed) ==="
+          if [ ! -f third_party/spirv-headers-install/share/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake ]; then
+            echo "Running cmake manually to diagnose..."
+            cd third_party/SPIRV-Headers
+            mkdir -p build
+            cd build
+            cmake .. -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/third_party/spirv-headers-install" -DSPIRV_HEADERS_SKIP_EXAMPLES=ON 2>&1 | tail -20
+            echo "--- cmake build ---"
+            cmake --build . --target install 2>&1 | tail -30
+          fi
 
       - name: Configure Gradle memory
         run: |
@@ -308,11 +328,26 @@ jobs:
 
       - name: Debug SPIRV-Headers install
         run: |
-          echo "=== SPIRV-Headers install ==="
+          echo "=== third_party contents ==="
+          ls -la third_party/
+          echo ""
+          echo "=== spirv-headers-install ==="
           ls -la third_party/spirv-headers-install/ 2>/dev/null || echo "NOT FOUND"
           echo ""
           echo "=== SPIRV-HeadersConfig.cmake ==="
-          find third_party -name "SPIRV-HeadersConfig.cmake" 2>/dev/null || echo "NOT FOUND"
+          find third_party -name "SPIRV-HeadersConfig.cmake" 2>/dev/null
+          find third_party -name "spirv-headers*" -type d 2>/dev/null
+          echo ""
+          echo "=== Manual SPIRV-Headers cmake (if needed) ==="
+          if [ ! -f third_party/spirv-headers-install/share/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake ]; then
+            echo "Running cmake manually to diagnose..."
+            cd third_party/SPIRV-Headers
+            mkdir -p build
+            cd build
+            cmake .. -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/third_party/spirv-headers-install" -DSPIRV_HEADERS_SKIP_EXAMPLES=ON 2>&1 | tail -20
+            echo "--- cmake build ---"
+            cmake --build . --target install 2>&1 | tail -30
+          fi
 
       - name: Configure Gradle memory
         run: |
