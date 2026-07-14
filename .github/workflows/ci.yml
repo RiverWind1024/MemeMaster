@@ -77,11 +77,15 @@ jobs:
 
       - name: Verify GPU library
         run: |
-          if [ -f build/linux/x64/release/bundle/lib/libmeme_llm.so ]; then
-            SIZE=$(stat -c%s build/linux/x64/release/bundle/lib/libmeme_llm.so | numfmt --to=iec-i8)
+          LIB=build/linux/x64/release/bundle/lib/libmeme_llm.so
+          if [ -f "$LIB" ]; then
+            SIZE=$(stat -c%s "$LIB" | numfmt --to=iec-i8)
             echo "libmeme_llm.so size: $SIZE"
-            if nm build/linux/x64/release/bundle/lib/libmeme_llm.so 2>/dev/null | grep -q ggml_vulkan; then
-              echo "✓ Vulkan symbols found"
+            # 列出所有 ggml_* 后端符号，便于诊断
+            echo "=== ggml backend symbols ==="
+            nm -D "$LIB" 2>/dev/null | grep -oE "ggml_(vulkan|opencl|cuda|metal|cpu|backend)" | sort -u
+            if nm -D "$LIB" 2>/dev/null | grep -q ggml_vulkan; then
+              echo "✓ Vulkan backend built"
             else
               echo "✗ No Vulkan symbols - stub version built"
             fi
@@ -133,6 +137,26 @@ jobs:
         run: |
           rm -rf build/linux
           flutter build linux --release
+
+      - name: Verify CPU-only library
+        run: |
+          LIB=build/linux/x64/release/bundle/lib/libmeme_llm.so
+          if [ -f "$LIB" ]; then
+            SIZE=$(stat -c%s "$LIB" | numfmt --to=iec-i8)
+            echo "libmeme_llm.so size: $SIZE"
+            echo "=== ggml backend symbols (expect NO vulkan/opencl) ==="
+            nm -D "$LIB" 2>/dev/null | grep -oE "ggml_(vulkan|opencl|cuda|metal|cpu|backend)" | sort -u
+            if nm -D "$LIB" 2>/dev/null | grep -q ggml_vulkan; then
+              echo "✗ Unexpected: Vulkan symbols found (should be CPU only)"
+            else
+              echo "✓ CPU-only build (no Vulkan)"
+            fi
+          elif [ -f build/linux/x64/release/bundle/lib/libmeme_llm_empty.so ]; then
+            echo "⚠ Only stub library built"
+          else
+            echo "✗ No meme_llm library found"
+            exit 1
+          fi
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
@@ -198,7 +222,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-release-${{ github.sha }}
-          path: build/macos/Build/Products/Release/
+          # 只上传 .app，跳过 .dSYM（debug symbols，会膨胀到 200MB+）
+          path: build/macos/Build/Products/Release/*.app
           retention-days: 7
 
   android:
@@ -222,6 +247,14 @@ jobs:
 
       - name: Get dependencies
         run: flutter pub get
+
+      - name: Remove super_clipboard (cargokit incompatible with Gradle 8)
+        run: |
+          # super_clipboard 是 desktop-only; cargokit 旧版在 Gradle 8 上失败 - Android APK 不需要
+          cp pubspec.yaml pubspec.yaml.bak
+          sed -i '/^  super_clipboard:/d' pubspec.yaml
+          flutter pub get
+          mv pubspec.yaml.bak pubspec.yaml
 
       - name: Setup Android SDK and NDK
         uses: android-actions/setup-android@v3
@@ -282,75 +315,4 @@ jobs:
         with:
           name: android-apk-${{ github.sha }}
           path: android/app/build/outputs/apk/release/*.apk
-          retention-days: 7
-
-  android-debug:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build unzip curl xz-utils
-      - name: Setup Flutter
-        run: |
-          FLUTTER_VERSION=3.44.0
-          if [ ! -d "$HOME/flutter" ]; then
-            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
-          fi
-          echo "$HOME/flutter/bin" >> $GITHUB_PATH
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Init third-party
-        run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
-
-      - name: Debug SPIRV-Headers install
-        run: |
-          echo "=== third_party contents ==="
-          ls -la third_party/
-          echo ""
-          echo "=== spirv-headers-install ==="
-          ls -la third_party/spirv-headers-install/ 2>/dev/null || echo "NOT FOUND"
-          echo ""
-          echo "=== SPIRV-HeadersConfig.cmake ==="
-          find third_party -name "SPIRV-HeadersConfig.cmake" 2>/dev/null
-          find third_party -name "spirv-headers*" -type d 2>/dev/null
-          echo ""
-          echo "=== Manual SPIRV-Headers cmake (if needed) ==="
-          if [ ! -f third_party/spirv-headers-install/share/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake ]; then
-            echo "Running cmake manually to diagnose..."
-            cd third_party/SPIRV-Headers
-            mkdir -p build
-            cd build
-            cmake .. -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/third_party/spirv-headers-install" -DSPIRV_HEADERS_SKIP_EXAMPLES=ON 2>&1 | tail -20
-            echo "--- cmake build ---"
-            cmake --build . --target install 2>&1 | tail -30
-          fi
-
-      - name: Configure Gradle memory
-        run: |
-          mkdir -p android
-          echo "org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=512m" > android/gradle.properties
-          echo "org.gradle.parallel=true" >> android/gradle.properties
-          echo "android.useAndroidX=true" >> android/gradle.properties
-          echo "android.enableJetifier=false" >> android/gradle.properties
-
-      - name: Build Android APK (debug)
-        run: flutter build apk --debug
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-
-      - name: Upload Android debug artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-apk-debug-${{ github.sha }}
-          path: android/app/build/outputs/apk/debug/*.apk
           retention-days: 7
