@@ -17,6 +17,16 @@ mkdir -p "$BUILD_DIR"
 
 cd "$BUILD_DIR"
 
+# 跨平台 CPU 核心数（macOS 没 nproc）
+if command -v nproc >/dev/null 2>&1; then
+    NPROC=$(nproc)
+elif command -v sysctl >/dev/null 2>&1; then
+    NPROC=$(sysctl -n hw.ncpu)
+else
+    NPROC=4
+fi
+echo "Using $NPROC parallel jobs"
+
 # 配置 CMake（使用系统 Metal 框架）
 cmake "$LLM_DIR" \
     -DCMAKE_BUILD_TYPE=Release \
@@ -24,7 +34,7 @@ cmake "$LLM_DIR" \
     -DENABLE_METAL=ON
 
 # 构建
-cmake --build . --config Release -j$(nproc)
+cmake --build . --config Release -j"$NPROC"
 
 # 检查产物
 if [ -f "libmeme_llm.dylib" ]; then
