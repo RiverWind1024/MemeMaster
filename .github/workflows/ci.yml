@@ -438,13 +438,10 @@ jobs:
         run: |
           echo "=== Find all APK files ==="
           find . -name "*.apk" 2>&1 | head -20
-          echo "=== Check build/app/outputs ==="
-          ls -la build/app/outputs/ 2>&1 || echo "No build/outputs dir"
-          ls -laR build/app/outputs/apk/ 2>&1 || echo "No apk dir"
-          echo "=== Check android/app/build/outputs ==="
-          ls -la android/app/build/outputs/ 2>&1 || echo "No android outputs dir"
+          echo "=== Check build/app/outputs/flutter-apk ==="
+          ls -la build/app/outputs/flutter-apk/ 2>&1 || echo "No flutter-apk dir"
           echo "=== Final check ==="
-          APK=$(find . -path "*/build/outputs/apk/release/*.apk" 2>/dev/null | head -1)
+          APK=$(find . -path "*/build/outputs/flutter-apk/*.apk" 2>/dev/null | head -1)
           if [ -n "$APK" ]; then
             SIZE=$(stat -c%s "$APK" | numfmt --to=iec)
             echo "APK: $APK"
@@ -458,7 +455,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mememaster-${{ env.VERSION }}-android-arm64-vulkan
-          path: build/app/outputs/apk/release/*.apk
+          path: build/app/outputs/flutter-apk/*.apk
           retention-days: 7
 
   release:
