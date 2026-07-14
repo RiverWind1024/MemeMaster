@@ -33,13 +33,13 @@ set(LLAMA_BUILD_SERVER OFF)
 set(LLAMA_INSTALL_VERSION "0.0.0")
 
 # ===== Metal 配置 =====
+set(GGML_METAL OFF)
 if(APPLE AND ENABLE_METAL)
     set(GGML_METAL ON)
     set(GGML_METAL_EMBED_LIBRARY ON)
     set(GGML_METAL_USE_BF16 ON)
     set(GGML_BLAS_DEFAULT ON)
 
-    # 查找 Metal 框架
     find_library(FOUNDATION_LIBRARY Foundation REQUIRED)
     find_library(METAL_FRAMEWORK Metal REQUIRED)
     find_library(METALKIT_FRAMEWORK MetalKit REQUIRED)
