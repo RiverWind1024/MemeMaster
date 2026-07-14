@@ -109,7 +109,7 @@ jobs:
         run: |
           LIB=build/linux/x64/release/bundle/lib/libmeme_llm.so
           if [ -f "$LIB" ]; then
-            SIZE=$(stat -c%s "$LIB" | numfmt --to=iec-i)
+            SIZE=$(stat -c%s "$LIB" | numfmt --to=iec)
             echo "libmeme_llm.so size: $SIZE"
             # 列出所有 ggml_* 后端符号，便于诊断
             echo "=== ggml backend symbols ==="
@@ -183,7 +183,7 @@ jobs:
         run: |
           LIB=build/linux/x64/release/bundle/lib/libmeme_llm.so
           if [ -f "$LIB" ]; then
-            SIZE=$(stat -c%s "$LIB" | numfmt --to=iec-i)
+            SIZE=$(stat -c%s "$LIB" | numfmt --to=iec)
             echo "libmeme_llm.so size: $SIZE"
             echo "=== ggml backend symbols (expect NO vulkan/opencl) ==="
             nm -D "$LIB" 2>/dev/null | grep -oE "ggml_(vulkan|opencl|cuda|metal|cpu|backend)" | sort -u
@@ -428,9 +428,20 @@ jobs:
         run: |
           mkdir -p android
           echo "org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=512m" > android/gradle.properties
-          echo "org.gradle.parallel=true" >> android/gradle.properties
-          echo "android.useAndroidX=true" >> android/gradle.properties
-          echo "android.enableJetifier=false" >> android/gradle.properties
+           echo "org.gradle.parallel=true" >> android/gradle.properties
+           echo "android.useAndroidX=true" >> android/gradle.properties
+           echo "android.enableJetifier=false" >> android/gradle.properties
+
+      # Re-apply patch immediately before build in case previous step
+      # regenerated pub-cache. We use a more aggressive patcher.
+      - name: Ensure cargokit patched (pre-build)
+        run: |
+          for f in $(find "$HOME/.pub-cache/hosted/pub.dev" -name "plugin.gradle" -path "*/cargokit/*"); do
+            if grep -q "project\.exec {" "$f" 2>/dev/null; then
+              echo "Force-patching: $f"
+              perl -0777 -pi -e 's/(project\.exec)\s*\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}/$1({$2} as Action<ExecSpec>)/g;' "$f"
+            fi
+          done
 
       - name: Build Android APK
         run: flutter build apk --release
@@ -443,7 +454,7 @@ jobs:
         run: |
           APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
           if [ -n "$APK" ]; then
-            SIZE=$(stat -c%s "$APK" | numfmt --to=iec-i)
+            SIZE=$(stat -c%s "$APK" | numfmt --to=iec)
             echo "APK: $APK"
             echo "Size: $SIZE"
           else
