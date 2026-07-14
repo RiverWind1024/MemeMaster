@@ -436,13 +436,16 @@ jobs:
 
       - name: Verify APK size
         run: |
-          echo "=== Find all APK files ==="
-          find . -name "*.apk" 2>&1 | head -20
-          echo "=== Check android/app/build ==="
-          ls -la android/app/build/ 2>&1 || echo "No build dir"
-          echo "=== Check outputs ==="
-          ls -la android/app/build/outputs/ 2>&1 || echo "No outputs dir"
-          ls -laR android/app/build/outputs/apk/ 2>&1 || echo "No apk dir"
+          {
+            echo "=== Find all APK files ==="
+            find . -name "*.apk" 2>&1 | head -20
+            echo "=== Check android/app/build ==="
+            ls -la android/app/build/ 2>&1 || echo "No build dir"
+            echo "=== Check outputs ==="
+            ls -la android/app/build/outputs/ 2>&1 || echo "No outputs dir"
+            ls -laR android/app/build/outputs/apk/ 2>&1 || echo "No apk dir"
+          } > /tmp/apk-debug.txt
+          cat /tmp/apk-debug.txt
           echo "=== Final check ==="
           APK=$(find . -path "*/build/outputs/apk/release/*.apk" 2>/dev/null | head -1)
           if [ -n "$APK" ]; then
@@ -453,6 +456,14 @@ jobs:
             echo "⚠ No APK found"
             exit 1
           fi
+
+      - name: Upload APK debug artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-debug
+          path: /tmp/apk-debug.txt
+          retention-days: 1
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
