@@ -61,6 +61,9 @@ android {
                     arguments += listOf("-DSPIRV-Headers_DIR=${project.rootDir}/../third_party/spirv-headers-install/share/cmake/SPIRV-Headers")
                     // 关键：注入 Vulkan Android 预加载脚本（处理 ABI 特定的 libvulkan.so 路径）
                     arguments += listOf("-DCMAKE_PROJECT_INCLUDE_BEFORE=${project.rootDir}/app/src/main/cpp/cmake/vulkan-android-prelude.cmake")
+                    // SPIRV-Headers 头文件路径（ggml-vulkan 需要 spirv/unified1/spirv.hpp）
+                    // 必须用 cppFlags 而不是 arguments，否则不会被加到每个编译命令
+                    cppFlags += listOf("-I${project.rootDir}/../third_party/spirv-headers-install/include")
                 }
 
                 // GPU 后端编译优化标志
