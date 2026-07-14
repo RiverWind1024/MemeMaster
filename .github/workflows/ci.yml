@@ -463,11 +463,21 @@ jobs:
         with:
           path: artifacts
 
+      - name: Debug artifacts
+        run: |
+          echo "=== Artifacts structure ==="
+          find artifacts -type d -name "*.app" | head -5
+          echo "=== Root artifacts ==="
+          ls -la artifacts/
+
       - name: Zip macOS apps
         run: |
           cd artifacts
-          zip -r mememaster-${{ env.VERSION }}-macos-arm64-metal/MemeMaster.app.zip mememaster-${{ env.VERSION }}-macos-arm64-metal/MemeMaster.app
-          zip -r mememaster-${{ env.VERSION }}-macos-arm64-cpu/MemeMaster.app.zip mememaster-${{ env.VERSION }}-macos-arm64-cpu/MemeMaster.app
+          APP_DIR=$(find . -type d -name "MemeMaster.app" | head -1 | xargs dirname)
+          echo "Found app dir: $APP_DIR"
+          if [ -d "$APP_DIR/MemeMaster.app" ]; then
+            zip -r "$APP_DIR/MemeMaster.app.zip" "$APP_DIR/MemeMaster.app"
+          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
