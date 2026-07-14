@@ -1,12 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:pasteboard/pasteboard.dart';
 import 'package:share_plus/share_plus.dart';
-// super_clipboard 在所有平台都 import，但只在桌面平台调用。
-// Android 上不调用（已经走 MethodChannel），所以不会触发 cargokit 的 native 代码
-// 实际上 Android 编译仍会触发 cargokit（取决于 super_native_extensions 包的配置），
-// 所以我们 patch cargokit 的 plugin.gradle 让 Gradle 8 兼容
-import 'package:super_clipboard/super_clipboard.dart';
 
 class ClipboardService {
   static const _channel = MethodChannel('com.mememaster.app/clipboard');
@@ -28,10 +24,9 @@ class ClipboardService {
         return false;
       }
 
-      final bytes = await file.readAsBytes();
-
       // Android 使用 MethodChannel
       if (Platform.isAndroid || Platform.isIOS) {
+        final bytes = await file.readAsBytes();
         final mimeType = _mimeFromExtension(filePath);
         await _channel.invokeMethod('copyImageToClipboard', {
           'bytes': bytes,
@@ -40,9 +35,9 @@ class ClipboardService {
         return true;
       }
 
-      // Linux/macOS/Windows 使用 super_clipboard
+      // Linux/macOS/Windows 使用 pasteboard
       if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
-        return await _copyImageWithSuperClipboard(bytes, filePath);
+        return await _copyImageWithPasteboard(filePath);
       }
 
       return false;
@@ -52,37 +47,12 @@ class ClipboardService {
     }
   }
 
-  /// 使用 super_clipboard 复制图片到剪贴板
-  static Future<bool> _copyImageWithSuperClipboard(
-    Uint8List bytes,
-    String filePath,
-  ) async {
+  static Future<bool> _copyImageWithPasteboard(String filePath) async {
     try {
-      final item = DataWriterItem();
-      final ext = filePath.split('.').last.toLowerCase();
-
-      if (ext == 'png') {
-        item.add(Formats.png(bytes));
-      } else if (ext == 'gif') {
-        item.add(Formats.gif(bytes));
-      } else if (ext == 'webp') {
-        item.add(Formats.webp(bytes));
-      } else if (ext == 'bmp') {
-        item.add(Formats.bmp(bytes));
-      } else {
-        item.add(Formats.jpeg(bytes));
-      }
-
-      final clipboard = SystemClipboard.instance;
-      if (clipboard == null) {
-        print('ClipboardService: 系统剪贴板不可用');
-        return false;
-      }
-
-      await clipboard.write([item]);
+      await Pasteboard.writeFiles([filePath]);
       return true;
     } catch (e) {
-      print('super_clipboard 复制失败: $e');
+      print('pasteboard 复制失败: $e');
       return false;
     }
   }
