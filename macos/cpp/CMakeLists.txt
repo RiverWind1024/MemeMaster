@@ -79,7 +79,11 @@ if(APPLE AND ENABLE_METAL)
 endif()
 
 target_link_libraries(meme_llm PRIVATE ${MEME_LLM_LIBS})
-target_link_options(meme_llm PRIVATE -Wl,-soname,libmeme_llm.so.1)
+if(APPLE)
+    set_target_properties(meme_llm PROPERTIES INSTALL_NAME_DIR "@rpath" BUILD_RPATH "@loader_path" INSTALL_RPATH "@loader_path")
+else()
+    target_link_options(meme_llm PRIVATE -Wl,-soname,libmeme_llm.so.1)
+endif()
 
 # ===== 安装规则 =====
 install(TARGETS meme_llm LIBRARY DESTINATION lib COMPONENT runtime)

@@ -6,28 +6,50 @@
 
 set -e
 
-# Use python3 -c with inline code (avoids heredoc / file issues on macOS,
-# where some runtimes may not have stdin support in the right way)
 patch_file() {
     local f="$1"
-    # Replace `project.exec {` with `project.exec({` and the matching `}` with
-    # `} as Action<ExecSpec>)`. This is the simplest correct transformation:
-    # the original closure becomes an explicit Action<ExecSpec> via cast.
     python3 -c "
 import sys
 p = sys.argv[1]
 with open(p) as fp:
     s = fp.read()
 
+# Pattern 1: project.exec(new Action<ExecSpec>() { ... })
+# Replace with: project.exec({ ... } as Action<ExecSpec>)
 new = []
 i = 0
 while i < len(s):
-    idx = s.find('project.exec {', i)
+    idx = s.find('project.exec(new Action<ExecSpec>()', i)
     if idx < 0:
         new.append(s[i:])
         break
     new.append(s[i:idx])
     new.append('project.exec({')
+    j = idx + len('project.exec(new Action<ExecSpec>()')
+    depth = 1
+    while j < len(s) and depth > 0:
+        if s[j] == '{':
+            depth += 1
+        elif s[j] == '}':
+            depth -= 1
+        j += 1
+    inner = s[idx + len('project.exec(new Action<ExecSpec>()'):j - 1]
+    new.append(inner)
+    new.append('} as Action<ExecSpec>)')
+    i = j
+
+s = ''.join(new)
+
+# Pattern 2: project.exec { ... } (original unpatched form)
+new2 = []
+i = 0
+while i < len(s):
+    idx = s.find('project.exec {', i)
+    if idx < 0:
+        new2.append(s[i:])
+        break
+    new2.append(s[i:idx])
+    new2.append('project.exec({')
     j = idx + len('project.exec {')
     depth = 1
     while j < len(s) and depth > 0:
@@ -36,14 +58,13 @@ while i < len(s):
         elif s[j] == '}':
             depth -= 1
         j += 1
-    # s[idx+len('project.exec {'):j-1] is the inner block, j-1 is matching '}'
     inner = s[idx + len('project.exec {'):j - 1]
-    new.append(inner)
-    new.append('} as Action<ExecSpec>)')
+    new2.append(inner)
+    new2.append('} as Action<ExecSpec>)')
     i = j
 
 with open(p, 'w') as fp:
-    fp.write(''.join(new))
+    fp.write(''.join(new2))
 print('  patched', p)
 " "$f"
 }

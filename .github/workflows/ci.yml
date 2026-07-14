@@ -239,19 +239,29 @@ jobs:
       - name: Build macOS
         run: flutter build macos --release
 
+      - name: Bundle native library into app
+        run: |
+          APP=$(find build/macos/Build/Products/Release -name "*.app" -type d | head -1)
+          FRAMEWORKS="$APP/Contents/Frameworks"
+          mkdir -p "$FRAMEWORKS"
+          cp build/macos-llm/libmeme_llm.dylib "$FRAMEWORKS/"
+          echo "✓ Copied libmeme_llm.dylib to $FRAMEWORKS"
+          ls -lh "$FRAMEWORKS"/libmeme_llm.dylib
+
       - name: Verify Metal library
         run: |
-          find build/macos -name "libmeme_llm*.dylib" -type f 2>/dev/null | while read f; do
-            SIZE=$(stat -f%z "$f" | numfmt --to=iec-i8)
-            echo "$f size: $SIZE"
-            if nm "$f" 2>/dev/null | grep -q ggml_metal; then
-              echo "✓ Metal symbols found in $f"
+          LIB=$(find build/macos/Build/Products/Release -name "libmeme_llm*.dylib" -type f 2>/dev/null | head -1)
+          if [ -n "$LIB" ]; then
+            SIZE=$(stat -f%z "$LIB" | numfmt --to=iec-i8)
+            echo "$LIB size: $SIZE"
+            if nm "$LIB" 2>/dev/null | grep -q ggml_metal; then
+              echo "✓ Metal symbols found"
             else
-              echo "⚠ No Metal symbols in $f"
+              echo "⚠ No Metal symbols"
             fi
-          done
-          if ! find build/macos -name "libmeme_llm*.dylib" -type f 2>/dev/null | grep -q .; then
-            echo "⚠ No meme_llm library found (stub version)"
+          else
+            echo "✗ No meme_llm library found"
+            exit 1
           fi
 
       - name: Upload macOS artifact
@@ -303,9 +313,18 @@ jobs:
       - name: Build macOS
         run: flutter build macos --release
 
+      - name: Bundle native library into app
+        run: |
+          APP=$(find build/macos/Build/Products/Release -name "*.app" -type d | head -1)
+          FRAMEWORKS="$APP/Contents/Frameworks"
+          mkdir -p "$FRAMEWORKS"
+          cp build/macos-llm/libmeme_llm.dylib "$FRAMEWORKS/"
+          echo "✓ Copied libmeme_llm.dylib to $FRAMEWORKS"
+          ls -lh "$FRAMEWORKS"/libmeme_llm.dylib
+
       - name: Verify CPU-only library
         run: |
-          LIB=$(find build/macos -name "libmeme_llm*.dylib" -type f 2>/dev/null | head -1)
+          LIB=$(find build/macos/Build/Products/Release -name "libmeme_llm*.dylib" -type f 2>/dev/null | head -1)
           if [ -n "$LIB" ]; then
             SIZE=$(stat -f%z "$LIB" | numfmt --to=iec-i8)
             echo "$LIB size: $SIZE"
