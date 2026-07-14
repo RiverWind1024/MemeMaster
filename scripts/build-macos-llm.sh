@@ -28,11 +28,13 @@ fi
 echo "Using $NPROC parallel jobs"
 
 # 配置 CMake（使用系统 Metal 框架）
-echo "=== cmake configure ==="
+# 允许通过 ENABLE_METAL 环境变量关闭（CI macos-cpu 用）
+ENABLE_METAL_FLAG="${ENABLE_METAL:-ON}"
+echo "=== cmake configure (ENABLE_METAL=$ENABLE_METAL_FLAG) ==="
 cmake "$LLM_DIR" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="$BUILD_DIR/install" \
-    -DENABLE_METAL=ON 2>&1 | tail -30
+    -DENABLE_METAL="$ENABLE_METAL_FLAG" 2>&1 | tail -30
 
 # 构建
 echo "=== cmake build ==="

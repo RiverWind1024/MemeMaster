@@ -2,7 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:super_clipboard/super_clipboard.dart';
+// Conditional import: 桌面平台用真正的 super_clipboard，移动平台用 stub
+// 避免 Android 上因为删 super_clipboard 而编译失败
+import 'clipboard_stub.dart'
+    if (dart.library.io && (Platform.isLinux || Platform.isMacOS || Platform.isWindows))
+    'package:super_clipboard/super_clipboard.dart';
 
 class ClipboardService {
   static const _channel = MethodChannel('com.mememaster.app/clipboard');
