@@ -3,20 +3,39 @@
 # Gradle 8+ removed project.exec(Closure)
 set -euo pipefail
 
-PUB_CACHE="${PUB_CACHE:-$HOME/.pub-cache/hosted/pub.dev}"
+SEARCH_ROOTS=()
+if [ -n "${PUB_CACHE:-}" ]; then
+    SEARCH_ROOTS+=("$PUB_CACHE")
+fi
+SEARCH_ROOTS+=("$HOME/.pub-cache/hosted/pub.dev")
 
 echo "=== Patching cargokit plugin.gradle ==="
-echo "PUB_CACHE: $PUB_CACHE"
 
-if [ ! -d "$PUB_CACHE" ]; then
-    echo "❌ PUB_CACHE not found: $PUB_CACHE"
+FILES=()
+for root in "${SEARCH_ROOTS[@]}"; do
+    [ -d "$root" ] || continue
+    echo "Searching: $root"
+    while IFS= read -r f; do
+        FILES+=("$f")
+    done < <(grep -rl "project\.exec" "$root" --include="plugin.gradle" 2>/dev/null || true)
+done
+
+if [ ${#FILES[@]} -eq 0 ]; then
+    echo "⚠️  No cargokit plugin.gradle found in any search path, trying find..."
+    while IFS= read -r f; do
+        FILES+=("$f")
+    done < <(find "$HOME" -name "plugin.gradle" -path "*/cargokit/*" -exec grep -l "project\.exec" {} + 2>/dev/null || true)
+fi
+
+if [ ${#FILES[@]} -eq 0 ]; then
+    echo "❌ No plugin.gradle files with project.exec found"
     exit 1
 fi
 
 PATCHED=0
 SKIPPED=0
 
-while IFS= read -r f; do
+for f in "${FILES[@]}"; do
     if grep -q "as Action<ExecSpec>)" "$f" 2>/dev/null; then
         echo "  skip (already patched): $f"
         SKIPPED=$((SKIPPED + 1))
@@ -33,15 +52,8 @@ while IFS= read -r f; do
         echo "    ❌ patch failed"
         exit 1
     fi
-done < <(grep -rl "project\.exec" "$PUB_CACHE" --include="plugin.gradle" 2>/dev/null || true)
+done
 
-TOTAL=$((PATCHED + SKIPPED))
 echo ""
 echo "=== Results: $PATCHED patched, $SKIPPED already done ==="
-
-if [ "$TOTAL" -eq 0 ]; then
-    echo "❌ No plugin.gradle files with project.exec found"
-    exit 1
-fi
-
 echo "✓ cargokit plugin patched"
