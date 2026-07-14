@@ -58,11 +58,16 @@ log_error() {
 }
 
 # 尝试克隆一个仓库，失败时尝试 fallback
+# $1: 逻辑名（用于日志，可以含 .）
+# $2: GitHub URL
+# $3: Gitee URL
+# $4: 实际目录名（不含 .，用于 bash 3.2 兼容）
 clone_with_fallback() {
     local name="$1"
     local github_url="$2"
     local gitee_url="$3"
-    local dir="$THIRD_PARTY/$name"
+    local dir_name="$4"
+    local dir="$THIRD_PARTY/$dir_name"
 
     # 已存在且是有效的 git 仓库: 跳过
     if [ -d "$dir/.git" ]; then
@@ -212,20 +217,28 @@ echo ""
 mkdir -p "$THIRD_PARTY"
 
 declare -A DEPS=(
-    ["llama.cpp"]="https://github.com/ggml-org/llama.cpp.git||"
-    ["OpenCL-Headers"]="https://github.com/KhronosGroup/OpenCL-Headers.git||"
-    ["OpenCL-ICD-Loader"]="https://github.com/KhronosGroup/OpenCL-ICD-Loader.git||"
-    ["SPIRV-Headers"]="https://github.com/KhronosGroup/SPIRV-Headers.git||"
-    ["Vulkan-Headers"]="https://github.com/KhronosGroup/Vulkan-Headers.git||"
+    ["llama_cpp"]="https://github.com/ggml-org/llama.cpp.git||llama.cpp"
+    ["OpenCL-Headers"]="https://github.com/KhronosGroup/OpenCL-Headers.git||OpenCL-Headers"
+    ["OpenCL-ICD-Loader"]="https://github.com/KhronosGroup/OpenCL-ICD-Loader.git||OpenCL-ICD-Loader"
+    ["SPIRV-Headers"]="https://github.com/KhronosGroup/SPIRV-Headers.git||SPIRV-Headers"
+    ["Vulkan-Headers"]="https://github.com/KhronosGroup/Vulkan-Headers.git||Vulkan-Headers"
 )
+
+# 兼容旧 key 'llama.cpp'（含点号在 bash 3.2 / macOS 上会当算术表达式解析）
+# 用 [key]=url||actual_dirname 的格式，actual_dirname 是 checkout 后的实际目录名
 
 FAILED=()
 
 for name in "${!DEPS[@]}"; do
-    # 分割 GitHub URL 和 Gitee URL（使用 || 分隔符避免 URL 中的 : 干扰）
-    IFS='||' read -r github_url gitee_url <<< "${DEPS[$name]}"
+    # 分割 GitHub URL、Gitee URL 和实际目录名（使用 || 分隔符）
+    # 格式: "github_url||gitee_url||actual_dirname"
+    IFS='||' read -r github_url gitee_url actual_dirname <<< "${DEPS[$name]}"
+    if [ -z "$actual_dirname" ]; then
+        # 向后兼容：旧格式只有 url||gitee，actual_dirname 用 $name
+        actual_dirname="$name"
+    fi
     
-    if ! clone_with_fallback "$name" "$github_url" "$gitee_url"; then
+    if ! clone_with_fallback "$name" "$github_url" "$gitee_url" "$actual_dirname"; then
         FAILED+=("$name")
     fi
 done
