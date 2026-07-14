@@ -53,12 +53,14 @@ endif()
 
 # ===== 添加子项目 =====
 add_subdirectory(${LLAMA_CPP_DIR} llama.cpp EXCLUDE_FROM_ALL)
+add_subdirectory(${LLAMA_CPP_DIR}/tools/mtmd mtmd)
 
 # ===== 头文件路径 =====
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${LLAMA_CPP_DIR}/include
     ${LLAMA_CPP_DIR}/ggml/include
+    ${LLAMA_CPP_DIR}/tools/mtmd
 )
 
 # ===== 构建共享库 =====
