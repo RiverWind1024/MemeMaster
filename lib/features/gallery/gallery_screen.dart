@@ -549,8 +549,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           },
           child: GridView.builder(
             padding: const EdgeInsets.all(4),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 200,
               mainAxisSpacing: 4,
               crossAxisSpacing: 4,
             ),

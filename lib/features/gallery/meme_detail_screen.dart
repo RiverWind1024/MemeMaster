@@ -301,7 +301,7 @@ class _MemeDetailPageState extends ConsumerState<_MemeDetailPage> {
                 _LlmTags(memeId: widget.memeId),
                 const SizedBox(height: 16),
 
-                _Description(meme: widget.meme),
+                _Description(memeId: widget.memeId),
                 const SizedBox(height: 16),
 
                 _CustomTags(memeId: widget.memeId),
@@ -871,34 +871,41 @@ class _LlmTags extends ConsumerWidget {
 }
 
 /// 描述展示（由 LLM 生成）
-class _Description extends StatelessWidget {
-  final Meme meme;
+class _Description extends ConsumerWidget {
+  final String memeId;
 
-  const _Description({required this.meme});
+  const _Description({required this.memeId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repo = ref.read(memeRepositoryProvider);
     final theme = Theme.of(context);
-    final desc = meme.description;
 
-    if (desc == null || desc.isEmpty) return const SizedBox.shrink();
+    return FutureBuilder<Meme?>(
+      future: repo.getById(memeId),
+      builder: (context, snapshot) {
+        final desc = snapshot.data?.description;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+        if (desc == null || desc.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.short_text, size: 16, color: Colors.orange),
-            const SizedBox(width: 6),
-            Text(S.of(context).descriptionLabel, style: theme.textTheme.titleSmall),
+            Row(
+              children: [
+                Icon(Icons.short_text, size: 16, color: Colors.orange),
+                const SizedBox(width: 6),
+                Text(S.of(context).descriptionLabel, style: theme.textTheme.titleSmall),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              desc,
+              style: theme.textTheme.bodyMedium,
+            ),
           ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          desc,
-          style: theme.textTheme.bodyMedium,
-        ),
-      ],
+        );
+      },
     );
   }
 }

@@ -254,7 +254,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       const SizedBox(height: 4),
       Expanded(child: GridView.builder(
         padding: const EdgeInsets.all(4),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 4, crossAxisSpacing: 4),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 200,
+          mainAxisSpacing: 4,
+          crossAxisSpacing: 4,
+        ),
         itemCount: _results!.length,
         itemBuilder: (context, index) {
           final result = _results![index];

@@ -794,9 +794,12 @@ class OcrEnabledNotifier extends Notifier<bool> {
         // 用 tesseract --version 直接检测，比 which 更可靠
         final result = Process.runSync('tesseract', ['--version']);
         if (result.exitCode != 0) {
+          debugPrint('[OCR] Tesseract check failed: exitCode=${result.exitCode}');
           return false;
         }
-      } catch (_) {
+        debugPrint('[OCR] Tesseract detected: ${result.stdout.toString().split('\n').first}');
+      } catch (e) {
+        debugPrint('[OCR] Tesseract not found: $e');
         return false;
       }
     }
