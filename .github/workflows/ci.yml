@@ -54,7 +54,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             cmake ninja-build clang libsecret-1-dev libgtk-3-dev \
-            unzip curl xz-utils tesseract-ocr tesseract-ocr-chi-sim \
+            unzip curl xz-utils \
             libvulkan1 libvulkan-dev mesa-vulkan-drivers vulkan-validationlayers \
             glslang-dev glslang-tools spirv-tools glslc
 
@@ -157,7 +157,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             cmake ninja-build clang libsecret-1-dev libgtk-3-dev \
-            unzip curl xz-utils tesseract-ocr tesseract-ocr-chi-sim
+            unzip curl xz-utils
 
       - name: Setup Flutter
         run: |
@@ -231,10 +231,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-
-      - name: Install macOS dependencies
-        run: |
-          brew install tesseract tesseract-lang leptonica
 
       - name: Setup Flutter
         run: |
@@ -317,10 +313,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-
-      - name: Install macOS dependencies
-        run: |
-          brew install tesseract tesseract-lang leptonica
 
       - name: Setup Flutter
         run: |
@@ -584,11 +576,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-
-      - name: Install Tesseract
-        shell: pwsh
-        run: |
-          choco install tesseract -y || echo "Tesseract installation may have failed"
 
       - name: Setup Flutter
         shell: pwsh
