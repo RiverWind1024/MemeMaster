@@ -615,11 +615,13 @@ jobs:
           name: MemeMaster v${{ env.VERSION }}
           body: "Release v${{ env.VERSION }}"
           files: |
-            artifacts/linux-vulkan/mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip
-            artifacts/linux-cpu/mememaster-${{ env.VERSION }}-linux-x64-cpu.zip
+            artifacts/linux-vulkan/bundle/lib/libmeme_llm.so
+            artifacts/linux-vulkan/bundle/meme_master
+            artifacts/linux-cpu/bundle/lib/libmeme_llm.so
+            artifacts/linux-cpu/bundle/meme_master
             artifacts/macos-metal/mememaster-${{ env.VERSION }}-macos-arm64-metal.zip
             artifacts/macos-cpu/mememaster-${{ env.VERSION }}-macos-arm64-cpu.zip
-            artifacts/android-vulkan/mememaster-${{ env.VERSION }}-android-arm64-vulkan.apk
-            artifacts/android-cpu/mememaster-${{ env.VERSION }}-android-arm64-cpu.apk
+            artifacts/android-vulkan/android.apk
+            artifacts/android-cpu/android.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
