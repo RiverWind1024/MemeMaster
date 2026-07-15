@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:pasteboard/pasteboard.dart';
 
 /// 原生侧通过 method channel 反向调用的回调
 typedef NativeEventHandler = void Function(String method);
@@ -43,13 +46,32 @@ class SharedMediaHandler {
     }
   }
 
-  /// 检查 Android 剪贴板是否包含图片，有则复制到缓存并返回路径。
+  /// 检查剪贴板是否包含图片，有则复制到缓存并返回路径。
+  /// - Android: 使用 MethodChannel 原生实现
+  /// - macOS/Windows/Linux: 使用 pasteboard 包读取剪贴板图片
   Future<String?> getClipboardImage() async {
     try {
-      final result = await _channel.invokeMethod<String>('getClipboardImage');
-      final preview = result != null && result.length > 150 ? '${result.substring(0, 150)}...' : result;
-      debugPrint('$_tag getClipboardImage: $preview');
-      return result;
+      // Android 使用原生 MethodChannel
+      if (Platform.isAndroid) {
+        final result = await _channel.invokeMethod<String>('getClipboardImage');
+        final preview = result != null && result.length > 150 ? '${result.substring(0, 150)}...' : result;
+        debugPrint('$_tag getClipboardImage (Android): $preview');
+        return result;
+      }
+
+      // 非 Android 平台使用 pasteboard 包
+      final imageBytes = await Pasteboard.image;
+      if (imageBytes == null || imageBytes.isEmpty) {
+        debugPrint('$_tag getClipboardImage: no image in clipboard');
+        return null;
+      }
+
+      // 保存到临时文件
+      final tempDir = Directory.systemTemp;
+      final tempFile = File('${tempDir.path}/clipboard_${DateTime.now().millisecondsSinceEpoch}.png');
+      await tempFile.writeAsBytes(imageBytes);
+      debugPrint('$_tag getClipboardImage: saved to ${tempFile.path}');
+      return tempFile.path;
     } catch (e) {
       debugPrint('$_tag getClipboardImage failed: $e');
       return null;
