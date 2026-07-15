@@ -362,7 +362,7 @@ jobs:
           path: build/macos/Build/Products/Release/*.app
           retention-days: 7
 
-  android:
+  android-vulkan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -469,8 +469,89 @@ jobs:
           path: android.apk
           retention-days: 7
 
+  android-cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build unzip curl xz-utils
+      - name: Setup Flutter
+        run: |
+          FLUTTER_VERSION=3.44.0
+          if [ ! -d "$HOME/flutter" ]; then
+            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
+          fi
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Setup Android SDK and NDK
+        uses: android-actions/setup-android@v3
+
+      # Pre-fetch gradle distribution to avoid timeout during gradlew run
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Init third-party
+        run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
+
+      - name: Configure Gradle memory
+        run: |
+          mkdir -p android
+          echo "org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=512m" > android/gradle.properties
+           echo "org.gradle.parallel=true" >> android/gradle.properties
+           echo "android.useAndroidX=true" >> android/gradle.properties
+           echo "android.enableJetifier=false" >> android/gradle.properties
+
+      - name: Build Android APK (CPU only)
+        run: |
+          flutter build apk --release 2>&1
+          echo "=== Build exit code: $? ==="
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          ANDROID_NDK: ${{ env.ANDROID_NDK }}
+          ANDROID_CPU_ONLY: "1"
+          GRADLE_OPTS: "-Dorg.gradle.caching=false"
+
+      - name: Verify APK size
+        run: |
+          echo "=== Find all APK files ==="
+          find . -name "*.apk" -type f 2>&1 | head -20
+          echo "=== Check build/app/outputs/flutter-apk ==="
+          ls -la build/app/outputs/flutter-apk/ 2>&1 || echo "No flutter-apk dir"
+          echo "=== Final check ==="
+          APK=$(find . -name "*.apk" -type f 2>/dev/null | head -1)
+          if [ -n "$APK" ]; then
+            SIZE=$(stat -c%s "$APK" | numfmt --to=iec)
+            echo "APK: $APK"
+            echo "Size: $SIZE"
+          else
+            echo "⚠ No APK found"
+            exit 1
+          fi
+
+      - name: Find and copy APK
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk ./android.apk
+          ls -la ./android.apk
+
+      - name: Upload Android CPU artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mememaster-${{ env.VERSION }}-android-arm64-cpu
+          path: android.apk
+          retention-days: 7
+
   release:
-    needs: [linux, linux-cpu, macos, macos-cpu, android]
+    needs: [linux, linux-cpu, macos, macos-cpu, android-vulkan, android-cpu]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     steps:
@@ -533,5 +614,6 @@ jobs:
             artifacts/mememaster-${{ env.VERSION }}-macos-arm64-metal/mememaster.app.zip
             artifacts/mememaster-${{ env.VERSION }}-macos-arm64-cpu/mememaster.app.zip
             artifacts/mememaster-${{ env.VERSION }}-android-arm64-vulkan/android.apk
+            artifacts/mememaster-${{ env.VERSION }}-android-arm64-cpu/android.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

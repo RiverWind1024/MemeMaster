@@ -37,9 +37,12 @@ android {
                 // OpenCL 后端在 Android CI 环境中 cmake 找不到系统 OpenCL 库，默认禁用
                 arguments += listOf("-DENABLE_OPENCL=OFF")
                 // Vulkan 启用判断：third_party/Vulkan-Headers 和 SPIRV-Headers 都存在
+                // ANDROID_CPU_ONLY=1 时强制禁用 Vulkan
+                val forceCpuOnly = System.getenv("ANDROID_CPU_ONLY") == "1"
                 val vulkanHeadersDir = "${project.rootDir}/../third_party/Vulkan-Headers"
                 val spirvHeadersConfig = "${project.rootDir}/../third_party/spirv-headers-install/share/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake"
-                val hasVulkanDeps = File(vulkanHeadersDir, "include/vulkan/vulkan.hpp").exists() &&
+                val hasVulkanDeps = !forceCpuOnly &&
+                                    File(vulkanHeadersDir, "include/vulkan/vulkan.hpp").exists() &&
                                     File(spirvHeadersConfig).exists()
                 arguments += listOf("-DENABLE_VULKAN=${if (hasVulkanDeps) "ON" else "OFF"}")
                 // Vulkan glslc 路径（NDK 自带）
