@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.sha }}
   cancel-in-progress: true
 
 env:
@@ -550,7 +550,7 @@ jobs:
   release:
     needs: [linux, linux-cpu, macos, macos-cpu, android-vulkan, android-cpu]
     runs-on: ubuntu-latest
-    if: (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/')) && github.event_name == 'push'
+    if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
         with:
