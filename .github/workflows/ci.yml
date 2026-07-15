@@ -131,11 +131,18 @@ jobs:
             exit 1
           fi
 
+      - name: Package Linux artifact
+        run: |
+          cd build/linux/x64/release/bundle
+          zip -r mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip .
+          cd ../../../../..
+          mv build/linux/x64/release/bundle/mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip .
+
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: mememaster-${{ env.VERSION }}-linux-x64-vulkan
-          path: build/linux/x64/release/bundle/
+          path: mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip
           retention-days: 7
 
   linux-cpu:
@@ -204,11 +211,18 @@ jobs:
             exit 1
           fi
 
+      - name: Package Linux artifact
+        run: |
+          cd build/linux/x64/release/bundle
+          zip -r mememaster-${{ env.VERSION }}-linux-x64-cpu.zip .
+          cd ../../../../..
+          mv build/linux/x64/release/bundle/mememaster-${{ env.VERSION }}-linux-x64-cpu.zip .
+
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: mememaster-${{ env.VERSION }}-linux-x64-cpu
-          path: build/linux/x64/release/bundle/
+          path: mememaster-${{ env.VERSION }}-linux-x64-cpu.zip
           retention-days: 7
 
   macos:
@@ -284,12 +298,17 @@ jobs:
             exit 1
           fi
 
+      - name: Package macOS artifact
+        run: |
+          APP=$(find build/macos/Build/Products/Release -name "*.app" -type d | head -1)
+          zip -r mememaster-${{ env.VERSION }}-macos-arm64-metal.zip "$APP"
+          ls -lh mememaster-${{ env.VERSION }}-macos-arm64-metal.zip
+
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: mememaster-${{ env.VERSION }}-macos-arm64-metal
-          # 只上传 .app，跳过 .dSYM（debug symbols，会膨胀到 200MB+）
-          path: build/macos/Build/Products/Release/*.app
+          path: mememaster-${{ env.VERSION }}-macos-arm64-metal.zip
           retention-days: 7
 
   macos-cpu:
@@ -351,16 +370,22 @@ jobs:
             else
               echo "✓ CPU-only build (no Metal)"
             fi
-          else
-            echo "✗ No meme_llm library found"
-            exit 1
-          fi
+            else
+              echo "✗ No meme_llm library found"
+              exit 1
+            fi
+
+      - name: Package macOS CPU artifact
+        run: |
+          APP=$(find build/macos/Build/Products/Release -name "*.app" -type d | head -1)
+          zip -r mememaster-${{ env.VERSION }}-macos-arm64-cpu.zip "$APP"
+          ls -lh mememaster-${{ env.VERSION }}-macos-arm64-cpu.zip
 
       - name: Upload macOS CPU artifact
         uses: actions/upload-artifact@v4
         with:
           name: mememaster-${{ env.VERSION }}-macos-arm64-cpu
-          path: build/macos/Build/Products/Release/*.app
+          path: mememaster-${{ env.VERSION }}-macos-arm64-cpu.zip
           retention-days: 7
 
   android-vulkan:
@@ -459,11 +484,14 @@ jobs:
           cp build/app/outputs/flutter-apk/app-release.apk ./android.apk
           ls -la ./android.apk
 
+      - name: Rename Android artifact
+        run: mv android.apk mememaster-${{ env.VERSION }}-android-arm64-vulkan.apk
+
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
           name: mememaster-${{ env.VERSION }}-android-arm64-vulkan
-          path: android.apk
+          path: mememaster-${{ env.VERSION }}-android-arm64-vulkan.apk
           retention-days: 7
 
   android-cpu:
@@ -540,11 +568,14 @@ jobs:
           cp build/app/outputs/flutter-apk/app-release.apk ./android.apk
           ls -la ./android.apk
 
+      - name: Rename Android CPU artifact
+        run: mv android.apk mememaster-${{ env.VERSION }}-android-arm64-cpu.apk
+
       - name: Upload Android CPU artifact
         uses: actions/upload-artifact@v4
         with:
           name: mememaster-${{ env.VERSION }}-android-arm64-cpu
-          path: android.apk
+          path: mememaster-${{ env.VERSION }}-android-arm64-cpu.apk
           retention-days: 7
 
   release:
@@ -615,13 +646,11 @@ jobs:
           name: MemeMaster v${{ env.VERSION }}
           body: "Release v${{ env.VERSION }}"
           files: |
-            artifacts/linux-vulkan/bundle/lib/libmeme_llm.so
-            artifacts/linux-vulkan/bundle/meme_master
-            artifacts/linux-cpu/bundle/lib/libmeme_llm.so
-            artifacts/linux-cpu/bundle/meme_master
+            artifacts/linux-vulkan/mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip
+            artifacts/linux-cpu/mememaster-${{ env.VERSION }}-linux-x64-cpu.zip
             artifacts/macos-metal/mememaster-${{ env.VERSION }}-macos-arm64-metal.zip
             artifacts/macos-cpu/mememaster-${{ env.VERSION }}-macos-arm64-cpu.zip
-            artifacts/android-vulkan/android.apk
-            artifacts/android-cpu/android.apk
+            artifacts/android-vulkan/mememaster-${{ env.VERSION }}-android-arm64-vulkan.apk
+            artifacts/android-cpu/mememaster-${{ env.VERSION }}-android-arm64-cpu.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
