@@ -612,8 +612,8 @@ jobs:
       - name: Build meme_llm.dll (CPU only)
         shell: pwsh
         run: |
-          cmake -S windows/cpp -B build -DENABLE_VULKAN=OFF -DENABLE_OPENCL=OFF -DENABLE_CUDA=OFF
-          cmake --build build --config Release
+          cmake -S windows/cpp -B build/windows-llm -DENABLE_VULKAN=OFF -DENABLE_OPENCL=OFF -DENABLE_CUDA=OFF
+          cmake --build build/windows-llm --config Release
 
       - name: Build Windows
         shell: pwsh
@@ -622,12 +622,16 @@ jobs:
       - name: Bundle native library
         shell: pwsh
         run: |
-          $BUNDLE = "build\windows\x64\release\bundle"
-          if (Test-Path "build\Release\meme_llm.dll") {
-            Copy-Item "build\Release\meme_llm.dll" "$BUNDLE\" -Force
+          $FLUTTER_BUNDLE = "build\windows\x64\release\bundle"
+          $DLL_SOURCE = "build\windows-llm\Release\meme_llm.dll"
+          if (Test-Path $DLL_SOURCE) {
+            if (-not (Test-Path $FLUTTER_BUNDLE)) {
+              New-Item -ItemType Directory -Path $FLUTTER_BUNDLE -Force | Out-Null
+            }
+            Copy-Item $DLL_SOURCE -Destination $FLUTTER_BUNDLE\ -Force
             Write-Host "Copied meme_llm.dll to bundle"
           }
-          Get-ChildItem "$BUNDLE\*.dll" | ForEach-Object { Write-Host $_.Name }
+          Get-ChildItem "$FLUTTER_BUNDLE\*.dll" | ForEach-Object { Write-Host $_.Name }
 
       - name: Verify DLL
         shell: pwsh
