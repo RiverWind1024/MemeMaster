@@ -240,7 +240,7 @@ target_link_libraries(meme_llm PRIVATE
 xcode-select --install
 
 # Tesseract OCR（Homebrew）
-brew install tesseract tesseract-langpack-chi_sim leptonica
+brew install tesseract tesseract-lang leptonica
 
 # CMake（可选，已有系统版本）
 brew install cmake
@@ -284,7 +284,7 @@ brew install cmake
 ### 7.3 Homebrew 依赖
 
 - macOS 用户使用 Homebrew，需确保安装命令兼容
-- Tesseract 语言包: `tesseract-langpack-chi_sim`
+- Tesseract 语言包: `tesseract-lang`
 
 ---
 
@@ -293,7 +293,7 @@ brew install cmake
 ```bash
 # 1. 安装系统依赖
 xcode-select --install
-brew install tesseract tesseract-langpack-chi_sim
+brew install tesseract tesseract-lang
 
 # 2. 创建分支
 git checkout feat-linux-port

@@ -6,7 +6,10 @@ class MainFlutterWindow: NSWindow {
     let flutterViewController = FlutterViewController()
     let windowFrame = self.frame
     self.contentViewController = flutterViewController
-    self.setFrame(windowFrame, display: true)
+    
+    // 设置默认窗口大小 (1280x720)，与手机屏幕比例相近
+    let defaultSize = NSSize(width: 1280, height: 720)
+    self.setFrame(NSRect(origin: windowFrame.origin, size: defaultSize), display: true)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 

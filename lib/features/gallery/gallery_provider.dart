@@ -791,7 +791,8 @@ class OcrEnabledNotifier extends Notifier<bool> {
     // Linux/macOS: 检查 Tesseract 是否安装，未安装则强制关闭 OCR
     if (Platform.isLinux || Platform.isMacOS) {
       try {
-        final result = Process.runSync('which', ['tesseract']);
+        // 用 tesseract --version 直接检测，比 which 更可靠
+        final result = Process.runSync('tesseract', ['--version']);
         if (result.exitCode != 0) {
           return false;
         }

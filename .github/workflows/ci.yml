@@ -622,7 +622,7 @@ jobs:
       - name: Bundle native library
         shell: pwsh
         run: |
-          $FLUTTER_BUNDLE = "build\windows\x64\release\bundle"
+          $FLUTTER_BUNDLE = "build\windows\x64\runner\Release\bundle"
           $DLL_SOURCE = "build\windows-llm\Release\meme_llm.dll"
           if (Test-Path $DLL_SOURCE) {
             if (-not (Test-Path $FLUTTER_BUNDLE)) {
@@ -636,7 +636,7 @@ jobs:
       - name: Verify DLL
         shell: pwsh
         run: |
-          $DLL = "build\windows\x64\release\bundle\meme_llm.dll"
+          $DLL = "build\windows\x64\runner\Release\bundle\meme_llm.dll"
           if (Test-Path $DLL) {
             $size = (Get-Item $DLL).Length / 1MB
             Write-Host "meme_llm.dll size: $([math]::Round($size, 2)) MB"

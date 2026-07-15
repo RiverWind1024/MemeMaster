@@ -331,7 +331,7 @@ static void macOSCheckAndNotify() {
     final installed = await _LinuxOcrService.isInstalled();
     if (!installed) {
       debugPrint('[macOS] Tesseract not found. To install run:');
-      debugPrint('[macOS]   brew install tesseract tesseract-langpack-chi_sim');
+      debugPrint('[macOS]   brew install tesseract tesseract-lang');
     }
   });
 }
@@ -511,7 +511,7 @@ git commit -m "feat(macos): verify full build succeeds with Metal GPU support"
 xcode-select --install
 
 # Tesseract OCR（Homebrew）
-brew install tesseract tesseract-langpack-chi_sim leptonica
+brew install tesseract tesseract-lang leptonica
 ```
 
 #### 构建
@@ -541,7 +541,7 @@ flutter build macos --release
 xcode-select --install
 
 # Tesseract OCR
-brew install tesseract tesseract-langpack-chi_sim leptonica
+brew install tesseract tesseract-lang leptonica
 ```
 ```
 
