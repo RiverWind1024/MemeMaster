@@ -438,20 +438,16 @@ jobs:
 
       - name: Verify APK size
         run: |
-          echo "=== Find all APK files ==="
-          find . -name "*.apk" -type f 2>&1 | head -20
-          echo "=== Check build/app/outputs/flutter-apk ==="
+          echo "=== Check flutter-apk ==="
           ls -la build/app/outputs/flutter-apk/ 2>&1 || echo "No flutter-apk dir"
-          echo "=== Check android/app/build/outputs/apk/release ==="
-          ls -la android/app/build/outputs/apk/release/ 2>&1 || echo "No android apk dir"
           echo "=== Final check ==="
-          APK=$(find . -name "*.apk" -type f 2>/dev/null | head -1)
-          if [ -n "$APK" ]; then
+          APK="build/app/outputs/flutter-apk/app-release.apk"
+          if [ -f "$APK" ]; then
             SIZE=$(stat -c%s "$APK" | numfmt --to=iec)
             echo "APK: $APK"
             echo "Size: $SIZE"
           else
-            echo "⚠ No APK found"
+            echo "⚠ No APK found at $APK"
             exit 1
           fi
 
@@ -528,13 +524,13 @@ jobs:
           echo "=== Check build/app/outputs/flutter-apk ==="
           ls -la build/app/outputs/flutter-apk/ 2>&1 || echo "No flutter-apk dir"
           echo "=== Final check ==="
-          APK=$(find . -name "*.apk" -type f 2>/dev/null | head -1)
-          if [ -n "$APK" ]; then
+          APK="build/app/outputs/flutter-apk/app-release.apk"
+          if [ -f "$APK" ]; then
             SIZE=$(stat -c%s "$APK" | numfmt --to=iec)
             echo "APK: $APK"
             echo "Size: $SIZE"
           else
-            echo "⚠ No APK found"
+            echo "⚠ No APK found at $APK"
             exit 1
           fi
 
