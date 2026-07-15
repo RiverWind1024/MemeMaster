@@ -4,28 +4,16 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// ---- Android 日志宏 ----
-// fprintf(stderr, ...) 在 Android NDK 上不一定进入 logcat，
-// 改用 __android_log_print 确保日志可见。
-// 同时把日志写入指定文件，方便在 app 内的 LogViewer 显示。
-#ifdef __cplusplus
-extern "C" {
-#endif
-#ifdef __ANDROID__
-#include <android/log.h>
-#define MLLM_LOG_TAG "meme_llm"
-void mllm_log_to_file(int level, const char* fmt, ...);
-#define MLLM_LOGI(...) do { __android_log_print(ANDROID_LOG_INFO,  MLLM_LOG_TAG, __VA_ARGS__); mllm_log_to_file(0, __VA_ARGS__); } while (0)
-#define MLLM_LOGW(...) do { __android_log_print(ANDROID_LOG_WARN,  MLLM_LOG_TAG, __VA_ARGS__); mllm_log_to_file(1, __VA_ARGS__); } while (0)
-#define MLLM_LOGE(...) do { __android_log_print(ANDROID_LOG_ERROR, MLLM_LOG_TAG, __VA_ARGS__); mllm_log_to_file(2, __VA_ARGS__); } while (0)
+#ifdef _WIN32
+#include <stdio.h>
+#define MLLM_LOGI(...) fprintf(stderr, __VA_ARGS__)
+#define MLLM_LOGW(...) fprintf(stderr, __VA_ARGS__)
+#define MLLM_LOGE(...) fprintf(stderr, __VA_ARGS__)
 #else
 #include <stdio.h>
 #define MLLM_LOGI(...) fprintf(stderr, __VA_ARGS__)
 #define MLLM_LOGW(...) fprintf(stderr, __VA_ARGS__)
 #define MLLM_LOGE(...) fprintf(stderr, __VA_ARGS__)
-#endif
-#ifdef __cplusplus
-}
 #endif
 
 #ifdef __cplusplus
