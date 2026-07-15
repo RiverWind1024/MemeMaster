@@ -595,7 +595,12 @@ jobs:
         run: flutter pub get
 
       - name: Generate Windows runner files
-        run: flutter create --platforms=windows
+        shell: pwsh
+        run: |
+          # Remove incomplete windows directory (except cpp/ which has our native code)
+          Get-ChildItem windows | Where-Object { $_.Name -ne 'cpp' } | Remove-Item -Recurse -Force
+          # Generate fresh Windows runner
+          flutter create --platforms=windows
 
       - name: Init third-party (CPU only)
         shell: pwsh

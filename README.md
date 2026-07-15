@@ -61,7 +61,7 @@ nm build/linux/x64/release/bundle/lib/libmeme_llm.so | grep vulkan
 
 > **注意**:
 > - Linux OCR 使用 Tesseract CLI（`google_mlkit_text_recognition` 不可用于 Linux）
-> - 需要安装 `tesseract` 和中文语言包 `tesseract-langpack-chi_sim`
+> - 需要安装 `tesseract` 和中文语言包 `tesseract-lang`
 > - Vulkan 模式需要 Intel/AMD/NVIDIA GPU 驱动支持
 
 ### macOS 桌面
@@ -73,7 +73,7 @@ nm build/linux/x64/release/bundle/lib/libmeme_llm.so | grep vulkan
 xcode-select --install
 
 # Tesseract OCR（Homebrew）
-brew install tesseract tesseract-langpack-chi_sim leptonica
+brew install tesseract tesseract-lang leptonica
 ```
 
 #### 构建

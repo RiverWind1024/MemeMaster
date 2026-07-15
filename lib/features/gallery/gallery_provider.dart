@@ -788,10 +788,10 @@ final modelManagerProvider = Provider<ModelManager>((ref) {
 class OcrEnabledNotifier extends Notifier<bool> {
   @override
   bool build() {
-    // Linux: 检查 Tesseract 是否安装，未安装则强制关闭 OCR
-    if (Platform.isLinux) {
+    // Linux/macOS: 检查 Tesseract 是否安装，未安装则强制关闭 OCR
+    if (Platform.isLinux || Platform.isMacOS) {
       try {
-        final result = Process.runSync('tesseract', ['--version']);
+        final result = Process.runSync('which', ['tesseract']);
         if (result.exitCode != 0) {
           return false;
         }

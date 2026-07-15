@@ -105,7 +105,7 @@ class OcrService {
       final installed = await _LinuxOcrService.isInstalled();
       if (!installed) {
         debugPrint('[Linux] Tesseract not found. To install run:');
-        debugPrint('[Linux]   sudo dnf install tesseract tesseract-langpack-chi_sim leptonica');
+        debugPrint('[Linux]   sudo dnf install tesseract tesseract-lang leptonica');
         debugPrint('[Linux] Or use pkexec for GUI prompt: OcrService.linuxTryInstall()');
       }
     });
@@ -132,7 +132,7 @@ class OcrService {
       final installed = await _LinuxOcrService.isInstalled();
       if (!installed) {
         debugPrint('[macOS] Tesseract not found. To install run:');
-        debugPrint('[macOS]   brew install tesseract tesseract-langpack-chi_sim');
+        debugPrint('[macOS]   brew install tesseract tesseract-lang');
       }
     });
   }
@@ -259,7 +259,7 @@ class _LinuxOcrService {
     try {
       // 尝试使用 pkexec 调用 dnf 安装（会弹窗请求密码）
       final result = await Process.run('pkexec', [
-        'dnf', 'install', '-y', 'tesseract', 'tesseract-langpack-chi_sim', 'leptonica'
+        'dnf', 'install', '-y', 'tesseract', 'tesseract-lang', 'leptonica'
       ]);
       return result.exitCode == 0;
     } catch (e) {

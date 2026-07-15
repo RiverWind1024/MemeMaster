@@ -838,7 +838,7 @@ Future<void> _onOcrToggle(bool value, WidgetRef ref, BuildContext ctx) async {
       if (ctx.mounted) {
         ScaffoldMessenger.of(ctx).showSnackBar(
           const SnackBar(
-            content: Text('Tesseract 未安装。请运行: brew install tesseract tesseract-langpack-chi_sim'),
+            content: Text('Tesseract 未安装。请运行: brew install tesseract tesseract-lang'),
             duration: Duration(seconds: 5),
           ),
         );
