@@ -457,9 +457,9 @@ jobs:
 
       - name: Find and copy APK
         run: |
-          APK=$(find . -name "*.apk" -type f 2>/dev/null | head -1)
-          echo "Found APK: $APK"
-          cp "$APK" ./android.apk
+          # Flutter builds APK to build/app/outputs/flutter-apk/
+          # 直接复制正确路径，避免 find 选错文件
+          cp build/app/outputs/flutter-apk/app-release.apk ./android.apk
           ls -la ./android.apk
 
       - name: Upload Android artifact
@@ -498,9 +498,11 @@ jobs:
           echo "=== Find all .app directories ==="
           find . -type d -name "*.app" -print
           echo "=== Zip Metal ==="
+          # 实际目录名是 mememaster.app（小写），zip 文件名也要统一
           METAL_APP=$(find . -type d -name "*.app" | grep metal | head -1)
           if [ -n "$METAL_APP" ]; then
-            zip -r "mememaster-${{ env.VERSION }}-macos-arm64-metal/MemeMaster.app.zip" "$METAL_APP"
+            ZIP_NAME="mememaster-${{ env.VERSION }}-macos-arm64-metal/mememaster.app.zip"
+            zip -r "$ZIP_NAME" "$METAL_APP"
           else
             echo "No Metal app found"
             ls -la
@@ -508,7 +510,8 @@ jobs:
           echo "=== Zip CPU ==="
           CPU_APP=$(find . -type d -name "*.app" | grep cpu | head -1)
           if [ -n "$CPU_APP" ]; then
-            zip -r "mememaster-${{ env.VERSION }}-macos-arm64-cpu/MemeMaster.app.zip" "$CPU_APP"
+            ZIP_NAME="mememaster-${{ env.VERSION }}-macos-arm64-cpu/mememaster.app.zip"
+            zip -r "$ZIP_NAME" "$CPU_APP"
           else
             echo "No CPU app found"
           fi
@@ -523,12 +526,12 @@ jobs:
           name: MemeMaster v${{ env.VERSION }}
           body: "Release v${{ env.VERSION }}"
           files: |
-            artifacts/mememaster-${{ env.VERSION }}-linux-x64-vulkan/bundle/libmeme_llm.so
+            artifacts/mememaster-${{ env.VERSION }}-linux-x64-vulkan/bundle/lib/libmeme_llm.so
             artifacts/mememaster-${{ env.VERSION }}-linux-x64-vulkan/bundle/meme_master
-            artifacts/mememaster-${{ env.VERSION }}-linux-x64-cpu/bundle/libmeme_llm.so
+            artifacts/mememaster-${{ env.VERSION }}-linux-x64-cpu/bundle/lib/libmeme_llm.so
             artifacts/mememaster-${{ env.VERSION }}-linux-x64-cpu/bundle/meme_master
-            artifacts/mememaster-${{ env.VERSION }}-macos-arm64-metal/MemeMaster.app.zip
-            artifacts/mememaster-${{ env.VERSION }}-macos-arm64-cpu/MemeMaster.app.zip
+            artifacts/mememaster-${{ env.VERSION }}-macos-arm64-metal/mememaster.app.zip
+            artifacts/mememaster-${{ env.VERSION }}-macos-arm64-cpu/mememaster.app.zip
             artifacts/mememaster-${{ env.VERSION }}-android-arm64-vulkan/android.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
