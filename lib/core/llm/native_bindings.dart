@@ -46,6 +46,8 @@ class NativeLlmBindings {
       candidates.addAll(['libmeme_llm.dylib', 'libmeme_llm_empty.dylib']);
     } else if (Platform.isAndroid) {
       candidates.add('libmeme_llm.so');
+    } else if (Platform.isWindows) {
+      candidates.addAll(['libmeme_llm.dll', 'libmeme_llm_empty.dll']);
     }
 
     for (final name in candidates) {
