@@ -619,8 +619,8 @@ jobs:
             artifacts/linux-vulkan/bundle/meme_master
             artifacts/linux-cpu/bundle/lib/libmeme_llm.so
             artifacts/linux-cpu/bundle/meme_master
-            artifacts/macos-metal/mememaster.app.zip
-            artifacts/macos-cpu/mememaster.app.zip
+            artifacts/macos-metal/mememaster-${{ env.VERSION }}-macos-arm64-metal.zip
+            artifacts/macos-cpu/mememaster-${{ env.VERSION }}-macos-arm64-cpu.zip
             artifacts/android-vulkan/android.apk
             artifacts/android-cpu/android.apk
         env:
