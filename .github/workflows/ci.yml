@@ -594,6 +594,9 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Enable Windows desktop support
+        run: flutter config --enable-windows-desktop
+
       - name: Init third-party (CPU only)
         shell: pwsh
         run: |

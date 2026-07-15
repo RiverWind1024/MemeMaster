@@ -97,7 +97,8 @@ android {
     packaging {
         jniLibs {
             excludes += listOf(
-                "lib/armeabi-v7a/**"
+                "lib/armeabi-v7a/**",
+                "lib/x86_64/**"
             )
         }
     }
