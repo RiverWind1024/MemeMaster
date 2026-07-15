@@ -555,43 +555,54 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Download all artifacts
+      - name: Download Linux Vulkan
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: mememaster-${{ env.VERSION }}-linux-x64-vulkan
+          path: artifacts/linux-vulkan
+
+      - name: Download Linux CPU
+        uses: actions/download-artifact@v4
+        with:
+          name: mememaster-${{ env.VERSION }}-linux-x64-cpu
+          path: artifacts/linux-cpu
+
+      - name: Download macOS Metal
+        uses: actions/download-artifact@v4
+        with:
+          name: mememaster-${{ env.VERSION }}-macos-arm64-metal
+          path: artifacts/macos-metal
+
+      - name: Download macOS CPU
+        uses: actions/download-artifact@v4
+        with:
+          name: mememaster-${{ env.VERSION }}-macos-arm64-cpu
+          path: artifacts/macos-cpu
+
+      - name: Download Android Vulkan
+        uses: actions/download-artifact@v4
+        with:
+          name: mememaster-${{ env.VERSION }}-android-arm64-vulkan
+          path: artifacts/android-vulkan
+
+      - name: Download Android CPU
+        uses: actions/download-artifact@v4
+        with:
+          name: mememaster-${{ env.VERSION }}-android-arm64-cpu
+          path: artifacts/android-cpu
 
       - name: Debug artifacts structure
         run: |
-          echo "=== All artifacts ==="
-          find artifacts -type f | head -30
-          echo "=== Check linux-x64-cpu ==="
-          ls -la "artifacts/mememaster-${{ env.VERSION }}-linux-x64-cpu/bundle/" 2>&1 || echo "Not found"
-          echo "=== Check macos zips ==="
-          find artifacts -name "*.zip" -type f 2>&1
-
-      - name: Zip macOS apps
-        run: |
-          cd artifacts
-          echo "=== Find all .app directories ==="
-          find . -type d -name "*.app" -print
-          echo "=== Zip Metal ==="
-          # 实际目录名是 mememaster.app（小写），zip 文件名也要统一
-          METAL_APP=$(find . -type d -name "*.app" | grep metal | head -1)
-          if [ -n "$METAL_APP" ]; then
-            ZIP_NAME="mememaster-${{ env.VERSION }}-macos-arm64-metal/mememaster.app.zip"
-            zip -r "$ZIP_NAME" "$METAL_APP"
-          else
-            echo "No Metal app found"
-            ls -la
-          fi
-          echo "=== Zip CPU ==="
-          CPU_APP=$(find . -type d -name "*.app" | grep cpu | head -1)
-          if [ -n "$CPU_APP" ]; then
-            ZIP_NAME="mememaster-${{ env.VERSION }}-macos-arm64-cpu/mememaster.app.zip"
-            zip -r "$ZIP_NAME" "$CPU_APP"
-          else
-            echo "No CPU app found"
-          fi
+          echo "=== Linux Vulkan bundle ==="
+          find artifacts/linux-vulkan -type f | head -10
+          echo "=== Linux CPU bundle ==="
+          find artifacts/linux-cpu -type f | head -10
+          echo "=== macOS Metal ==="
+          find artifacts/macos-metal -type f | head -10
+          echo "=== macOS CPU ==="
+          find artifacts/macos-cpu -type f | head -10
+          echo "=== Android ==="
+          find artifacts/android* -type f | head -10
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -603,13 +614,13 @@ jobs:
           name: MemeMaster v${{ env.VERSION }}
           body: "Release v${{ env.VERSION }}"
           files: |
-            artifacts/mememaster-${{ env.VERSION }}-linux-x64-vulkan/bundle/lib/libmeme_llm.so
-            artifacts/mememaster-${{ env.VERSION }}-linux-x64-vulkan/bundle/meme_master
-            artifacts/mememaster-${{ env.VERSION }}-linux-x64-cpu/bundle/lib/libmeme_llm.so
-            artifacts/mememaster-${{ env.VERSION }}-linux-x64-cpu/bundle/meme_master
-            artifacts/mememaster-${{ env.VERSION }}-macos-arm64-metal/mememaster.app.zip
-            artifacts/mememaster-${{ env.VERSION }}-macos-arm64-cpu/mememaster.app.zip
-            artifacts/mememaster-${{ env.VERSION }}-android-arm64-vulkan/android.apk
-            artifacts/mememaster-${{ env.VERSION }}-android-arm64-cpu/android.apk
+            artifacts/linux-vulkan/bundle/lib/libmeme_llm.so
+            artifacts/linux-vulkan/bundle/meme_master
+            artifacts/linux-cpu/bundle/lib/libmeme_llm.so
+            artifacts/linux-cpu/bundle/meme_master
+            artifacts/macos-metal/mememaster.app.zip
+            artifacts/macos-cpu/mememaster.app.zip
+            artifacts/android-vulkan/android.apk
+            artifacts/android-cpu/android.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
