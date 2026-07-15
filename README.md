@@ -1,12 +1,12 @@
 # MemeMaster
 
-表情包管理工具 —— 导入、组织、智能搜索、颜色识别、语义分析。支持 Linux / macOS / Android 多平台。
+表情包管理工具 —— 导入、组织、智能搜索、颜色识别、语义分析。支持 Linux / macOS / Windows / Android 多平台。
 
 ## 功能
 
 - **图片导入** — 自动去重（SHA256 哈希），按日期归档存储
 - **颜色搜索** — HSV 滑块选色，CIE Lab ΔE 色差匹配
-- **OCR 文字识别** — Android: Google ML Kit / Linux/macOS: Tesseract CLI，支持中英文
+- **OCR 文字识别** — Android: Google ML Kit / Linux/macOS/Windows: Tesseract CLI，支持中英文
 - **AI 标签与描述** — OpenAI / Ollama / 本地 LLM 驱动，根据 OCR 结果自动生成标签和文字描述
 - **Token 用量追踪** — 记录每次 LLM 调用的 prompt/completion token 数，按日统计，支持查看今日用量和任意时间范围汇总
 - **统计页面** — 用户使用数据总览，包含 GitHub 风格热度图（贡献日历）、日期范围选择器（7/30/365 天）、导入/复制/收藏/Token 用量趋势列表
@@ -92,6 +92,38 @@ flutter build macos --release
 
 > **注意**: macOS OCR 使用 Tesseract CLI（`google_mlkit_text_recognition` 不可用于 macOS）。
 > **GPU 加速**: macOS 使用 Metal GPU 加速（Apple Silicon M1+ 推荐，Intel Mac 需 OpenCL）。
+
+### Windows 桌面
+
+#### 系统依赖
+
+```bash
+# Tesseract OCR (Chocolatey)
+choco install tesseract -y
+
+# 或者手动下载安装: https://github.com/UB-Mannheim/tesseract/wiki
+```
+
+#### 构建
+
+```bash
+# 克隆并构建 C++ 原生依赖
+./scripts/init-third-party.sh
+
+# 构建 C++ 原生库（CPU only，Vulkan GPU 可在 Phase 2 启用）
+# Windows 使用 CMake 构建 DLL
+mkdir -p build/windows-llm
+cd build/windows-llm
+cmake ../../windows/cpp -DENABLE_VULKAN=OFF
+cmake --build . --config Release
+
+# 构建 release 版本
+flutter build windows --release
+# 产物: build/windows/x64/release/bundle/meme_master.exe
+```
+
+> **注意**: Windows OCR 使用 Tesseract CLI（`google_mlkit_text_recognition` 不可用于 Windows）。
+> **GPU 加速**: Phase 1 仅支持 CPU 推理，Vulkan GPU 加速在 Phase 2 提供。
 
 ### Android (首次构建必读)
 
