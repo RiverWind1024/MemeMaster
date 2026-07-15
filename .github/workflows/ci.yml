@@ -622,21 +622,18 @@ jobs:
       - name: Bundle native library
         shell: pwsh
         run: |
-          $FLUTTER_BUNDLE = "build\windows\x64\runner\Release\bundle"
+          $FLUTTER_DIR = "build\windows\x64\runner\Release"
           $DLL_SOURCE = "build\windows-llm\Release\meme_llm.dll"
           if (Test-Path $DLL_SOURCE) {
-            if (-not (Test-Path $FLUTTER_BUNDLE)) {
-              New-Item -ItemType Directory -Path $FLUTTER_BUNDLE -Force | Out-Null
-            }
-            Copy-Item $DLL_SOURCE -Destination $FLUTTER_BUNDLE\ -Force
-            Write-Host "Copied meme_llm.dll to bundle"
+            Copy-Item $DLL_SOURCE -Destination $FLUTTER_DIR\ -Force
+            Write-Host "Copied meme_llm.dll to $FLUTTER_DIR"
           }
-          Get-ChildItem "$FLUTTER_BUNDLE\*.dll" | ForEach-Object { Write-Host $_.Name }
+          Get-ChildItem "$FLUTTER_DIR\*.dll" | ForEach-Object { Write-Host $_.Name }
 
       - name: Verify DLL
         shell: pwsh
         run: |
-          $DLL = "build\windows\x64\runner\Release\bundle\meme_llm.dll"
+          $DLL = "build\windows\x64\runner\Release\meme_llm.dll"
           if (Test-Path $DLL) {
             $size = (Get-Item $DLL).Length / 1MB
             Write-Host "meme_llm.dll size: $([math]::Round($size, 2)) MB"
@@ -647,7 +644,7 @@ jobs:
       - name: Package Windows artifact
         shell: pwsh
         run: |
-          $BUNDLE = "build\windows\x64\release\bundle"
+          $BUNDLE = "build\windows\x64\runner\Release"
           $VERSION = "${{ env.VERSION }}"
           Compress-Archive -Path "$BUNDLE\*" -DestinationPath "mememaster-${VERSION}-windows-x64-cpu.zip" -Force
           Get-Item "mememaster-${VERSION}-windows-x64-cpu.zip"
