@@ -578,8 +578,87 @@ jobs:
           path: mememaster-${{ env.VERSION }}-android-arm64-cpu.apk
           retention-days: 7
 
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Tesseract
+        shell: pwsh
+        run: |
+          choco install tesseract -y || echo "Tesseract installation may have failed"
+
+      - name: Setup Flutter
+        shell: pwsh
+        run: |
+          $FLUTTER_VERSION = "$env:FLUTTER_VERSION"
+          if (-not (Test-Path "$env:USERPROFILE\flutter")) {
+            Write-Host "Downloading Flutter $FLUTTER_VERSION for Windows..."
+            curl.exe -L "https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_${FLUTTER_VERSION}-stable.zip" -o "$env:TEMP\flutter.zip"
+            Expand-Archive -Path "$env:TEMP\flutter.zip" -DestinationPath "$env:USERPROFILE" -Force
+            Remove-Item "$env:TEMP\flutter.zip"
+          }
+          Write-Host "$env:USERPROFILE\flutter\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Init third-party (CPU only)
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "third_party\llama.cpp")) {
+            git clone --depth 1 https://github.com/ggml-org/llama.cpp.git third_party\llama.cpp
+          }
+
+      - name: Build meme_llm.dll (CPU only)
+        shell: pwsh
+        run: |
+          cmake -S windows/cpp -B build -DENABLE_VULKAN=OFF -DENABLE_OPENCL=OFF -DENABLE_CUDA=OFF
+          cmake --build build --config Release
+
+      - name: Build Windows
+        shell: pwsh
+        run: flutter build windows --release
+
+      - name: Bundle native library
+        shell: pwsh
+        run: |
+          $BUNDLE = "build\windows\x64\release\bundle"
+          if (Test-Path "build\Release\meme_llm.dll") {
+            Copy-Item "build\Release\meme_llm.dll" "$BUNDLE\" -Force
+            Write-Host "Copied meme_llm.dll to bundle"
+          }
+          Get-ChildItem "$BUNDLE\*.dll" | ForEach-Object { Write-Host $_.Name }
+
+      - name: Verify DLL
+        shell: pwsh
+        run: |
+          $DLL = "build\windows\x64\release\bundle\meme_llm.dll"
+          if (Test-Path $DLL) {
+            $size = (Get-Item $DLL).Length / 1MB
+            Write-Host "meme_llm.dll size: $([math]::Round($size, 2)) MB"
+          } else {
+            Write-Host "No meme_llm.dll found - may be using stub"
+          }
+
+      - name: Package Windows artifact
+        shell: pwsh
+        run: |
+          $BUNDLE = "build\windows\x64\release\bundle"
+          Compress-Archive -Path "$BUNDLE\*" -DestinationPath "mememaster-$env:VERSION-windows-x64-cpu.zip" -Force
+          Get-Item "mememaster-$env:VERSION-windows-x64-cpu.zip"
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mememaster-${{ env.VERSION }}-windows-x64-cpu
+          path: mememaster-${{ env.VERSION }}-windows-x64-cpu.zip
+          retention-days: 7
+
   release:
-    needs: [linux, linux-cpu, macos, macos-cpu, android-vulkan, android-cpu]
+    needs: [linux, linux-cpu, macos, macos-cpu, android-vulkan, android-cpu, windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
     steps:
@@ -623,6 +702,12 @@ jobs:
           name: mememaster-${{ env.VERSION }}-android-arm64-cpu
           path: artifacts/android-cpu
 
+      - name: Download Windows CPU
+        uses: actions/download-artifact@v4
+        with:
+          name: mememaster-${{ env.VERSION }}-windows-x64-cpu
+          path: artifacts/windows-cpu
+
       - name: Debug artifacts structure
         run: |
           echo "=== Linux Vulkan bundle ==="
@@ -652,5 +737,6 @@ jobs:
             artifacts/macos-cpu/mememaster-${{ env.VERSION }}-macos-arm64-cpu.zip
             artifacts/android-vulkan/mememaster-${{ env.VERSION }}-android-arm64-vulkan.apk
             artifacts/android-cpu/mememaster-${{ env.VERSION }}-android-arm64-cpu.apk
+            artifacts/windows-cpu/mememaster-${{ env.VERSION }}-windows-x64-cpu.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
