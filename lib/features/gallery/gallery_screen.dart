@@ -549,11 +549,11 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           },
           child: GridView.builder(
             padding: const EdgeInsets.all(4),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 200,
-              mainAxisSpacing: 4,
-              crossAxisSpacing: 4,
-            ),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 150,
+          mainAxisSpacing: 4,
+          crossAxisSpacing: 4,
+        ),
             itemCount: memes.length,
             itemBuilder: (context, index) {
               final meme = memes[index];
