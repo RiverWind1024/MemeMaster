@@ -39,7 +39,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
@@ -81,6 +81,10 @@ class AppDatabase extends _$AppDatabase {
           await m.create(colorAnalysisQueueTable);
           await m.create(ocrAnalysisQueueTable);
           await m.create(aiAnalysisQueueTable);
+        }
+        if (from < 5) {
+          // 添加软删除时间戳（用于 S3 增量同步）
+          await m.addColumn(memesTable, memesTable.deletedAt);
         }
       },
     );

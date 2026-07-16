@@ -30,9 +30,13 @@ class MemeSyncData {
         'folderId': meme.folderId,
         'description': meme.description,
         'analysisStatus': meme.analysisStatus,
+        'colorAnalysisStatus': meme.colorAnalysisStatus,
+        'ocrAnalysisStatus': meme.ocrAnalysisStatus,
+        'aiAnalysisStatus': meme.aiAnalysisStatus,
         'createdAt': meme.createdAt,
         'updatedAt': meme.updatedAt,
         'importedAt': meme.importedAt,
+        'deletedAt': meme.deletedAt,
         'tags': tags
             .map((t) => {
                   'id': t.id,
@@ -68,36 +72,39 @@ class MemeSyncData {
         height: json['height'] as int,
         folderId: json['folderId'] as String?,
         description: json['description'] as String?,
-        analysisStatus: json['analysisStatus'] as String,
-        colorAnalysisStatus: 'pending',
-        ocrAnalysisStatus: 'pending',
-        aiAnalysisStatus: 'pending',
+        analysisStatus: json['analysisStatus'] as String? ?? 'pending',
+        colorAnalysisStatus: json['colorAnalysisStatus'] as String? ?? 'pending',
+        ocrAnalysisStatus: json['ocrAnalysisStatus'] as String? ?? 'pending',
+        aiAnalysisStatus: json['aiAnalysisStatus'] as String? ?? 'pending',
         copyCount: json['copyCount'] as int? ?? 0,
         source: json['source'] as String?,
         createdAt: json['createdAt'] as int,
         updatedAt: json['updatedAt'] as int,
         importedAt: json['importedAt'] as int,
+        deletedAt: json['deletedAt'] as int?,
       ),
-      tags: (json['tags'] as List)
-          .map((t) => TagEntry(
-                id: t['id'] as String,
-                memeId: t['memeId'] as String,
-                source: t['source'] as String,
-                content: t['content'] as String,
-                confidence: (t['confidence'] as num).toDouble(),
-              ))
-          .toList(),
-      colors: (json['colors'] as List)
-          .map((c) => ColorEntry(
-                id: c['id'] as String,
-                memeId: c['memeId'] as String,
-                hexColor: c['hexColor'] as String,
-                labL: (c['labL'] as num).toDouble(),
-                labA: (c['labA'] as num).toDouble(),
-                labB: (c['labB'] as num).toDouble(),
-                ratio: (c['ratio'] as num).toDouble(),
-              ))
-          .toList(),
+      tags: (json['tags'] as List?)
+              ?.map((t) => TagEntry(
+                    id: t['id'] as String,
+                    memeId: t['memeId'] as String,
+                    source: t['source'] as String,
+                    content: t['content'] as String,
+                    confidence: (t['confidence'] as num).toDouble(),
+                  ))
+              .toList() ??
+          [],
+      colors: (json['colors'] as List?)
+              ?.map((c) => ColorEntry(
+                    id: c['id'] as String,
+                    memeId: c['memeId'] as String,
+                    hexColor: c['hexColor'] as String,
+                    labL: (c['labL'] as num).toDouble(),
+                    labA: (c['labA'] as num).toDouble(),
+                    labB: (c['labB'] as num).toDouble(),
+                    ratio: (c['ratio'] as num).toDouble(),
+                  ))
+              .toList() ??
+          [],
     );
   }
 }
@@ -228,29 +235,29 @@ class S3SyncSerializer {
       await _db.delete(_db.memesTable).go();
       await _db.delete(_db.albumsTable).go();
 
-      // 2. 导入 albums
-      for (final album in data.albums) {
-        await _db.into(_db.albumsTable).insertOnConflictUpdate(album);
-      }
+      // 2. 批量导入 albums
+      await _db.batch((batch) {
+        batch.insertAllOnConflictUpdate(_db.albumsTable, data.albums);
+      });
 
-      // 3. 导入 memes
-      for (final memeData in data.memes) {
-        await _db.into(_db.memesTable).insertOnConflictUpdate(memeData.meme);
-
-        // 4. 导入 tags
-        for (final tag in memeData.tags) {
-          await _db.into(_db.tagsTable).insertOnConflictUpdate(tag);
+      // 3. 批量导入 memes + tags + colors
+      await _db.batch((batch) {
+        for (final memeData in data.memes) {
+          batch.insertAllOnConflictUpdate(_db.memesTable, [memeData.meme]);
+          if (memeData.tags.isNotEmpty) {
+            batch.insertAllOnConflictUpdate(_db.tagsTable, memeData.tags);
+          }
+          if (memeData.colors.isNotEmpty) {
+            batch.insertAllOnConflictUpdate(_db.colorsTable, memeData.colors);
+          }
         }
+      });
 
-        // 5. 导入 colors
-        for (final color in memeData.colors) {
-          await _db.into(_db.colorsTable).insertOnConflictUpdate(color);
-        }
-      }
-
-      // 6. 导入 meme-album 关联
-      for (final ma in data.memeAlbums) {
-        await _db.into(_db.memeAlbumsTable).insertOnConflictUpdate(ma);
+      // 4. 批量导入 meme-album 关联
+      if (data.memeAlbums.isNotEmpty) {
+        await _db.batch((batch) {
+          batch.insertAllOnConflictUpdate(_db.memeAlbumsTable, data.memeAlbums);
+        });
       }
     });
   }

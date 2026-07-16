@@ -22,15 +22,17 @@ class MemeDao {
     });
   }
 
-  /// 根据 ID 查询
+  /// 根据 ID 查询（排除已删除）
   Future<Meme?> getById(String id) async {
-    return await (_db.select(_db.memesTable)..where((t) => t.id.equals(id)))
+    return await (_db.select(_db.memesTable)
+          ..where((t) => t.id.equals(id) & t.deletedAt.isNull()))
         .getSingleOrNull();
   }
 
-  /// 获取所有 meme, 按导入时间降序
+  /// 获取所有未删除的 meme, 按导入时间降序
   Future<List<Meme>> getAll({int? limit, int? offset}) {
     final query = _db.select(_db.memesTable)
+      ..where((t) => t.deletedAt.isNull())
       ..orderBy([(t) => OrderingTerm.desc(t.importedAt)]);
     if (limit != null) {
       query.limit(limit, offset: offset);
@@ -38,10 +40,10 @@ class MemeDao {
     return query.get();
   }
 
-  /// 获取分析状态为 done 的 meme
+  /// 获取分析状态为 done 的未删除 meme
   Future<List<Meme>> getAnalyzed({int? limit, int? offset}) {
     final query = _db.select(_db.memesTable)
-      ..where((t) => t.analysisStatus.equals('done'))
+      ..where((t) => t.analysisStatus.equals('done') & t.deletedAt.isNull())
       ..orderBy([(t) => OrderingTerm.desc(t.importedAt)]);
     if (limit != null) {
       query.limit(limit, offset: offset);
@@ -49,18 +51,18 @@ class MemeDao {
     return query.get();
   }
 
-  /// 获取文件夹下的 meme
+  /// 获取文件夹下的未删除 meme
   Future<List<Meme>> getByFolderId(String folderId) {
     return (_db.select(_db.memesTable)
-          ..where((t) => t.folderId.equals(folderId))
+          ..where((t) => t.folderId.equals(folderId) & t.deletedAt.isNull())
           ..orderBy([(t) => OrderingTerm.desc(t.importedAt)]))
         .get();
   }
 
-  /// 按文件哈希去重
+  /// 按文件哈希去重（排除已删除）
   Future<Meme?> getByFileHash(String hash) {
     return (_db.select(_db.memesTable)
-          ..where((t) => t.fileHash.equals(hash)))
+          ..where((t) => t.fileHash.equals(hash) & t.deletedAt.isNull()))
         .getSingleOrNull();
   }
 
@@ -102,6 +104,7 @@ class MemeDao {
         importedAt: d['imported_at'] as int,
         copyCount: d['copy_count'] as int? ?? 0,
         source: d['source'] as String?,
+        deletedAt: d['deleted_at'] as int?,
       ));
     }
     return result;
@@ -184,9 +187,28 @@ class MemeDao {
         ));
   }
 
-  /// 删除
-  Future<int> delete(String id) async {
+  /// 软删除（设置 deletedAt，用于 S3 增量同步传播删除）
+  Future<int> softDelete(String id) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return await (_db.update(_db.memesTable)
+          ..where((t) => t.id.equals(id)))
+        .write(MemesTableCompanion(
+          deletedAt: Value(now),
+          updatedAt: Value(now),
+        ));
+  }
+
+  /// 硬删除（物理删除，用于用户主动删除操作）
+  Future<int> hardDelete(String id) async {
     return await (_db.delete(_db.memesTable)..where((t) => t.id.equals(id))).go();
+  }
+
+  /// 获取指定时间戳之后被软删除的 meme（用于 S3 增量同步）
+  Future<List<Meme>> getDeletedSince(int timestamp) async {
+    return (_db.select(_db.memesTable)
+          ..where((t) => t.deletedAt.isBiggerThanValue(timestamp))
+          ..orderBy([(t) => OrderingTerm.asc(t.deletedAt)]))
+        .get();
   }
 
   /// 统计总数
@@ -233,6 +255,7 @@ class MemeDao {
         importedAt: d['imported_at'] as int,
         copyCount: d['copy_count'] as int? ?? 0,
         source: d['source'] as String?,
+        deletedAt: d['deleted_at'] as int?,
       );
     }).toList();
   }

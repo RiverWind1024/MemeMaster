@@ -216,6 +216,17 @@ class $MemesTableTable extends MemesTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -237,6 +248,7 @@ class $MemesTableTable extends MemesTable
     importedAt,
     copyCount,
     source,
+    deletedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -398,6 +410,12 @@ class $MemesTableTable extends MemesTable
         source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
       );
     }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -483,6 +501,10 @@ class $MemesTableTable extends MemesTable
         DriftSqlType.string,
         data['${effectivePrefix}source'],
       ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted_at'],
+      ),
     );
   }
 
@@ -524,6 +546,9 @@ class Meme extends DataClass implements Insertable<Meme> {
 
   /// 图片来源：clipboard, wechat, album, bilibili, system_share, manual_import, drag_drop 等
   final String? source;
+
+  /// 软删除时间戳（用于 S3 增量同步），null 表示未删除
+  final int? deletedAt;
   const Meme({
     required this.id,
     required this.filename,
@@ -544,6 +569,7 @@ class Meme extends DataClass implements Insertable<Meme> {
     required this.importedAt,
     required this.copyCount,
     this.source,
+    this.deletedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -572,6 +598,9 @@ class Meme extends DataClass implements Insertable<Meme> {
     map['copy_count'] = Variable<int>(copyCount);
     if (!nullToAbsent || source != null) {
       map['source'] = Variable<String>(source);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
     }
     return map;
   }
@@ -603,6 +632,9 @@ class Meme extends DataClass implements Insertable<Meme> {
       source: source == null && nullToAbsent
           ? const Value.absent()
           : Value(source),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
     );
   }
 
@@ -633,6 +665,7 @@ class Meme extends DataClass implements Insertable<Meme> {
       importedAt: serializer.fromJson<int>(json['importedAt']),
       copyCount: serializer.fromJson<int>(json['copyCount']),
       source: serializer.fromJson<String?>(json['source']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
     );
   }
   @override
@@ -658,6 +691,7 @@ class Meme extends DataClass implements Insertable<Meme> {
       'importedAt': serializer.toJson<int>(importedAt),
       'copyCount': serializer.toJson<int>(copyCount),
       'source': serializer.toJson<String?>(source),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
     };
   }
 
@@ -681,6 +715,7 @@ class Meme extends DataClass implements Insertable<Meme> {
     int? importedAt,
     int? copyCount,
     Value<String?> source = const Value.absent(),
+    Value<int?> deletedAt = const Value.absent(),
   }) => Meme(
     id: id ?? this.id,
     filename: filename ?? this.filename,
@@ -701,6 +736,7 @@ class Meme extends DataClass implements Insertable<Meme> {
     importedAt: importedAt ?? this.importedAt,
     copyCount: copyCount ?? this.copyCount,
     source: source.present ? source.value : this.source,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
   );
   Meme copyWithCompanion(MemesTableCompanion data) {
     return Meme(
@@ -735,6 +771,7 @@ class Meme extends DataClass implements Insertable<Meme> {
           : this.importedAt,
       copyCount: data.copyCount.present ? data.copyCount.value : this.copyCount,
       source: data.source.present ? data.source.value : this.source,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
     );
   }
 
@@ -759,7 +796,8 @@ class Meme extends DataClass implements Insertable<Meme> {
           ..write('updatedAt: $updatedAt, ')
           ..write('importedAt: $importedAt, ')
           ..write('copyCount: $copyCount, ')
-          ..write('source: $source')
+          ..write('source: $source, ')
+          ..write('deletedAt: $deletedAt')
           ..write(')'))
         .toString();
   }
@@ -785,6 +823,7 @@ class Meme extends DataClass implements Insertable<Meme> {
     importedAt,
     copyCount,
     source,
+    deletedAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -808,7 +847,8 @@ class Meme extends DataClass implements Insertable<Meme> {
           other.updatedAt == this.updatedAt &&
           other.importedAt == this.importedAt &&
           other.copyCount == this.copyCount &&
-          other.source == this.source);
+          other.source == this.source &&
+          other.deletedAt == this.deletedAt);
 }
 
 class MemesTableCompanion extends UpdateCompanion<Meme> {
@@ -831,6 +871,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
   final Value<int> importedAt;
   final Value<int> copyCount;
   final Value<String?> source;
+  final Value<int?> deletedAt;
   final Value<int> rowid;
   const MemesTableCompanion({
     this.id = const Value.absent(),
@@ -852,6 +893,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     this.importedAt = const Value.absent(),
     this.copyCount = const Value.absent(),
     this.source = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MemesTableCompanion.insert({
@@ -874,6 +916,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     required int importedAt,
     this.copyCount = const Value.absent(),
     this.source = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        filename = Value(filename),
@@ -906,6 +949,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     Expression<int>? importedAt,
     Expression<int>? copyCount,
     Expression<String>? source,
+    Expression<int>? deletedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -929,6 +973,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
       if (importedAt != null) 'imported_at': importedAt,
       if (copyCount != null) 'copy_count': copyCount,
       if (source != null) 'source': source,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -953,6 +998,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     Value<int>? importedAt,
     Value<int>? copyCount,
     Value<String?>? source,
+    Value<int?>? deletedAt,
     Value<int>? rowid,
   }) {
     return MemesTableCompanion(
@@ -975,6 +1021,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
       importedAt: importedAt ?? this.importedAt,
       copyCount: copyCount ?? this.copyCount,
       source: source ?? this.source,
+      deletedAt: deletedAt ?? this.deletedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1041,6 +1088,9 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     if (source.present) {
       map['source'] = Variable<String>(source.value);
     }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1069,6 +1119,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
           ..write('importedAt: $importedAt, ')
           ..write('copyCount: $copyCount, ')
           ..write('source: $source, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5870,6 +5921,7 @@ typedef $$MemesTableTableCreateCompanionBuilder =
       required int importedAt,
       Value<int> copyCount,
       Value<String?> source,
+      Value<int?> deletedAt,
       Value<int> rowid,
     });
 typedef $$MemesTableTableUpdateCompanionBuilder =
@@ -5893,6 +5945,7 @@ typedef $$MemesTableTableUpdateCompanionBuilder =
       Value<int> importedAt,
       Value<int> copyCount,
       Value<String?> source,
+      Value<int?> deletedAt,
       Value<int> rowid,
     });
 
@@ -6169,6 +6222,11 @@ class $$MemesTableTableFilterComposer
 
   ColumnFilters<String> get source => $composableBuilder(
     column: $table.source,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6453,6 +6511,11 @@ class $$MemesTableTableOrderingComposer
     column: $table.source,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MemesTableTableAnnotationComposer
@@ -6532,6 +6595,9 @@ class $$MemesTableTableAnnotationComposer
 
   GeneratedColumn<String> get source =>
       $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
   Expression<T> tagsTableRefs<T extends Object>(
     Expression<T> Function($$TagsTableTableAnnotationComposer a) f,
@@ -6769,6 +6835,7 @@ class $$MemesTableTableTableManager
                 Value<int> importedAt = const Value.absent(),
                 Value<int> copyCount = const Value.absent(),
                 Value<String?> source = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemesTableCompanion(
                 id: id,
@@ -6790,6 +6857,7 @@ class $$MemesTableTableTableManager
                 importedAt: importedAt,
                 copyCount: copyCount,
                 source: source,
+                deletedAt: deletedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6813,6 +6881,7 @@ class $$MemesTableTableTableManager
                 required int importedAt,
                 Value<int> copyCount = const Value.absent(),
                 Value<String?> source = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemesTableCompanion.insert(
                 id: id,
@@ -6834,6 +6903,7 @@ class $$MemesTableTableTableManager
                 importedAt: importedAt,
                 copyCount: copyCount,
                 source: source,
+                deletedAt: deletedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

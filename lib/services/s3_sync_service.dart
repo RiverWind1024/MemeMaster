@@ -210,8 +210,9 @@ class S3SyncService {
     final objectKey = 'memes/${meme.fileHash}${_ext(meme.filePath)}';
     try {
       await _getClient().statObject(_config.bucket, objectKey);
-      // 已存在则跳过
+      // 文件已存在则跳过
     } on MinioS3Error {
+      // 文件不存在，上传
       final file = await _storage.getImage(meme.filePath);
       await _getClient().fPutObject(
         _config.bucket,
@@ -224,10 +225,11 @@ class S3SyncService {
   Future<dynamic> _getJson(String key) async {
     try {
       final stream = await _getClient().getObject(_config.bucket, key);
-      final allBytes = await stream.fold<Uint8List>(
-        Uint8List(0),
-        (prev, chunk) => Uint8List.fromList([...prev, ...chunk]),
-      );
+      final builder = BytesBuilder();
+      await for (final chunk in stream) {
+        builder.add(chunk);
+      }
+      final allBytes = builder.takeBytes();
       return jsonDecode(utf8.decode(allBytes));
     } on MinioS3Error {
       return null;
@@ -273,7 +275,7 @@ class S3SyncService {
     const storage = FlutterSecureStorage();
     final storedPw = await storage.read(key: 's3_clear_password');
     if (storedPw == null || storedPw != password) {
-      throw ArgumentError('密码错误');
+      throw ArgumentError('清空密码验证失败，请检查密码是否正确');
     }
 
     final client = _getClient();
@@ -449,24 +451,33 @@ class S3SyncService {
               );
               return;
             }
-            try {
-              await _uploadImageIfNeeded(meme);
-            } catch (e) {
-              _log?.warning('增量上传图片失败', '$meme.filename: $e');
-            }
-            completed++;
 
-            // 上传单条 meme 元数据
-            try {
-              final memeData = await _serializer.exportSingleMeme(meme.id);
-              if (memeData != null) {
-                final key = 'data/memes/${meme.id}.json';
-                await _uploadJson(key, memeData.toJson());
+            if (meme.deletedAt != null) {
+              // 墓碑：通知 S3 删除该 meme 的元数据和图片
+              try {
+                await _deleteRemoteMeme(meme.id, meme.fileHash, meme.filePath);
+                _log?.info('S3Sync', '已删除远程 meme: ${meme.id}');
+              } catch (e) {
+                _log?.warning('S3Sync', '删除远程 meme 失败: ${meme.id}, $e');
               }
-            } catch (e) {
-              _log?.warning('增量上传元数据失败', '$meme.filename: $e');
+            } else {
+              // 并发上传图片和元数据
+              await Future.wait([
+                _uploadImageIfNeeded(meme).catchError((e) {
+                  _log?.warning('增量上传图片失败', '${meme.filename}: $e');
+                }),
+                _serializer.exportSingleMeme(meme.id).then((memeData) async {
+                  if (memeData != null) {
+                    final key = 'data/memes/${meme.id}.json';
+                    await _uploadJson(key, memeData.toJson());
+                  }
+                }).catchError((e) {
+                  _log?.warning('增量上传元数据失败', '${meme.filename}: $e');
+                }),
+              ]);
             }
 
+            completed++;
             yield S3SyncProgress(
               status: S3SyncStatus.uploading,
               completed: completed,
@@ -477,7 +488,6 @@ class S3SyncService {
       }
 
       // Phase 2: 从 S3 拉取更新（S3 有新数据 → 本地）
-      // 获取 S3 上所有 meme 元数据文件
       final s3MemeKeys = <String>[];
       try {
         final results = _getClient().listObjects(_config.bucket, prefix: 'data/memes/', recursive: true);
@@ -492,34 +502,65 @@ class S3SyncService {
         _log?.warning('S3', '列出 S3 meme 文件失败: $e');
       }
 
-      // 下载 S3 上的新 meme 数据
       if (s3MemeKeys.isNotEmpty) {
-        final localMemeIds = await _memeRepo.getAll().then((memes) => memes.map((m) => m.id).toSet());
+        // 一次性加载所有本地 meme 到内存，用 Map 索引（N+1 优化）
+        final allLocalMemes = await _memeRepo.getAll();
+        final localMemeMap = {for (final m in allLocalMemes) m.id: m};
+
         final newMemeKeys = <String>[];
         final updatedMemeKeys = <String>[];
+        final tombstoneKeys = <String>[];
 
         for (final key in s3MemeKeys) {
           final memeId = key.split('/').last.replaceAll('.json', '');
-          if (!localMemeIds.contains(memeId)) {
-            newMemeKeys.add(key);
-          } else {
-            // 检查 S3 上的更新时间是否比本地新
-            try {
-              final s3Data = await _getJson(key);
-              if (s3Data != null && s3Data['updatedAt'] != null) {
-                final s3UpdatedAt = s3Data['updatedAt'] as int;
-                final localMeme = await _memeRepo.getById(memeId);
-                if (localMeme != null && s3UpdatedAt > localMeme.updatedAt) {
-                  updatedMemeKeys.add(key);
-                }
+          final localMeme = localMemeMap[memeId];
+
+          try {
+            final s3Data = await _getJson(key);
+            if (s3Data == null) continue;
+
+            final s3DeletedAt = s3Data['deletedAt'] as int?;
+
+            if (s3DeletedAt != null) {
+              // S3 上的墓碑：如果本地存在该 meme，执行软删除
+              if (localMeme != null && localMeme.deletedAt == null) {
+                tombstoneKeys.add(key);
               }
-            } catch (e) {
-              _log?.warning('S3', '检查 S3 meme 更新时间失败: $e');
+            } else if (localMeme == null) {
+              // 本地不存在，是新增
+              newMemeKeys.add(key);
+            } else if (s3Data['updatedAt'] != null) {
+              // 检查更新时间，决定是否更新
+              final s3UpdatedAt = s3Data['updatedAt'] as int;
+              if (s3UpdatedAt > localMeme.updatedAt) {
+                updatedMemeKeys.add(key);
+              }
             }
+          } catch (e) {
+            _log?.warning('S3', '检查 S3 meme 状态失败: $key, $e');
           }
         }
 
-        // 下载新 meme
+        // 处理墓碑（本地软删除）
+        for (final key in tombstoneKeys) {
+          if (_cancelled) {
+            yield S3SyncProgress(
+              status: S3SyncStatus.idle,
+              errorMessage: '已取消',
+            );
+            return;
+          }
+
+          try {
+            final memeId = key.split('/').last.replaceAll('.json', '');
+            await _memeRepo.softDelete(memeId);
+            _log?.info('S3Sync', '已本地软删除 meme: $memeId');
+          } catch (e) {
+            _log?.warning('S3', '本地软删除失败: $key, $e');
+          }
+        }
+
+        // 下载新 meme 和更新
         if (newMemeKeys.isNotEmpty || updatedMemeKeys.isNotEmpty) {
           final totalDownloadSteps = newMemeKeys.length + updatedMemeKeys.length;
           yield S3SyncProgress(
@@ -556,7 +597,7 @@ class S3SyncService {
                 await _downloadImageIfNeeded(memeSyncData.meme);
               }
             } catch (e) {
-              _log?.warning('S3', '下载 S3 meme 数据失败: $e');
+              _log?.warning('S3', '下载 S3 meme 数据失败: $key, $e');
             }
 
             completed++;
@@ -584,6 +625,29 @@ class S3SyncService {
     }
   }
 
+  /// 删除 S3 上的 meme 元数据和图片
+  Future<void> _deleteRemoteMeme(String memeId, String fileHash, String filePath) async {
+    final client = _getClient();
+
+    // 删除元数据 JSON
+    final metadataKey = 'data/memes/$memeId.json';
+    try {
+      await client.removeObject(_config.bucket, metadataKey);
+    } on MinioS3Error {
+      // 文件不存在，忽略
+    }
+
+    // 删除图片（如果 fileHash 可用）
+    if (fileHash.isNotEmpty) {
+      final imageKey = 'memes/$fileHash${_ext(filePath)}';
+      try {
+        await client.removeObject(_config.bucket, imageKey);
+      } on MinioS3Error {
+        // 文件不存在，忽略
+      }
+    }
+  }
+
   // ---- 定时同步 ----
 
   /// 启动定时同步
@@ -607,5 +671,11 @@ class S3SyncService {
     _periodicTimer?.cancel();
     _periodicTimer = null;
     _log?.info('S3Sync', '定时同步已停止');
+  }
+
+  /// 释放资源（Provider 重建时调用）
+  void dispose() {
+    stopPeriodicSync();
+    _client = null;
   }
 }

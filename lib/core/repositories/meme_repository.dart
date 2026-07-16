@@ -104,7 +104,7 @@ class MemeRepository {
     await _aiQueueDao.deleteByMemeId(id);
     // 清理相册关联，避免外键约束异常
     await _albumDao.removeMemeFromAllAlbums(id);
-    await _memeDao.delete(id);
+    await _memeDao.hardDelete(id);
 
     if (deleteFile && meme != null && meme.filePath.isNotEmpty) {
       try {
@@ -133,6 +133,8 @@ class MemeRepository {
       _memeDao.hasChangesSince(timestamp);
   Future<List<Meme>> getUpdatedSince(int timestamp) =>
       _memeDao.getUpdatedSince(timestamp);
+  Future<List<Meme>> getDeletedSince(int timestamp) =>
+      _memeDao.getDeletedSince(timestamp);
 
   // ---- 排序 ----
 

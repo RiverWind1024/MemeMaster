@@ -33,6 +33,9 @@ class MemesTable extends Table {
   /// 图片来源：clipboard, wechat, album, bilibili, system_share, manual_import, drag_drop 等
   TextColumn? get source => text().nullable()();
 
+  /// 软删除时间戳（用于 S3 增量同步），null 表示未删除
+  IntColumn? get deletedAt => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
