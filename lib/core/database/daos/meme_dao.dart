@@ -198,17 +198,19 @@ class MemeDao {
         ));
   }
 
-  /// 硬删除（物理删除，用于用户主动删除操作）
-  Future<int> hardDelete(String id) async {
-    return await (_db.delete(_db.memesTable)..where((t) => t.id.equals(id))).go();
+  /// 软删除并指定时间戳（用于 S3 同步墓碑，保持与远程一致）
+  Future<int> softDeleteWithTimestamp(String id, int deletedAt) async {
+    return await (_db.update(_db.memesTable)
+          ..where((t) => t.id.equals(id)))
+        .write(MemesTableCompanion(
+          deletedAt: Value(deletedAt),
+          updatedAt: Value(DateTime.now().millisecondsSinceEpoch),
+        ));
   }
 
-  /// 获取指定时间戳之后被软删除的 meme（用于 S3 增量同步）
-  Future<List<Meme>> getDeletedSince(int timestamp) async {
-    return (_db.select(_db.memesTable)
-          ..where((t) => t.deletedAt.isBiggerThanValue(timestamp))
-          ..orderBy([(t) => OrderingTerm.asc(t.deletedAt)]))
-        .get();
+  /// 硬删除（物理删除，用于数据清理等特殊场景）
+  Future<int> hardDelete(String id) async {
+    return await (_db.delete(_db.memesTable)..where((t) => t.id.equals(id))).go();
   }
 
   /// 统计总数

@@ -509,7 +509,8 @@ class S3SyncService {
 
         final newMemeKeys = <String>[];
         final updatedMemeKeys = <String>[];
-        final tombstoneKeys = <String>[];
+        // 墓碑：key → deletedAt 时间戳
+        final tombstoneEntries = <String, int>{};
 
         for (final key in s3MemeKeys) {
           final memeId = key.split('/').last.replaceAll('.json', '');
@@ -524,7 +525,7 @@ class S3SyncService {
             if (s3DeletedAt != null) {
               // S3 上的墓碑：如果本地存在该 meme，执行软删除
               if (localMeme != null && localMeme.deletedAt == null) {
-                tombstoneKeys.add(key);
+                tombstoneEntries[key] = s3DeletedAt;
               }
             } else if (localMeme == null) {
               // 本地不存在，是新增
@@ -541,8 +542,8 @@ class S3SyncService {
           }
         }
 
-        // 处理墓碑（本地软删除）
-        for (final key in tombstoneKeys) {
+        // 处理墓碑（本地软删除，使用 S3 上的原始时间戳）
+        for (final entry in tombstoneEntries.entries) {
           if (_cancelled) {
             yield S3SyncProgress(
               status: S3SyncStatus.idle,
@@ -552,11 +553,13 @@ class S3SyncService {
           }
 
           try {
+            final key = entry.key;
+            final deletedAt = entry.value;
             final memeId = key.split('/').last.replaceAll('.json', '');
-            await _memeRepo.softDelete(memeId);
+            await _memeRepo.softDeleteWithTimestamp(memeId, deletedAt);
             _log?.info('S3Sync', '已本地软删除 meme: $memeId');
           } catch (e) {
-            _log?.warning('S3', '本地软删除失败: $key, $e');
+            _log?.warning('S3', '本地软删除失败: ${entry.key}, $e');
           }
         }
 

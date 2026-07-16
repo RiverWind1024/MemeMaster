@@ -91,6 +91,7 @@ class MemeRepository {
 
   /// 删除 meme 及其关联数据（颜色/标签/队列/文件）
   ///
+  /// 使用软删除（设置 deletedAt）以支持 S3 增量同步传播删除到其他设备。
   /// [deleteFile] 是否同时删除物理文件（默认 true）
   Future<void> delete(String id, {bool deleteFile = true}) async {
     final meme = await _memeDao.getById(id);
@@ -104,7 +105,8 @@ class MemeRepository {
     await _aiQueueDao.deleteByMemeId(id);
     // 清理相册关联，避免外键约束异常
     await _albumDao.removeMemeFromAllAlbums(id);
-    await _memeDao.hardDelete(id);
+    // 软删除（墓碑），同步时会传播到 S3
+    await _memeDao.softDelete(id);
 
     if (deleteFile && meme != null && meme.filePath.isNotEmpty) {
       try {
@@ -133,8 +135,8 @@ class MemeRepository {
       _memeDao.hasChangesSince(timestamp);
   Future<List<Meme>> getUpdatedSince(int timestamp) =>
       _memeDao.getUpdatedSince(timestamp);
-  Future<List<Meme>> getDeletedSince(int timestamp) =>
-      _memeDao.getDeletedSince(timestamp);
+  Future<int> softDeleteWithTimestamp(String id, int deletedAt) =>
+      _memeDao.softDeleteWithTimestamp(id, deletedAt);
 
   // ---- 排序 ----
 
