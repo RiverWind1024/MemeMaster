@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/ocr/ocr_service.dart';
 import '../../services/config_exporter.dart';
@@ -22,7 +23,19 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  PackageInfo? _packageInfo;
   int _versionTapCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPackageInfo();
+  }
+
+  Future<void> _loadPackageInfo() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) setState(() => _packageInfo = info);
+  }
 
   void _onVersionTap() {
     _versionTapCount++;
@@ -470,7 +483,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: ListTile(
               leading: Icon(Icons.info_outline),
               title: Text('MemeMaster'),
-              subtitle: Text('v1.0.0'),
+              subtitle: Text('v${_packageInfo?.version ?? "1.0.0"}'),
               onTap: _onVersionTap,
             ),
           ),
