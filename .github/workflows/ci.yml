@@ -548,6 +548,22 @@ jobs:
            echo "android.useAndroidX=true" >> android/gradle.properties
            echo "android.enableJetifier=false" >> android/gradle.properties
 
+      - name: Setup Android signing
+        run: |
+          keytool -genkey -v -keystore android/app/release-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias mememaster -storepass mememaster -keypass mememaster -dname "CN=MemeMaster, OU=Development, O=MemeMaster, L=Shanghai, ST=Shanghai, C=CN"
+          printf 'storePassword=mememaster\nkeyPassword=mememaster\nkeyAlias=mememaster\nstoreFile=release-keystore.jks\n' > android/key.properties
+
+      - name: Debug signing files
+        run: |
+          echo "=== key.properties ==="
+          cat android/key.properties
+          echo ""
+          echo "=== keystore file ==="
+          ls -la android/app/release-keystore.jks
+          echo ""
+          echo "=== pwd ==="
+          pwd
+
       - name: Build Android APK (CPU only)
         run: |
           flutter build apk --release 2>&1
