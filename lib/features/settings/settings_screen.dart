@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/ocr/ocr_service.dart';
 import '../../services/config_exporter.dart';
+import '../../services/log_service.dart';
 import '../../services/opencl_diagnostic.dart';
 import '../../services/s3_config.dart';
 import '../../core/image/color_extraction_config.dart';
@@ -784,17 +785,25 @@ void _showLocalePicker(BuildContext context, WidgetRef ref) {
 }
 
 Future<void> _onOcrToggle(bool value, WidgetRef ref, BuildContext ctx) async {
+  final log = ref.read(logServiceProvider);
+
   if (!value) {
     // 关闭 OCR：直接禁用
+    log.info('OCR', '用户关闭 OCR 开关');
     ref.read(ocrEnabledProvider.notifier).setEnabled(false);
     ref.read(analysisSchedulerProvider).setOcrEnabled(false);
     return;
   }
 
   // 开启 OCR：检查依赖
+  log.info('OCR', '用户尝试开启 OCR 开关，平台: ${Platform.operatingSystem}');
+
   if (Platform.isLinux) {
+    log.info('OCR', '检查 Linux Tesseract 安装状态...');
     final installed = await OcrService.linuxCheckInstalled();
+    log.info('OCR', 'Linux Tesseract 安装状态: $installed');
     if (!installed) {
+      log.warning('OCR', 'Linux Tesseract 未安装，显示安装对话框');
       // 显示安装对话框
       final confirmed = await showDialog<bool>(
         context: ctx,
@@ -816,11 +825,17 @@ Future<void> _onOcrToggle(bool value, WidgetRef ref, BuildContext ctx) async {
         ),
       );
 
-      if (confirmed != true) return; // 用户取消
+      if (confirmed != true) {
+        log.info('OCR', '用户取消安装 Tesseract');
+        return; // 用户取消
+      }
 
       // 执行安装
+      log.info('OCR', '开始自动安装 Tesseract...');
       final success = await OcrService.linuxTryInstall();
+      log.info('OCR', 'Tesseract 安装结果: $success');
       if (!success) {
+        log.error('OCR', 'Tesseract 自动安装失败');
         if (ctx.mounted) {
           ScaffoldMessenger.of(ctx).showSnackBar(
             const SnackBar(
@@ -832,9 +847,12 @@ Future<void> _onOcrToggle(bool value, WidgetRef ref, BuildContext ctx) async {
       }
     }
   } else if (Platform.isMacOS) {
+    log.info('OCR', '检查 macOS Tesseract 安装状态...');
     // macOS: 只检查 Tesseract 是否安装，不提供自动安装
     final installed = await OcrService.macOSCheckInstalled();
+    log.info('OCR', 'macOS Tesseract 安装状态: $installed');
     if (!installed) {
+      log.warning('OCR', 'macOS Tesseract 未安装，提示用户手动安装');
       if (ctx.mounted) {
         ScaffoldMessenger.of(ctx).showSnackBar(
           const SnackBar(
@@ -845,9 +863,26 @@ Future<void> _onOcrToggle(bool value, WidgetRef ref, BuildContext ctx) async {
       }
       return;
     }
+  } else if (Platform.isWindows) {
+    log.info('OCR', '检查 Windows Tesseract 安装状态...');
+    final installed = await OcrService.windowsCheckInstalled();
+    log.info('OCR', 'Windows Tesseract 安装状态: $installed');
+    if (!installed) {
+      log.warning('OCR', 'Windows Tesseract 未安装，提示用户手动安装');
+      if (ctx.mounted) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          const SnackBar(
+            content: Text('Tesseract 未安装。请从 https://github.com/UB-Mannheim/tesseract/wiki 下载安装'),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+      return;
+    }
   }
 
   // 启用 OCR
+  log.info('OCR', 'OCR 检查通过，启用 OCR 功能');
   ref.read(ocrEnabledProvider.notifier).setEnabled(true);
   ref.read(analysisSchedulerProvider).setOcrEnabled(true);
 }

@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
+import '../../services/log_service.dart';
+
 /// OCR 识别结果
 class OcrResult {
   final String text;
@@ -242,13 +244,23 @@ class _MlKitOcrService {
 /// 需要系统安装 tesseract 和对应语言包。
 class _LinuxOcrService {
   bool _disposed = false;
+  static final _log = LogService();
 
   /// 检查 tesseract 是否已安装
   static Future<bool> isInstalled() async {
     try {
+      _log.info('OCR', '检查 tesseract 是否已安装...');
       final result = await Process.run('tesseract', ['--version']);
+      _log.info('OCR', 'tesseract --version exitCode=${result.exitCode}');
+      if (result.exitCode != 0) {
+        _log.warning('OCR', 'tesseract --version stderr: ${result.stderr}');
+      }
+      if (result.stdout.toString().isNotEmpty) {
+        _log.info('OCR', 'tesseract version: ${result.stdout.toString().trim()}');
+      }
       return result.exitCode == 0;
     } catch (e) {
+      _log.error('OCR', '检查 tesseract 失败: $e');
       return false;
     }
   }
@@ -341,13 +353,23 @@ class _LinuxOcrService {
 /// Windows 上使用 `where tesseract` 检测安装。
 class _WindowsOcrService {
   bool _disposed = false;
+  static final _log = LogService();
 
   /// 检查 tesseract 是否已安装（使用 where 命令）
   static Future<bool> isInstalled() async {
     try {
+      _log.info('OCR', '检查 tesseract 是否已安装 (Windows)...');
       final result = await Process.run('where', ['tesseract']);
+      _log.info('OCR', 'where tesseract exitCode=${result.exitCode}');
+      if (result.exitCode != 0) {
+        _log.warning('OCR', 'where tesseract stderr: ${result.stderr}');
+      }
+      if (result.stdout.toString().isNotEmpty) {
+        _log.info('OCR', 'tesseract path: ${result.stdout.toString().trim()}');
+      }
       return result.exitCode == 0;
     } catch (e) {
+      _log.error('OCR', '检查 tesseract 失败 (Windows): $e');
       return false;
     }
   }
