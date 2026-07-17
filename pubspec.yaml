@@ -20,7 +20,7 @@ dependencies:
   go_router: ^14.8.1
 
   # 应用信息
-  package_info_plus: ^2.0.3
+  package_info_plus: ^9.0.1
 
   # 数据库
   drift: ^2.25.0
