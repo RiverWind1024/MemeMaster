@@ -452,7 +452,7 @@ jobs:
       - name: Setup Android signing
         run: |
           keytool -genkey -v -keystore android/app/release-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias mememaster -storepass mememaster -keypass mememaster -dname "CN=MemeMaster, OU=Development, O=MemeMaster, L=Shanghai, ST=Shanghai, C=CN"
-          printf 'storePassword=mememaster\nkeyPassword=mememaster\nkeyAlias=mememaster\nstoreFile=app/release-keystore.jks\n' > android/key.properties
+          printf 'storePassword=mememaster\nkeyPassword=mememaster\nkeyAlias=mememaster\nstoreFile=release-keystore.jks\n' > android/key.properties
 
       - name: Debug signing files
         run: |
