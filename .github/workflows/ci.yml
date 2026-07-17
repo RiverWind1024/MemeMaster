@@ -445,6 +445,19 @@ jobs:
            echo "android.useAndroidX=true" >> android/gradle.properties
            echo "android.enableJetifier=false" >> android/gradle.properties
 
+      - name: Debug signing secrets
+        run: |
+          echo "ANDROID_KEYSTORE length: ${#ANDROID_KEYSTORE}"
+          echo "ANDROID_KEYSTORE first 10 chars: ${ANDROID_KEYSTORE:0:10}"
+          echo "ANDROID_STORE_PASSWORD: ${ANDROID_STORE_PASSWORD:+SET}"
+          echo "ANDROID_KEY_PASSWORD: ${ANDROID_KEY_PASSWORD:+SET}"
+          echo "ANDROID_KEY_ALIAS: ${ANDROID_KEY_ALIAS:+SET}"
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+
       - name: Setup Android signing
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 -d > android/app/release-keystore.jks
