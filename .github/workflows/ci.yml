@@ -445,6 +445,16 @@ jobs:
            echo "android.useAndroidX=true" >> android/gradle.properties
            echo "android.enableJetifier=false" >> android/gradle.properties
 
+      - name: Setup Android signing
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 -d > android/app/release-keystore.jks
+          cat > android/key.properties << EOF
+          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=release-keystore.jks
+          EOF
+
       - name: Build Android APK
         run: |
           flutter build apk --release 2>&1
