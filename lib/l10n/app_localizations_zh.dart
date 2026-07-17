@@ -969,6 +969,18 @@ class SZh extends S {
   }
 
   @override
+  String get selectAll => '全选';
+
+  @override
+  String get deselectAll => '取消全选';
+
+  @override
+  String get selected => '已选择';
+
+  @override
+  String get items => '项';
+
+  @override
   String get copy => '复制';
 
   @override

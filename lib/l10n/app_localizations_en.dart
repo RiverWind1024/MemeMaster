@@ -982,6 +982,18 @@ class SEn extends S {
   }
 
   @override
+  String get selectAll => 'Select All';
+
+  @override
+  String get deselectAll => 'Deselect All';
+
+  @override
+  String get selected => 'Selected';
+
+  @override
+  String get items => 'items';
+
+  @override
   String get copy => 'Copy';
 
   @override

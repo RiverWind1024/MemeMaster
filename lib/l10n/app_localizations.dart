@@ -1825,6 +1825,30 @@ abstract class S {
   /// **'已选择 {count} 项'**
   String selectedItems(int count);
 
+  /// No description provided for @selectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选'**
+  String get selectAll;
+
+  /// No description provided for @deselectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消全选'**
+  String get deselectAll;
+
+  /// No description provided for @selected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选择'**
+  String get selected;
+
+  /// No description provided for @items.
+  ///
+  /// In zh, this message translates to:
+  /// **'项'**
+  String get items;
+
   /// No description provided for @copy.
   ///
   /// In zh, this message translates to:

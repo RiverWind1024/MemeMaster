@@ -88,6 +88,17 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     });
   }
 
+  void _selectAll() {
+    final memes = ref.read(memeListProvider).valueOrNull ?? [];
+    setState(() {
+      if (_selectedIds.length == memes.length) {
+        _selectedIds.clear();
+      } else {
+        _selectedIds.addAll(memes.map((m) => m.id));
+      }
+    });
+  }
+
   Future<void> _copySelected() async {
     final storage = ref.read(fileStorageServiceProvider);
     final memeRepo = ref.read(memeRepositoryProvider);
@@ -286,6 +297,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               body: _selectionMode
                   ? _buildSelectionGrid(memeListAsync)
                   : _buildTabbedBody(memeListAsync, nonDefaultAlbums),
+              bottomNavigationBar: _selectionMode ? _buildSelectionBottomBar() : null,
               floatingActionButton: _selectionMode ? null : _buildFab(),
               // 点击页面内容也关闭径向菜单
               onDrawerChanged: (_) => _closeRadial(),
@@ -413,6 +425,55 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           tooltip: S.of(context).delete,
         ),
       ],
+    );
+  }
+
+  Widget _buildSelectionBottomBar() {
+    final theme = Theme.of(context);
+    final memes = ref.read(memeListProvider).valueOrNull ?? [];
+    final allSelected = _selectedIds.length == memes.length && memes.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            // 左侧：选中数量
+            Text(
+              '${S.of(context).selected} ${_selectedIds.length} ${S.of(context).items}',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const Spacer(),
+            // 中间：全选/取消全选
+            TextButton.icon(
+              onPressed: _selectAll,
+              icon: Icon(
+                allSelected ? Icons.check_circle : Icons.check_circle_outline,
+                size: 20,
+              ),
+              label: Text(allSelected ? S.of(context).deselectAll : S.of(context).selectAll),
+            ),
+            const SizedBox(width: 8),
+            // 右侧：取消选择
+            TextButton(
+              onPressed: _exitSelectionMode,
+              child: Text(S.of(context).cancel),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
