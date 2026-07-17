@@ -452,7 +452,7 @@ jobs:
           storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          storeFile=release-keystore.jks
+          storeFile=app/release-keystore.jks
           EOF
 
       - name: Build Android APK
