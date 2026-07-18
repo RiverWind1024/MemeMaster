@@ -1,6 +1,6 @@
 # download-tesseract-dlls.ps1
 # Downloads pre-built Tesseract DLLs from simonflueckiger/tesserocr-windows_build releases
-# These DLLs include tesseract, leptonica, and all dependencies (libpng, libjpeg, libtiff, zlib)
+# The releases contain Python wheel files (.whl) which are zip archives containing DLLs
 
 $REPO = "simonflueckiger/tesserocr-windows_build"
 $API_URL = "https://api.github.com/repos/$REPO/releases/latest"
@@ -57,73 +57,77 @@ try {
 $TAG_NAME = $response.tag_name
 Write-Host "Latest release: $TAG_NAME"
 
-# Find the 64-bit Windows zip asset
-# Asset name format: tesseract-<version>-win64.zip
-$VERSION = $TAG_NAME.TrimStart('v')
-$ASSET_NAME = "tesseract-${VERSION}-win64.zip"
-
-Write-Host "Looking for asset: $ASSET_NAME"
-
-$asset = $response.assets | Where-Object { $_.name -eq $ASSET_NAME } | Select-Object -First 1
+# Find the 64-bit Windows wheel asset (win_amd64)
+# Asset name format: tesserocr-<version>-cp<pyver>-cp<pyver>-win_amd64.whl
+$asset = $response.assets | Where-Object {
+    $_.name -match "win_amd64\.whl$"
+} | Select-Object -First 1
 
 if (-not $asset) {
-    Write-Host "ERROR: Asset '$ASSET_NAME' not found in release $TAG_NAME"
+    Write-Host "ERROR: No win_amd64 wheel found in release $TAG_NAME"
     Write-Host "Available assets:"
     $response.assets | ForEach-Object { Write-Host "  - $($_.name)" }
     exit 1
 }
 
+Write-Host "Found wheel: $($asset.name)"
+
 $DOWNLOAD_URL = $asset.browser_download_url
-$EXPECTED_SIZE_MB = [math]::Round($asset.size / 1MB, 1)
-Write-Host "Found: $($asset.name) ($EXPECTED_SIZE_MB MB)"
+$WHL_PATH = Join-Path $env:TEMP $asset.name
+Write-Host "Downloading to $WHL_PATH..."
 
-# Download the zip
-$ZIP_PATH = Join-Path $env:TEMP $ASSET_NAME
-Write-Host "Downloading to $ZIP_PATH..."
-
-$success = Get-RetryWebRequest -Url $DOWNLOAD_URL -OutputPath $ZIP_PATH
+$success = Get-RetryWebRequest -Url $DOWNLOAD_URL -OutputPath $WHL_PATH
 if (-not $success) {
     Write-Host "ERROR: Failed to download after $MaxRetries attempts"
     exit 1
 }
 
-$actualSizeMB = [math]::Round((Get-Item $ZIP_PATH).Length / 1MB, 1)
+$actualSizeMB = [math]::Round((Get-Item $WHL_PATH).Length / 1MB, 1)
 Write-Host "Downloaded: $actualSizeMB MB"
 
-# Extract DLLs to output directory
-Write-Host "Extracting to $OUT_DIR_ABS..."
+# Extract wheel (it's a zip file) to output directory
+Write-Host "Extracting wheel to $OUT_DIR_ABS..."
 try {
-    Expand-Archive -Path $ZIP_PATH -DestinationPath $OUT_DIR_ABS -Force
+    Expand-Archive -Path $WHL_PATH -DestinationPath $OUT_DIR_ABS -Force
     Write-Host "Extraction complete"
 } catch {
     Write-Host "ERROR: Failed to extract archive"
     Write-Host "Error: $_"
-    Remove-Item $ZIP_PATH -Force -ErrorAction SilentlyContinue
+    Remove-Item $WHL_PATH -Force -ErrorAction SilentlyContinue
     exit 1
 }
 
-# Clean up zip
-Remove-Item $ZIP_PATH -Force -ErrorAction SilentlyContinue
+# Clean up wheel file
+Remove-Item $WHL_PATH -Force -ErrorAction SilentlyContinue
 
-# Verify DLLs exist
-Write-Host "Verifying DLLs..."
-$DLL_PATTERNS = @("tesseract*.dll", "leptonica*.dll", "libpng*.dll", "libjpeg*.dll", "libtiff*.dll", "zlib*.dll")
-$foundDlls = @()
-foreach ($pattern in $DLL_PATTERNS) {
-    $matches = Get-ChildItem -Path $OUT_DIR_ABS -Filter $pattern -ErrorAction SilentlyContinue
-    foreach ($dll in $matches) {
-        $foundDlls += $dll.Name
-        $sizeKB = [math]::Round($dll.Length / 1KB, 1)
-        Write-Host "  Found: $($dll.Name) ($sizeKB KB)"
+# Find DLLs in tesseract subdirectory
+Write-Host "Finding DLLs..."
+$TESSERACT_DIR = Join-Path $OUT_DIR_ABS "tesseract"
+if (Test-Path $TESSERACT_DIR) {
+    $foundDlls = Get-ChildItem -Path $TESSERACT_DIR -Filter "*.dll" -ErrorAction SilentlyContinue
+    if ($foundDlls) {
+        Write-Host "Found DLLs in tesseract directory:"
+        foreach ($dll in $foundDlls) {
+            $sizeKB = [math]::Round($dll.Length / 1KB, 1)
+            Write-Host "  $($dll.Name) ($sizeKB KB)"
+        }
     }
 }
 
-if ($foundDlls.Count -eq 0) {
-    Write-Host "ERROR: No Tesseract DLLs found after extraction!"
-    exit 1
+# Also check root directory
+$rootDlls = Get-ChildItem -Path $OUT_DIR_ABS -Filter "*.dll" -ErrorAction SilentlyContinue
+if ($rootDlls) {
+    Write-Host "Found DLLs in root directory:"
+    foreach ($dll in $rootDlls) {
+        $sizeKB = [math]::Round($dll.Length / 1KB, 1)
+        Write-Host "  $($dll.Name) ($sizeKB KB)"
+    }
 }
 
-Write-Host ""
-Write-Host "=== Success: $($foundDlls.Count) DLLs extracted to $OUT_DIR_ABS ==="
-Write-Host "Total DLLs:"
-$foundDlls | ForEach-Object { Write-Host "  - $_" }
+$allDlls = Get-ChildItem -Path $OUT_DIR_ABS -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue
+if ($allDlls.Count -eq 0) {
+    Write-Host "WARNING: No DLLs found after extraction!"
+} else {
+    Write-Host ""
+    Write-Host "=== Success: $($allDlls.Count) DLLs extracted to $OUT_DIR_ABS ==="
+}

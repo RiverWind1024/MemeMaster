@@ -1,3 +1,4 @@
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:ui' show Rect;
 
@@ -255,8 +256,8 @@ class _LinuxOcrService {
   static Future<bool> isInstalled() async {
     try {
       _log.info('OCR', '检查 Tesseract 是否可用...');
-      if (_ffi.isLoaded) {
-        final version = _ffi.getVersion();
+      if (_ffi?.isLoaded ?? false) {
+        final version = _ffi?.getVersion();
         _log.info('OCR', 'Tesseract FFI 已加载${version != null ? ', 版本: $version' : ''}');
         return true;
       }
@@ -308,7 +309,7 @@ class _LinuxOcrService {
         );
       }
 
-      if (_ffi.isLoaded) {
+      if (_ffi?.isLoaded ?? false) {
         return _recognizeWithFfi(imagePath, diag);
       } else {
         return _recognizeWithCli(imagePath, diag);
@@ -321,16 +322,17 @@ class _LinuxOcrService {
 
   OcrResult _recognizeWithFfi(String imagePath, StringBuffer diag) {
     Pointer<Void>? handle;
+    final ffi = _ffi!;
     try {
-      handle = _ffi.create();
+      handle = ffi.create();
       if (handle == nullptr) {
         return OcrResult(text: '', blocks: [], diagnostics: ['${diag}创建 Tesseract handle 失败']);
       }
 
       final datapath = '';
-      var result = _ffi.init(handle, datapath, 'chi_sim+eng');
+      var result = ffi.init(handle, datapath, 'chi_sim+eng');
       if (result != 0) {
-        result = _ffi.init(handle, datapath, 'eng');
+        result = ffi.init(handle, datapath, 'eng');
         if (result != 0) {
           return OcrResult(text: '', blocks: [], diagnostics: ['${diag}Tesseract 初始化失败 (FFI)']);
         }
@@ -339,17 +341,17 @@ class _LinuxOcrService {
         diag.write('语言=chi_sim+eng ');
       }
 
-      if (_ffi.setImageFile(handle, imagePath) != 0) {
+      if (ffi.setImageFile(handle, imagePath) != 0) {
         return OcrResult(text: '', blocks: [], diagnostics: ['${diag}加载图片失败: $imagePath']);
       }
 
-      final text = _ffi.getUtf8Text(handle);
+      final text = ffi.getUtf8Text(handle);
       diag.write('文字="${_truncateText(text ?? '', 80)}"');
       return OcrResult(text: text ?? '', blocks: [], diagnostics: [diag.toString()]);
     } finally {
       if (handle != null && handle != nullptr) {
-        _ffi.end(handle);
-        _ffi.destroy(handle);
+        ffi.end(handle);
+        ffi.destroy(handle);
       }
     }
   }
@@ -375,7 +377,7 @@ class _LinuxOcrService {
       imagePath,
       'stdout',
       '-l', language,
-      '--psm', '6,
+      '--psm', '6',
     ]);
     return _TesseractResult(
       text: result.stdout.toString().trim(),
@@ -411,8 +413,8 @@ class _WindowsOcrService {
   static Future<bool> isInstalled() async {
     try {
       _log.info('OCR', '检查 Tesseract 是否可用 (Windows)...');
-      if (_ffi.isLoaded) {
-        final version = _ffi.getVersion();
+      if (_ffi?.isLoaded ?? false) {
+        final version = _ffi?.getVersion();
         _log.info('OCR', 'Tesseract FFI 已加载${version != null ? ', 版本: $version' : ''}');
         return true;
       }
@@ -451,7 +453,7 @@ class _WindowsOcrService {
         );
       }
 
-      if (_ffi.isLoaded) {
+      if (_ffi?.isLoaded ?? false) {
         return _recognizeWithFfi(imagePath, diag);
       } else {
         return _recognizeWithCli(imagePath, diag);
@@ -464,16 +466,17 @@ class _WindowsOcrService {
 
   OcrResult _recognizeWithFfi(String imagePath, StringBuffer diag) {
     Pointer<Void>? handle;
+    final ffi = _ffi!;
     try {
-      handle = _ffi.create();
+      handle = ffi.create();
       if (handle == nullptr) {
         return OcrResult(text: '', blocks: [], diagnostics: ['${diag}创建 Tesseract handle 失败']);
       }
 
       final datapath = '';
-      var result = _ffi.init(handle, datapath, 'chi_sim+eng');
+      var result = ffi.init(handle, datapath, 'chi_sim+eng');
       if (result != 0) {
-        result = _ffi.init(handle, datapath, 'eng');
+        result = ffi.init(handle, datapath, 'eng');
         if (result != 0) {
           return OcrResult(text: '', blocks: [], diagnostics: ['${diag}Tesseract 初始化失败 (FFI)']);
         }
@@ -482,17 +485,17 @@ class _WindowsOcrService {
         diag.write('语言=chi_sim+eng ');
       }
 
-      if (_ffi.setImageFile(handle, imagePath) != 0) {
+      if (ffi.setImageFile(handle, imagePath) != 0) {
         return OcrResult(text: '', blocks: [], diagnostics: ['${diag}加载图片失败: $imagePath']);
       }
 
-      final text = _ffi.getUtf8Text(handle);
+      final text = ffi.getUtf8Text(handle);
       diag.write('文字="${_truncateText(text ?? '', 80)}"');
       return OcrResult(text: text ?? '', blocks: [], diagnostics: [diag.toString()]);
     } finally {
       if (handle != null && handle != nullptr) {
-        _ffi.end(handle);
-        _ffi.destroy(handle);
+        ffi.end(handle);
+        ffi.destroy(handle);
       }
     }
   }
