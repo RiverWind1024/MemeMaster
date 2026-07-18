@@ -1,5 +1,115 @@
 import 'dart:io';
 
+/// GPU 检测结果
+class GpuDetectionResult {
+  /// 检测到的 GPU 类型
+  final String backend;
+
+  /// 可用的 GPU 层数（99=全部, 0=不可用）
+  final int recommendedLayers;
+
+  /// 是否检测到 GPU 加速可用
+  bool get isAvailable => recommendedLayers > 0;
+
+  const GpuDetectionResult({
+    required this.backend,
+    required this.recommendedLayers,
+  });
+
+  @override
+  String toString() => 'GpuDetectionResult(backend: $backend, layers: $recommendedLayers)';
+}
+
+/// GPU 检测器 - 运行时检测可用 GPU 后端
+class GpuDetector {
+  GpuDetector._();
+
+  /// 检测当前平台可用的 GPU 后端，返回推荐 GPU 层数
+  ///
+  /// 参考 Bonsai 项目的 `bonsai_llama_ngl()` 函数实现:
+  /// https://github.com/PrismML-Eng/Bonsai-demo/blob/master/scripts/common.sh
+  ///
+  /// 检测优先级: CUDA > ROCm/HIP > Vulkan > Metal > CPU
+  static GpuDetectionResult detect() {
+    // 用户可通过环境变量覆盖
+    final override = Platform.environment['MEME_GPU_LAYERS'];
+    if (override != null) {
+      final layers = int.tryParse(override);
+      if (layers != null) {
+        return GpuDetectionResult(
+          backend: 'user_override',
+          recommendedLayers: layers,
+        );
+      }
+    }
+
+    if (Platform.isMacOS) {
+      return _detectMacOS();
+    } else if (Platform.isLinux) {
+      return _detectLinux();
+    } else if (Platform.isWindows) {
+      return _detectWindows();
+    } else if (Platform.isAndroid) {
+      return _detectAndroid();
+    }
+
+    return const GpuDetectionResult(backend: 'unknown', recommendedLayers: 0);
+  }
+
+  static GpuDetectionResult _detectMacOS() {
+    // Apple Silicon 有 Metal，Intel Mac 无 Metal
+    if (Platform.isMacOS) {
+      // macOS 始终有 Metal 支持（Apple Silicon）
+      // 注意: 这只是运行时检测，不保证构建时启用了 Metal
+      return const GpuDetectionResult(backend: 'metal', recommendedLayers: 99);
+    }
+    return const GpuDetectionResult(backend: 'none', recommendedLayers: 0);
+  }
+
+  static Future<GpuDetectionResult> _detectLinux() async {
+    // 检测优先级: CUDA > Vulkan
+    if (await _commandExists('nvidia-smi')) {
+      return const GpuDetectionResult(backend: 'cuda', recommendedLayers: 99);
+    }
+    if (await _commandExists('vulkaninfo')) {
+      return const GpuDetectionResult(backend: 'vulkan', recommendedLayers: 99);
+    }
+    if (await _commandExists('rocminfo')) {
+      return const GpuDetectionResult(backend: 'rocm', recommendedLayers: 99);
+    }
+    return const GpuDetectionResult(backend: 'cpu', recommendedLayers: 0);
+  }
+
+  static Future<GpuDetectionResult> _detectWindows() async {
+    // Windows: Vulkan 检测
+    if (await _commandExists('vulkaninfo')) {
+      return const GpuDetectionResult(backend: 'vulkan', recommendedLayers: 99);
+    }
+    return const GpuDetectionResult(backend: 'cpu', recommendedLayers: 0);
+  }
+
+  static Future<GpuDetectionResult> _detectAndroid() async {
+    // Android: Vulkan (OpenCL 尚未稳定)
+    if (await _commandExists('vulkaninfo')) {
+      return const GpuDetectionResult(backend: 'vulkan', recommendedLayers: 99);
+    }
+    return const GpuDetectionResult(backend: 'cpu', recommendedLayers: 0);
+  }
+
+  /// 检测命令是否存在
+  static Future<bool> _commandExists(String cmd) async {
+    try {
+      final result = await Process.run(
+        Platform.isWindows ? 'where' : 'which',
+        [cmd],
+      );
+      return result.exitCode == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
 /// flash_attn 模式
 enum FlashAttnMode { auto, enabled, disabled }
 
@@ -61,7 +171,7 @@ class LocalLlmConfig {
     this.mmprojPath,
     this.contextSize = 2048,
     this.threads = 0,
-    this.useGpu = false,
+    this.useGpu = true,  // 默认启用 GPU（由 GpuDetector 运行时检测实际可用性）
     this.nGpuLayers = -1,
     this.flashAttn = FlashAttnMode.enabled,
     this.kvCacheType = KvCacheType.q4_0,
@@ -74,6 +184,26 @@ class LocalLlmConfig {
     this.customSystemPrompt,
     this.customUserPrompt,
   });
+
+  /// 自动检测 GPU 并创建配置
+  ///
+  /// 等价于 `LocalLlmConfig(useGpu: true, nGpuLayers: -1)`，
+  /// 但会在运行时检测实际 GPU 可用性：
+  /// - Windows/Linux/macOS: 检测到 GPU 时 nGpuLayers=99，否则 0
+  /// - 检测失败时 useGpu=false（安全回退）
+  ///
+  /// 用法:
+  /// ```dart
+  /// final config = await LocalLlmConfig.autoDetect();
+  /// final service = LocalLlmService(config: config);
+  /// ```
+  static Future<LocalLlmConfig> autoDetect() async {
+    final result = await GpuDetector.detect();
+    return LocalLlmConfig(
+      useGpu: result.isAvailable,
+      nGpuLayers: result.isAvailable ? result.recommendedLayers : 0,
+    );
+  }
 
   /// 实际使用的线程数（自动检测时根据 CPU 核数计算）
   int get effectiveThreads {

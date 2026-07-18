@@ -14,8 +14,8 @@ endif()
 
 set(MTMD_DIR "${LLAMA_CPP_DIR}/tools/mtmd")
 
-# ===== GPU 后端选项 (Phase 1: CPU Only) =====
-option(ENABLE_VULKAN "Enable Vulkan backend" OFF)
+# ===== GPU 后端选项 (Phase 2: Vulkan GPU 加速) =====
+option(ENABLE_VULKAN "Enable Vulkan backend" ON)
 option(ENABLE_OPENCL "Enable OpenCL backend" OFF)
 option(ENABLE_CUDA "Enable CUDA backend (requires CUDA toolkit)" OFF)
 

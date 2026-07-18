@@ -149,86 +149,6 @@ jobs:
           path: mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip
           retention-days: 7
 
-  linux-cpu:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake ninja-build clang libsecret-1-dev libgtk-3-dev \
-            unzip curl xz-utils
-
-      - name: Setup Flutter
-        run: |
-          FLUTTER_VERSION=3.44.0
-          if [ ! -d "$HOME/flutter" ]; then
-            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
-          fi
-          echo "$HOME/flutter/bin" >> $GITHUB_PATH
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Init third-party (CPU only)
-        run: |
-          echo "=== Running init-third-party.sh ==="
-          ./scripts/init-third-party.sh 2>&1 | tee /tmp/init-output.txt
-          INIT_EXIT=${PIPESTATUS[0]}
-          echo ""
-          echo "=== init-third-party.sh exit code: $INIT_EXIT ==="
-          if [ $INIT_EXIT -ne 0 ]; then
-            echo "⚠️ Script exited with error (see above)"
-          fi
-          echo ""
-          echo "=== third_party contents ==="
-          ls -la third_party/ 2>/dev/null || echo "third_party missing"
-        env:
-          LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
-
-      - name: Build Linux (CPU only)
-        run: |
-          rm -rf build/linux
-          flutter build linux --release
-
-      - name: Verify CPU-only library
-        run: |
-          LIB=build/linux/x64/release/bundle/lib/libmeme_llm.so
-          if [ -f "$LIB" ]; then
-            SIZE=$(stat -c%s "$LIB" | numfmt --to=iec)
-            echo "libmeme_llm.so size: $SIZE"
-            echo "=== ggml backend symbols (expect NO vulkan/opencl) ==="
-            nm -D "$LIB" 2>/dev/null | grep -oE "ggml_(vulkan|opencl|cuda|metal|cpu|backend)" | sort -u
-            if nm -D "$LIB" 2>/dev/null | grep -q ggml_vulkan; then
-              echo "✗ Unexpected: Vulkan symbols found (should be CPU only)"
-            else
-              echo "✓ CPU-only build (no Vulkan)"
-            fi
-          elif [ -f build/linux/x64/release/bundle/lib/libmeme_llm_empty.so ]; then
-            echo "⚠ Only stub library built"
-          else
-            echo "✗ No meme_llm library found"
-            exit 1
-          fi
-
-      - name: Package Linux artifact
-        run: |
-          cd build/linux/x64/release/bundle
-          zip -r mememaster-${{ env.VERSION }}-linux-x64-cpu.zip .
-          cd ../../../../..
-          mv build/linux/x64/release/bundle/mememaster-${{ env.VERSION }}-linux-x64-cpu.zip .
-
-      - name: Upload Linux artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mememaster-${{ env.VERSION }}-linux-x64-cpu
-          path: mememaster-${{ env.VERSION }}-linux-x64-cpu.zip
-          retention-days: 7
-
   macos:
     runs-on: macos-latest
     steps:
@@ -309,79 +229,6 @@ jobs:
         with:
           name: mememaster-${{ env.VERSION }}-macos-arm64-metal
           path: mememaster-${{ env.VERSION }}-macos-arm64-metal.zip
-          retention-days: 7
-
-  macos-cpu:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Setup Flutter
-        run: |
-          FLUTTER_VERSION=3.44.0
-          if [ ! -d "$HOME/flutter" ]; then
-            curl -sSL "https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_${FLUTTER_VERSION}-stable.zip" -o /tmp/flutter.zip
-            unzip -q /tmp/flutter.zip -d $HOME
-            rm /tmp/flutter.zip
-          fi
-          echo "$HOME/flutter/bin" >> $GITHUB_PATH
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Init third-party (CPU only)
-        run: ./scripts/init-third-party.sh
-        env:
-          LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
-
-      - name: Build LLM (CPU)
-        run: bash -x ./scripts/build-macos-llm.sh 2>&1 | tail -100
-        env:
-          LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
-          ENABLE_METAL: "OFF"
-
-      - name: Build macOS
-        run: flutter build macos --release
-
-      - name: Bundle native library into app
-        run: |
-          APP=$(find build/macos/Build/Products/Release -name "*.app" -type d | head -1)
-          FRAMEWORKS="$APP/Contents/Frameworks"
-          mkdir -p "$FRAMEWORKS"
-          cp build/macos-llm/libmeme_llm.dylib "$FRAMEWORKS/"
-          echo "✓ Copied libmeme_llm.dylib to $FRAMEWORKS"
-          ls -lh "$FRAMEWORKS"/libmeme_llm.dylib
-
-      - name: Verify CPU-only library
-        run: |
-          LIB=$(find build/macos/Build/Products/Release -name "libmeme_llm*.dylib" -type f 2>/dev/null | head -1)
-          if [ -n "$LIB" ]; then
-            ls -lh "$LIB"
-            echo "=== ggml backend symbols (expect NO metal) ==="
-            nm "$LIB" 2>/dev/null | grep -oE "ggml_(metal|vulkan|opencl|cuda|cpu|backend)" | sort -u
-            if nm "$LIB" 2>/dev/null | grep -q ggml_metal; then
-              echo "✗ Unexpected: Metal symbols found (should be CPU only)"
-            else
-              echo "✓ CPU-only build (no Metal)"
-            fi
-            else
-              echo "✗ No meme_llm library found"
-              exit 1
-            fi
-
-      - name: Package macOS CPU artifact
-        run: |
-          APP=$(find build/macos/Build/Products/Release -name "*.app" -type d | head -1)
-          zip -r mememaster-${{ env.VERSION }}-macos-arm64-cpu.zip "$APP"
-          ls -lh mememaster-${{ env.VERSION }}-macos-arm64-cpu.zip
-
-      - name: Upload macOS CPU artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mememaster-${{ env.VERSION }}-macos-arm64-cpu
-          path: mememaster-${{ env.VERSION }}-macos-arm64-cpu.zip
           retention-days: 7
 
   android-vulkan:
@@ -506,90 +353,6 @@ jobs:
           path: mememaster-${{ env.VERSION }}-android-arm64-vulkan.apk
           retention-days: 7
 
-  android-cpu:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build unzip curl xz-utils
-      - name: Setup Flutter
-        run: |
-          FLUTTER_VERSION=3.44.0
-          if [ ! -d "$HOME/flutter" ]; then
-            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
-          fi
-          echo "$HOME/flutter/bin" >> $GITHUB_PATH
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Setup Android SDK and NDK
-        uses: android-actions/setup-android@v3
-
-      # Pre-fetch gradle distribution to avoid timeout during gradlew run
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-read-only: false
-
-      - name: Init third-party
-        run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
-
-      - name: Configure Gradle memory
-        run: |
-          mkdir -p android
-          echo "org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=512m" > android/gradle.properties
-           echo "org.gradle.parallel=true" >> android/gradle.properties
-           echo "android.useAndroidX=true" >> android/gradle.properties
-           echo "android.enableJetifier=false" >> android/gradle.properties
-
-      - name: Build Android APK (CPU only)
-        run: |
-          flutter build apk --release 2>&1
-          echo "=== Build exit code: $? ==="
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          ANDROID_NDK: ${{ env.ANDROID_NDK }}
-          ANDROID_CPU_ONLY: "1"
-          GRADLE_OPTS: "-Dorg.gradle.caching=false"
-
-      - name: Verify APK size
-        run: |
-          echo "=== Find all APK files ==="
-          find . -name "*.apk" -type f 2>&1 | head -20
-          echo "=== Check build/app/outputs/flutter-apk ==="
-          ls -la build/app/outputs/flutter-apk/ 2>&1 || echo "No flutter-apk dir"
-          echo "=== Final check ==="
-          APK="build/app/outputs/flutter-apk/app-release.apk"
-          if [ -f "$APK" ]; then
-            SIZE=$(stat -c%s "$APK" | numfmt --to=iec)
-            echo "APK: $APK"
-            echo "Size: $SIZE"
-          else
-            echo "⚠ No APK found at $APK"
-            exit 1
-          fi
-
-      - name: Find and copy APK
-        run: |
-          cp build/app/outputs/flutter-apk/app-release.apk ./android.apk
-          ls -la ./android.apk
-
-      - name: Rename Android CPU artifact
-        run: mv android.apk mememaster-${{ env.VERSION }}-android-arm64-cpu.apk
-
-      - name: Upload Android CPU artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mememaster-${{ env.VERSION }}-android-arm64-cpu
-          path: mememaster-${{ env.VERSION }}-android-arm64-cpu.apk
-          retention-days: 7
-
   windows:
     runs-on: windows-latest
     steps:
@@ -622,17 +385,24 @@ jobs:
           # Generate fresh Windows runner files in current directory
           flutter create --platforms=windows .
 
-      - name: Init third-party (CPU only)
+      - name: Init third-party (Vulkan)
         shell: pwsh
         run: |
           if (-not (Test-Path "third_party\llama.cpp")) {
             git clone --depth 1 https://github.com/ggml-org/llama.cpp.git third_party\llama.cpp
           }
+          if (-not (Test-Path "third_party\spirv-headers-install")) {
+            git clone --depth 1 https://github.com/KhronosGroup/SPIRV-Headers.git third_party\SPIRV-Headers
+            mkdir -p third_party\spirv-headers-build
+            cmake -S third_party\SPIRV-Headers -B third_party\spirv-headers-build -DCMAKE_INSTALL_PREFIX="$env:GITHUB_WORKSPACE\third_party\spirv-headers-install" -DSPIRV_HEADERS_SKIP_EXAMPLES=ON -DSPIRV_HEADERS_SKIP_TESTS=ON
+            cmake --build third_party\spirv-headers-build --config Release
+            cmake --install third_party\spirv-headers-build --config Release
+          }
 
-      - name: Build meme_llm.dll (CPU only)
+      - name: Build meme_llm.dll (Vulkan)
         shell: pwsh
         run: |
-          cmake -S windows/cpp -B build/windows-llm -DENABLE_VULKAN=OFF -DENABLE_OPENCL=OFF -DENABLE_CUDA=OFF
+          cmake -S windows/cpp -B build/windows-llm -DENABLE_VULKAN=ON -DENABLE_OPENCL=OFF -DENABLE_CUDA=OFF -DLLAMA_CPP_DIR="$env:GITHUB_WORKSPACE\third_party\llama.cpp" -DSPIRV_HEADERS_DIR="$env:GITHUB_WORKSPACE\third_party\spirv-headers-install"
           cmake --build build/windows-llm --config Release
 
       - name: Build Windows
@@ -666,18 +436,18 @@ jobs:
         run: |
           $BUNDLE = "build\windows\x64\runner\Release"
           $VERSION = "${{ env.VERSION }}"
-          Compress-Archive -Path "$BUNDLE\*" -DestinationPath "mememaster-${VERSION}-windows-x64-cpu.zip" -Force
-          Get-Item "mememaster-${VERSION}-windows-x64-cpu.zip"
+          Compress-Archive -Path "$BUNDLE\*" -DestinationPath "mememaster-${VERSION}-windows-x64-vulkan.zip" -Force
+          Get-Item "mememaster-${VERSION}-windows-x64-vulkan.zip"
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mememaster-${{ env.VERSION }}-windows-x64-cpu
-          path: mememaster-${{ env.VERSION }}-windows-x64-cpu.zip
+          name: mememaster-${{ env.VERSION }}-windows-x64-vulkan
+          path: mememaster-${{ env.VERSION }}-windows-x64-vulkan.zip
           retention-days: 7
 
   release:
-    needs: [linux, linux-cpu, macos, macos-cpu, android-vulkan, android-cpu, windows]
+    needs: [linux, macos, android-vulkan, windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
     steps:
@@ -691,23 +461,11 @@ jobs:
           name: mememaster-${{ env.VERSION }}-linux-x64-vulkan
           path: artifacts/linux-vulkan
 
-      - name: Download Linux CPU
-        uses: actions/download-artifact@v4
-        with:
-          name: mememaster-${{ env.VERSION }}-linux-x64-cpu
-          path: artifacts/linux-cpu
-
       - name: Download macOS Metal
         uses: actions/download-artifact@v4
         with:
           name: mememaster-${{ env.VERSION }}-macos-arm64-metal
           path: artifacts/macos-metal
-
-      - name: Download macOS CPU
-        uses: actions/download-artifact@v4
-        with:
-          name: mememaster-${{ env.VERSION }}-macos-arm64-cpu
-          path: artifacts/macos-cpu
 
       - name: Download Android Vulkan
         uses: actions/download-artifact@v4
@@ -715,30 +473,22 @@ jobs:
           name: mememaster-${{ env.VERSION }}-android-arm64-vulkan
           path: artifacts/android-vulkan
 
-      - name: Download Android CPU
+      - name: Download Windows Vulkan
         uses: actions/download-artifact@v4
         with:
-          name: mememaster-${{ env.VERSION }}-android-arm64-cpu
-          path: artifacts/android-cpu
-
-      - name: Download Windows CPU
-        uses: actions/download-artifact@v4
-        with:
-          name: mememaster-${{ env.VERSION }}-windows-x64-cpu
-          path: artifacts/windows-cpu
+          name: mememaster-${{ env.VERSION }}-windows-x64-vulkan
+          path: artifacts/windows-vulkan
 
       - name: Debug artifacts structure
         run: |
           echo "=== Linux Vulkan bundle ==="
           find artifacts/linux-vulkan -type f | head -10
-          echo "=== Linux CPU bundle ==="
-          find artifacts/linux-cpu -type f | head -10
           echo "=== macOS Metal ==="
           find artifacts/macos-metal -type f | head -10
-          echo "=== macOS CPU ==="
-          find artifacts/macos-cpu -type f | head -10
           echo "=== Android ==="
           find artifacts/android* -type f | head -10
+          echo "=== Windows Vulkan ==="
+          find artifacts/windows-vulkan -type f | head -10
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -751,11 +501,8 @@ jobs:
           body: "Release v${{ env.VERSION }}"
           files: |
             artifacts/linux-vulkan/mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip
-            artifacts/linux-cpu/mememaster-${{ env.VERSION }}-linux-x64-cpu.zip
             artifacts/macos-metal/mememaster-${{ env.VERSION }}-macos-arm64-metal.zip
-            artifacts/macos-cpu/mememaster-${{ env.VERSION }}-macos-arm64-cpu.zip
             artifacts/android-vulkan/mememaster-${{ env.VERSION }}-android-arm64-vulkan.apk
-            artifacts/android-cpu/mememaster-${{ env.VERSION }}-android-arm64-cpu.apk
-            artifacts/windows-cpu/mememaster-${{ env.VERSION }}-windows-x64-cpu.zip
+            artifacts/windows-vulkan/mememaster-${{ env.VERSION }}-windows-x64-vulkan.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
