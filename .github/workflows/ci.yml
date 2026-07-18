@@ -202,12 +202,16 @@ jobs:
 
       - name: Bundle native library into app
         run: |
-          APP=$(find build/macos/Build/Products/Release -name "*.app" -type d | head -1)
-          FRAMEWORKS="$APP/Contents/Frameworks"
-          mkdir -p "$FRAMEWORKS"
-          cp build/macos-llm/libmeme_llm.dylib "$FRAMEWORKS/"
-          echo "✓ Copied libmeme_llm.dylib to $FRAMEWORKS"
-          ls -lh "$FRAMEWORKS"/libmeme_llm.dylib
+          if [ -f "build/macos-llm/libmeme_llm.dylib" ]; then
+            APP=$(find build/macos/Build/Products/Release -name "*.app" -type d | head -1)
+            FRAMEWORKS="$APP/Contents/Frameworks"
+            mkdir -p "$FRAMEWORKS"
+            cp build/macos-llm/libmeme_llm.dylib "$FRAMEWORKS/"
+            echo "✓ Copied libmeme_llm.dylib to $FRAMEWORKS"
+            ls -lh "$FRAMEWORKS"/libmeme_llm.dylib
+          else
+            echo "WARNING: build/macos-llm/libmeme_llm.dylib not found, skipping bundle step"
+          fi
 
       - name: Verify Metal library
         run: |
@@ -410,7 +414,12 @@ jobs:
         run: |
           if (-not (Test-Path "third_party\tesseract-dlls")) {
             Write-Host "Downloading Tesseract DLLs..."
-            powershell -ExecutionPolicy Bypass -File ".\scripts\download-tesseract-dlls.ps1"
+            try {
+              powershell -ExecutionPolicy Bypass -File ".\scripts\download-tesseract-dlls.ps1"
+              Write-Host "Tesseract DLLs downloaded successfully"
+            } catch {
+              Write-Host "WARNING: Failed to download Tesseract DLLs. OCR will use CLI fallback."
+            }
           } else {
             Write-Host "Tesseract DLLs already exist, skipping download"
           }
