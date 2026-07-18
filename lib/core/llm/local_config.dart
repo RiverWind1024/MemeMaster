@@ -30,7 +30,7 @@ class GpuDetector {
   /// https://github.com/PrismML-Eng/Bonsai-demo/blob/master/scripts/common.sh
   ///
   /// 检测优先级: CUDA > ROCm/HIP > Vulkan > Metal > CPU
-  static GpuDetectionResult detect() {
+  static Future<GpuDetectionResult> detect() async {
     // 用户可通过环境变量覆盖
     final override = Platform.environment['MEME_GPU_LAYERS'];
     if (override != null) {
@@ -46,11 +46,11 @@ class GpuDetector {
     if (Platform.isMacOS) {
       return _detectMacOS();
     } else if (Platform.isLinux) {
-      return _detectLinux();
+      return await _detectLinux();
     } else if (Platform.isWindows) {
-      return _detectWindows();
+      return await _detectWindows();
     } else if (Platform.isAndroid) {
-      return _detectAndroid();
+      return await _detectAndroid();
     }
 
     return const GpuDetectionResult(backend: 'unknown', recommendedLayers: 0);
