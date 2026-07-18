@@ -19,6 +19,43 @@ option(ENABLE_VULKAN "Enable Vulkan backend" ON)
 option(ENABLE_OPENCL "Enable OpenCL backend" OFF)
 option(ENABLE_CUDA "Enable CUDA backend (requires CUDA toolkit)" OFF)
 
+# ===== SPIRV-Headers 配置 =====
+if(NOT DEFINED SPIRV_HEADERS_DIR)
+    if(DEFINED ENV{SPIRV_HEADERS_DIR})
+        set(SPIRV_HEADERS_DIR $ENV{SPIRV_HEADERS_DIR})
+    elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../../third_party/spirv-headers-install")
+        set(SPIRV_HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../third_party/spirv-headers-install")
+    endif()
+endif()
+
+if(SPIRV_HEADERS_DIR)
+    list(APPEND CMAKE_PREFIX_PATH "${SPIRV_HEADERS_DIR}")
+    include_directories("${SPIRV_HEADERS_DIR}/include")
+    message(STATUS "SPIRV_HEADERS_DIR: ${SPIRV_HEADERS_DIR}")
+endif()
+
+# ===== Vulkan SDK 查找 (Windows) =====
+# Windows 上 Vulkan SDK 通过 VULKAN_SDK 环境变量配置
+set(VULKAN_FOUND FALSE)
+if(ENABLE_VULKAN)
+    if(DEFINED ENV{VULKAN_SDK})
+        set(VULKAN_SDK_DIR $ENV{VULKAN_SDK})
+        set(VULKAN_INCLUDE_DIR "${VULKAN_SDK_DIR}/Include")
+        set(VULKAN_LIBRARY_DIR "${VULKAN_SDK_DIR}/Lib")
+        if(EXISTS "${VULKAN_INCLUDE_DIR}/vulkan/vulkan.h" AND EXISTS "${VULKAN_LIBRARY_DIR}/vulkan-1.lib")
+            set(VULKAN_FOUND TRUE)
+            message(STATUS "Vulkan SDK found at ${VULKAN_SDK_DIR}")
+            message(STATUS "  Include: ${VULKAN_INCLUDE_DIR}")
+            message(STATUS "  Library: ${VULKAN_LIBRARY_DIR}")
+        else()
+            message(WARNING "VULKAN_SDK is set but vulkan.h or vulkan-1.lib not found")
+        endif()
+    else()
+        message(WARNING "VULKAN_SDK environment variable not set. Vulkan GPU acceleration disabled.")
+        message(WARNING "Download Vulkan SDK from https://vulkan.lunarg.com/ to enable GPU acceleration.")
+    endif()
+endif()
+
 # ===== Windows 线程支持 =====
 find_package(Threads REQUIRED)
 
@@ -34,7 +71,22 @@ endif()
 message(STATUS "llama.cpp found at ${LLAMA_CPP_DIR}, enabling local LLM support")
 
 # ===== 无 GPU 后端时回退到 stub (Phase 1 CPU-only) =====
-if(NOT ENABLE_VULKAN AND NOT ENABLE_OPENCL AND NOT ENABLE_CUDA)
+# 检查是否有可用的 GPU 后端
+set(HAS_GPU_BACKEND FALSE)
+if(ENABLE_VULKAN AND VULKAN_FOUND)
+    set(HAS_GPU_BACKEND TRUE)
+    message(STATUS "Using Vulkan GPU backend")
+endif()
+if(ENABLE_OPENCL)
+    set(HAS_GPU_BACKEND TRUE)
+    message(STATUS "Using OpenCL GPU backend")
+endif()
+if(ENABLE_CUDA)
+    set(HAS_GPU_BACKEND TRUE)
+    message(STATUS "Using CUDA GPU backend")
+endif()
+
+if(NOT HAS_GPU_BACKEND)
     message(STATUS "No GPU backend available, building CPU-only stub")
     add_library(meme_llm_empty SHARED meme_llm.cpp)
     target_compile_definitions(meme_llm_empty PRIVATE MLLM_STUB=1)
@@ -54,7 +106,7 @@ set(LLAMA_BUILD_SERVER OFF)
 set(LLAMA_INSTALL_VERSION "0.0.0")
 set(MTMD_VIDEO OFF)
 
-set(GGML_VULKAN ${ENABLE_VULKAN})
+set(GGML_VULKAN ${VULKAN_FOUND})
 set(GGML_OPENCL ${ENABLE_OPENCL})
 set(GGML_CUDA ${ENABLE_CUDA})
 set(GGML_OPENMP OFF)
@@ -62,17 +114,27 @@ set(GGML_OPENMP OFF)
 # ===== 链接库 (Windows) =====
 set(MEME_LLM_LIBS llama ggml mtmd Threads::Threads)
 
+# 添加 Vulkan 库（如果可用）
+if(VULKAN_FOUND)
+    list(APPEND MEME_LLM_LIBS "${VULKAN_LIBRARY_DIR}/vulkan-1.lib")
+    message(STATUS "Added Vulkan library: ${VULKAN_LIBRARY_DIR}/vulkan-1.lib")
+endif()
+
 # ===== 添加子项目 =====
 add_subdirectory(${LLAMA_CPP_DIR} llama.cpp EXCLUDE_FROM_ALL)
 add_subdirectory(${MTMD_DIR} mtmd EXCLUDE_FROM_ALL)
 
 # ===== 头文件路径 =====
-include_directories(
+set(INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${LLAMA_CPP_DIR}/include
     ${LLAMA_CPP_DIR}/ggml/include
     ${MTMD_DIR}
 )
+if(VULKAN_FOUND)
+    list(APPEND INCLUDE_DIRS "${VULKAN_INCLUDE_DIR}")
+endif()
+include_directories(${INCLUDE_DIRS})
 
 # ===== 构建共享库 (Windows DLL) =====
 add_library(meme_llm SHARED meme_llm.cpp)
@@ -108,6 +170,7 @@ endif()
 message(STATUS "=== meme_llm build configuration (Windows) ===")
 message(STATUS "LLAMA_CPP_DIR: ${LLAMA_CPP_DIR}")
 message(STATUS "ENABLE_VULKAN: ${ENABLE_VULKAN}")
+message(STATUS "VULKAN_FOUND: ${VULKAN_FOUND}")
 message(STATUS "ENABLE_OPENCL: ${ENABLE_OPENCL}")
 message(STATUS "TESSERACT_DLL_DIR: ${TESSERACT_DLL_DIR}")
 message(STATUS "================================")
