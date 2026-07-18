@@ -420,17 +420,19 @@ jobs:
       - name: Download Tesseract DLLs
         shell: pwsh
         run: |
-          if (-not (Test-Path "third_party\tesseract-dlls")) {
-            Write-Host "Downloading Tesseract DLLs..."
-            powershell -ExecutionPolicy Bypass -File ".\scripts\download-tesseract-dlls.ps1"
-            if ($LASTEXITCODE -ne 0) {
-              Write-Host "WARNING: Failed to download Tesseract DLLs (exit code $LASTEXITCODE). OCR will use CLI fallback."
-            } else {
-              Write-Host "Tesseract DLLs downloaded successfully"
-            }
-          } else {
+          if (Test-Path "third_party\tesseract-dlls") {
             Write-Host "Tesseract DLLs already exist, skipping download"
+            exit 0
           }
+          Write-Host "Downloading Tesseract DLLs..."
+          $ErrorActionPreference = "Continue"
+          powershell -ExecutionPolicy Bypass -File ".\scripts\download-tesseract-dlls.ps1"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "WARNING: Failed to download Tesseract DLLs (exit code $LASTEXITCODE). OCR will use CLI fallback."
+          } else {
+            Write-Host "Tesseract DLLs downloaded successfully"
+          }
+          exit 0
 
       - name: Build meme_llm.dll (Vulkan)
         shell: pwsh
