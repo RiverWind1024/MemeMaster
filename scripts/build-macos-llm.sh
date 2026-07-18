@@ -34,7 +34,9 @@ echo "=== cmake configure (ENABLE_METAL=$ENABLE_METAL_FLAG) ==="
 cmake "$LLM_DIR" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="$BUILD_DIR/install" \
-    -DENABLE_METAL="$ENABLE_METAL_FLAG" 2>&1 | tail -30
+    -DENABLE_METAL="$ENABLE_METAL_FLAG" \
+    -DTESSERACT_DIR="${TESSERACT_DIR:-$PROJECT_DIR/third_party/tesseract}" \
+    -DLEPTONICA_DIR="${LEPTONICA_DIR:-$PROJECT_DIR/third_party/leptonica}" 2>&1 | tail -30
 
 # 构建
 echo "=== cmake build ==="

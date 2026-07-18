@@ -89,6 +89,8 @@ jobs:
         env:
           LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
           SPIRV_HEADERS_DIR: ${{ github.workspace }}/third_party/spirv-headers-install
+          TESSERACT_DIR: ${{ github.workspace }}/third_party/tesseract
+          LEPTONICA_DIR: ${{ github.workspace }}/third_party/leptonica
 
       - name: Build native library (Vulkan)
         run: |
@@ -185,11 +187,15 @@ jobs:
           ls -la third_party/ 2>/dev/null || echo "third_party missing"
         env:
           LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
+          TESSERACT_DIR: ${{ github.workspace }}/third_party/tesseract
+          LEPTONICA_DIR: ${{ github.workspace }}/third_party/leptonica
 
       - name: Build LLM (Metal)
         run: bash -x ./scripts/build-macos-llm.sh 2>&1 | tail -100
         env:
           LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
+          TESSERACT_DIR: ${{ github.workspace }}/third_party/tesseract
+          LEPTONICA_DIR: ${{ github.workspace }}/third_party/leptonica
 
       - name: Build macOS
         run: flutter build macos --release
