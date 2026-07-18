@@ -15,6 +15,22 @@ endif()
 
 set(MTMD_DIR "${LLAMA_CPP_DIR}/tools/mtmd")
 
+if(NOT DEFINED TESSERACT_DIR)
+    if(DEFINED ENV{TESSERACT_DIR})
+        set(TESSERACT_DIR $ENV{TESSERACT_DIR})
+    else()
+        set(TESSERACT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../third_party/tesseract")
+    endif()
+endif()
+
+if(NOT DEFINED LEPTONICA_DIR)
+    if(DEFINED ENV{LEPTONICA_DIR})
+        set(LEPTONICA_DIR $ENV{LEPTONICA_DIR})
+    else()
+        set(LEPTONICA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../third_party/leptonica")
+    endif()
+endif()
+
 # ===== GPU 后端选项 =====
 option(ENABLE_VULKAN "Enable Vulkan backend" ON)
 option(ENABLE_OPENCL "Enable OpenCL backend" OFF)
@@ -40,6 +56,17 @@ endif()
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
 pkg_check_modules(VULKAN vulkan)
+
+find_library(TESSERACT_LIBRARY tesseract)
+find_library(LEPTONICA_LIBRARY leptonica)
+if(TESSERACT_LIBRARY AND LEPTONICA_LIBRARY)
+    set(TESSERACT_SYSTEM ON)
+    message(STATUS "Found system Tesseract: ${TESSERACT_LIBRARY}")
+    message(STATUS "Found system Leptonica: ${LEPTONICA_LIBRARY}")
+else()
+    set(TESSERACT_SYSTEM OFF)
+    message(STATUS "System Tesseract/Leptonica not found, will build from source")
+endif()
 
 # ===== glslc 着色器编译器查找 =====
 # 优先级: 1) GLSLC_DIR 环境变量  2) PATH 中的 glslc  3) NDK 默认位置
@@ -152,9 +179,55 @@ add_library(meme_llm SHARED meme_llm.cpp)
 target_link_libraries(meme_llm PRIVATE ${MEME_LLM_LIBS})
 target_link_options(meme_llm PRIVATE -Wl,-soname,libmeme_llm.so.1)
 
+# ===== Tesseract OCR =====
+if(NOT TESSERACT_SYSTEM)
+    if(EXISTS "${LEPTONICA_DIR}/CMakeLists.txt" AND EXISTS "${TESSERACT_DIR}/CMakeLists.txt")
+        message(STATUS "Building Tesseract OCR from source")
+
+        set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+        set(BUILD_STATIC_LIBS OFF CACHE BOOL "" FORCE)
+        set(BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
+        set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+        set(BUILD_DOCS OFF CACHE BOOL "" FORCE)
+        set(OPENMP OFF CACHE BOOL "" FORCE)
+
+        set(LEPTONICA_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
+        set(LEPTONICA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+        set(LEPTONICA_USING_PNG ON CACHE BOOL "" FORCE)
+        set(LEPTONICA_USING_JPEG ON CACHE BOOL "" FORCE)
+        set(LEPTONICA_USING_TIFF ON CACHE BOOL "" FORCE)
+        set(LEPTONICA_USING_GIF ON CACHE BOOL "" FORCE)
+        set(LEPTONICA_USING_WEBP ON CACHE BOOL "" FORCE)
+
+        add_subdirectory(${LEPTONICA_DIR} leptonica EXCLUDE_FROM_ALL)
+
+        set(TESSERACT_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
+        set(TESSERACT_BUILD_TRAININGTOOLS OFF CACHE BOOL "" FORCE)
+        set(TESSERACT_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+        set(TESSERACT_INSTALL_DATA_DIR OFF CACHE BOOL "" FORCE)
+
+        add_subdirectory(${TESSERACT_DIR} tesseract EXCLUDE_FROM_ALL)
+
+        set(TESSERACT_OCR_LIBS tesseract leptonica pthread dl m)
+    else()
+        message(WARNING "Tesseract or Leptonica not found at configured paths")
+        message(WARNING "LEPTONICA_DIR: ${LEPTONICA_DIR}")
+        message(WARNING "TESSERACT_DIR: ${TESSERACT_DIR}")
+        message(WARNING "Tesseract OCR 功能将被禁用")
+        return()
+    endif()
+else()
+    set(TESSERACT_OCR_LIBS ${TESSERACT_LIBRARY} ${LEPTONICA_LIBRARY} pthread dl m)
+endif()
+
+add_library(tesseract_ocr SHARED tesseract_ocr.cpp)
+target_link_libraries(tesseract_ocr PRIVATE ${TESSERACT_OCR_LIBS})
+target_link_options(tesseract_ocr PRIVATE -Wl,-soname,libtesseract_ocr.so.1)
+
 # ===== 安装规则 =====
-install(TARGETS meme_llm LIBRARY DESTINATION lib COMPONENT runtime)
+install(TARGETS meme_llm tesseract_ocr LIBRARY DESTINATION lib COMPONENT runtime)
 install(FILES meme_llm.cpp DESTINATION include COMPONENT headers RENAME meme_llm.h)
+install(FILES tesseract_ocr.h DESTINATION include COMPONENT headers)
 
 message(STATUS "=== meme_llm build configuration ===")
 message(STATUS "LLAMA_CPP_DIR: ${LLAMA_CPP_DIR}")
@@ -164,4 +237,7 @@ message(STATUS "ENABLE_OPENCL: ${ENABLE_OPENCL}")
 message(STATUS "GLSLC_EXECUTABLE: ${GLSLC_EXECUTABLE}")
 message(STATUS "Vulkan: ${VULKAN_FOUND}")
 message(STATUS "OpenCL: ${OPENCL_FOUND}")
+message(STATUS "Tesseract system: ${TESSERACT_SYSTEM}")
+message(STATUS "Tesseract: ${TESSERACT_DIR}")
+message(STATUS "Leptonica: ${LEPTONICA_DIR}")
 message(STATUS "================================")

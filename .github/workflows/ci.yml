@@ -399,6 +399,16 @@ jobs:
             cmake --install third_party\spirv-headers-build --config Release
           }
 
+      - name: Download Tesseract DLLs
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "third_party\tesseract-dlls")) {
+            Write-Host "Downloading Tesseract DLLs..."
+            powershell -ExecutionPolicy Bypass -File ".\scripts\download-tesseract-dlls.ps1"
+          } else {
+            Write-Host "Tesseract DLLs already exist, skipping download"
+          }
+
       - name: Build meme_llm.dll (Vulkan)
         shell: pwsh
         run: |
@@ -418,6 +428,16 @@ jobs:
             Copy-Item $DLL_SOURCE -Destination $FLUTTER_DIR\ -Force
             Write-Host "Copied meme_llm.dll to $FLUTTER_DIR"
           }
+
+          # Copy Tesseract DLLs to bundle
+          $TESS_DLL_DIR = "third_party\tesseract-dlls"
+          if (Test-Path $TESS_DLL_DIR) {
+            Get-ChildItem "$TESS_DLL_DIR\*.dll" | ForEach-Object {
+              Copy-Item $_.FullName -Destination $FLUTTER_DIR\ -Force
+              Write-Host "Copied $($_.Name)"
+            }
+          }
+
           Get-ChildItem "$FLUTTER_DIR\*.dll" | ForEach-Object { Write-Host $_.Name }
 
       - name: Verify DLL
@@ -429,6 +449,23 @@ jobs:
             Write-Host "meme_llm.dll size: $([math]::Round($size, 2)) MB"
           } else {
             Write-Host "No meme_llm.dll found - may be using stub"
+          }
+
+      - name: Verify Tesseract DLLs
+        shell: pwsh
+        run: |
+          $FLUTTER_DIR = "build\windows\x64\runner\Release"
+          $TESS_DLLS = Get-ChildItem "$FLUTTER_DIR\tesseract*.dll" -ErrorAction SilentlyContinue
+          $LEPT_DLLS = Get-ChildItem "$FLUTTER_DIR\leptonica*.dll" -ErrorAction SilentlyContinue
+          if ($TESS_DLLS) {
+            Write-Host "Tesseract DLLs found:"
+            $TESS_DLLS | ForEach-Object { Write-Host "  $($_.Name) ($(($_.Length / 1MB).ToString('0.00')) MB)" }
+          } else {
+            Write-Host "No Tesseract DLLs in bundle"
+          }
+          if ($LEPT_DLLS) {
+            Write-Host "Leptonica DLLs found:"
+            $LEPT_DLLS | ForEach-Object { Write-Host "  $($_.Name) ($(($_.Length / 1MB).ToString('0.00')) MB)" }
           }
 
       - name: Package Windows artifact

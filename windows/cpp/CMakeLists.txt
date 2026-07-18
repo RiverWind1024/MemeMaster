@@ -78,12 +78,36 @@ include_directories(
 add_library(meme_llm SHARED meme_llm.cpp)
 target_link_libraries(meme_llm PRIVATE ${MEME_LLM_LIBS})
 
+# ===== Tesseract DLLs (pre-built, loaded via FFI at runtime) =====
+set(TESSERACT_DLL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../third_party/tesseract-dlls")
+if(EXISTS "${TESSERACT_DLL_DIR}")
+    message(STATUS "Tesseract DLLs found at ${TESSERACT_DLL_DIR}")
+    file(GLOB TESSERACT_DLLS "${TESSERACT_DLL_DIR}/*.dll")
+    if(TESSERACT_DLLS)
+        message(STATUS "Found ${TESSERACT_DLLS} Tesseract DLLs")
+    else()
+        message(STATUS "No DLLs found in ${TESSERACT_DLL_DIR}")
+    endif()
+else()
+    message(STATUS "Tesseract DLLs not found at ${TESSERACT_DLL_DIR}")
+    message(STATUS "OCR 功能将使用系统 Tesseract（如果可用）")
+endif()
+
 # ===== 安装规则 =====
 install(TARGETS meme_llm LIBRARY DESTINATION lib COMPONENT runtime)
 install(FILES meme_llm.cpp DESTINATION include COMPONENT headers RENAME meme_llm.h)
+
+# ===== Tesseract DLL 安装规则 =====
+if(EXISTS "${TESSERACT_DLL_DIR}")
+    file(GLOB TESSERACT_DLLS "${TESSERACT_DLL_DIR}/*.dll")
+    if(TESSERACT_DLLS)
+        install(FILES ${TESSERACT_DLLS} DESTINATION bin COMPONENT runtime)
+    endif()
+endif()
 
 message(STATUS "=== meme_llm build configuration (Windows) ===")
 message(STATUS "LLAMA_CPP_DIR: ${LLAMA_CPP_DIR}")
 message(STATUS "ENABLE_VULKAN: ${ENABLE_VULKAN}")
 message(STATUS "ENABLE_OPENCL: ${ENABLE_OPENCL}")
+message(STATUS "TESSERACT_DLL_DIR: ${TESSERACT_DLL_DIR}")
 message(STATUS "================================")
