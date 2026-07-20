@@ -1,5 +1,5 @@
 import 'dart:ffi';
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, Directory;
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as path;
 
