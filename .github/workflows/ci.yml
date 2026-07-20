@@ -116,6 +116,25 @@ jobs:
           cp build/linux-llm/libmeme_llm.so build/linux/x64/release/bundle/lib/
           echo "✓ Copied libmeme_llm.so to bundle"
 
+          # 复制 tesseract_ocr 封装库（如果存在）
+          if [ -f "build/linux-llm/libtesseract_ocr.so" ]; then
+            cp build/linux-llm/libtesseract_ocr.so build/linux/x64/release/bundle/lib/
+            echo "✓ Copied libtesseract_ocr.so to bundle"
+          else
+            echo "NOTE: libtesseract_ocr.so not found (OCR may use CLI fallback)"
+          fi
+
+          # 复制 tesseract 和 leptonica 库（如果存在）
+          for lib in libtesseract.so libtesseract.so.5 libleptonica.so libleptonica.so.1; do
+            if [ -f "build/linux-llm/$lib" ]; then
+              cp build/linux-llm/$lib build/linux/x64/release/bundle/lib/
+              echo "✓ Copied $lib to bundle"
+            fi
+          done
+
+          echo "=== Bundled libraries ==="
+          ls -lh build/linux/x64/release/bundle/lib/*.so 2>/dev/null || echo "No .so files"
+
       - name: Verify GPU library
         run: |
           LIB=build/linux/x64/release/bundle/lib/libmeme_llm.so
@@ -132,6 +151,15 @@ jobs:
             fi
           elif [ -f build/linux/x64/release/bundle/lib/libmeme_llm_empty.so ]; then
             echo "⚠ Only stub library built (no GPU support)"
+
+          # 检查 Tesseract OCR 库
+          TESS_LIB=build/linux/x64/release/bundle/lib/libtesseract_ocr.so
+          if [ -f "$TESS_LIB" ]; then
+            echo "✓ Found libtesseract_ocr.so"
+            nm "$TESS_LIB" 2>/dev/null | grep -q "tess_" && echo "✓ Tesseract FFI symbols found"
+          else
+            echo "NOTE: libtesseract_ocr.so not found (OCR will use CLI fallback)"
+          fi
           else
             echo "✗ No meme_llm library found"
             exit 1
@@ -213,9 +241,29 @@ jobs:
           fi
           FRAMEWORKS="$APP/Contents/Frameworks"
           mkdir -p "$FRAMEWORKS"
+
+          # 复制主库
           cp build/macos-llm/libmeme_llm.dylib "$FRAMEWORKS/"
           echo "✓ Copied libmeme_llm.dylib to $FRAMEWORKS"
-          ls -lh "$FRAMEWORKS"/libmeme_llm.dylib
+
+          # 复制 tesseract_ocr 封装库（如果存在）
+          if [ -f "build/macos-llm/libtesseract_ocr.dylib" ]; then
+            cp build/macos-llm/libtesseract_ocr.dylib "$FRAMEWORKS/"
+            echo "✓ Copied libtesseract_ocr.dylib to $FRAMEWORKS"
+          else
+            echo "NOTE: libtesseract_ocr.dylib not found (OCR may use CLI fallback)"
+          fi
+
+          # 复制 tesseract 和 leptonica 库（如果存在）
+          for lib in libtesseract.dylib libleptonica.dylib; do
+            if [ -f "build/macos-llm/$lib" ]; then
+              cp build/macos-llm/$lib "$FRAMEWORKS/"
+              echo "✓ Copied $lib to $FRAMEWORKS"
+            fi
+          done
+
+          echo "=== Bundled libraries ==="
+          ls -lh "$FRAMEWORKS"/*.dylib 2>/dev/null || echo "No dylibs in Frameworks"
 
       - name: Verify Metal library
         run: |
@@ -234,6 +282,20 @@ jobs:
             fi
           else
             echo "⚠ No libmeme_llm.dylib found in build/macos-llm or app bundle (this is OK if Tesseract bundling is not needed)"
+          fi
+
+          # 检查 Tesseract OCR 库
+          TESS_LIB=$(find build/macos-llm -name "libtesseract_ocr.dylib" -type f 2>/dev/null | head -1)
+          if [ -n "$TESS_LIB" ]; then
+            echo "✓ Found libtesseract_ocr.dylib: $TESS_LIB"
+            ls -lh "$TESS_LIB"
+            if nm "$TESS_LIB" 2>/dev/null | grep -q "tess_"; then
+              echo "✓ Tesseract FFI symbols found"
+            else
+              echo "⚠ No tess_* symbols found in $TESS_LIB"
+            fi
+          else
+            echo "NOTE: libtesseract_ocr.dylib not found (OCR will use CLI fallback)"
           fi
 
       - name: Package macOS artifact
