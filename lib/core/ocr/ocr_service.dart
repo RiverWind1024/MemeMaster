@@ -337,7 +337,8 @@ class _LinuxOcrService {
         return OcrResult(text: '', blocks: [], diagnostics: ['${diag}创建 Tesseract handle 失败']);
       }
 
-      final datapath = '';
+      final datapath = TessOcrBindings.getTessdataPath();
+      _log.info('OCR', 'FFI datapath: $datapath');
       var result = ffi.init(handle, datapath, 'chi_sim+eng');
       if (result != 0) {
         result = ffi.init(handle, datapath, 'eng');
@@ -481,7 +482,8 @@ class _WindowsOcrService {
         return OcrResult(text: '', blocks: [], diagnostics: ['${diag}创建 Tesseract handle 失败']);
       }
 
-      final datapath = '';
+      final datapath = TessOcrBindings.getTessdataPath();
+      _log.info('OCR', 'FFI datapath: $datapath');
       var result = ffi.init(handle, datapath, 'chi_sim+eng');
       if (result != 0) {
         result = ffi.init(handle, datapath, 'eng');

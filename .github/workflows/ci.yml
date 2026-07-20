@@ -113,6 +113,25 @@ jobs:
           rm -rf build/linux
           flutter build linux --release
 
+      - name: Download and bundle tessdata (Linux)
+        run: |
+          TESSDATA_DIR="build/linux/x64/release/bundle/share/tessdata"
+          mkdir -p "$TESSDATA_DIR"
+          
+          # 下载 tessdata 文件（eng + chi_sim）
+          TESSDATA_URL="https://github.com/tesseract-ocr/tessdata/releases/download/5.3.4-0.1.20240401"
+          for lang in eng chi_sim; do
+            if [ ! -f "$TESSDATA_DIR/${lang}.traineddata" ]; then
+              echo "Downloading ${lang}.traineddata..."
+              curl -sSL "${TESSDATA_URL}/${lang}.traineddata" -o "$TESSDATA_DIR/${lang}.traineddata"
+            else
+              echo "${lang}.traineddata already exists"
+            fi
+          done
+          
+          echo "=== Tessdata files ==="
+          ls -lh "$TESSDATA_DIR"/*.traineddata 2>/dev/null || echo "No tessdata found"
+
       - name: Bundle native library
         run: |
           mkdir -p build/linux/x64/release/bundle/lib
@@ -284,6 +303,19 @@ jobs:
               fi
             done
           done
+
+          # 复制 tessdata 到 Resources（macOS app bundle 结构）
+          TESSDATA_DIR="$APP/Contents/Resources/tessdata"
+          mkdir -p "$TESSDATA_DIR"
+          TESSDATA_URL="https://github.com/tesseract-ocr/tessdata/releases/download/5.3.4-0.1.20240401"
+          for lang in eng chi_sim; do
+            if [ ! -f "$TESSDATA_DIR/${lang}.traineddata" ]; then
+              echo "Downloading ${lang}.traineddata..."
+              curl -sSL "${TESSDATA_URL}/${lang}.traineddata" -o "$TESSDATA_DIR/${lang}.traineddata"
+            fi
+          done
+          echo "=== Tessdata ==="
+          ls -lh "$TESSDATA_DIR"/*.traineddata 2>/dev/null || echo "No tessdata"
 
           echo "=== Bundled libraries ==="
           ls -lh "$FRAMEWORKS"/*.dylib 2>/dev/null || echo "No dylibs in Frameworks"
@@ -606,6 +638,27 @@ jobs:
             Get-ChildItem "$TESS_DLL_DIR\*.dll" | ForEach-Object {
               Copy-Item $_.FullName -Destination $FLUTTER_DIR\ -Force
               Write-Host "Copied $($_.Name)"
+            }
+          }
+
+          # Copy tessdata to bundle
+          $TESSDATA_DIR = "$FLUTTER_DIR\tessdata"
+          if (Test-Path "$TESS_DLL_DIR\tesseract\tessdata") {
+            New-Item -ItemType Directory -Force -Path $TESSDATA_DIR | Out-Null
+            Copy-Item "$TESS_DLL_DIR\tesseract\tessdata\*" -Destination $TESSDATA_DIR\ -Force
+            Write-Host "Copied tessdata files"
+            Get-ChildItem $TESSDATA_DIR\*.traineddata | ForEach-Object { Write-Host "  $($_.Name)" }
+          } else {
+            # Download tessdata if not present
+            Write-Host "Downloading tessdata..."
+            New-Item -ItemType Directory -Force -Path $TESSDATA_DIR | Out-Null
+            $TESSDATA_URL = "https://github.com/tesseract-ocr/tessdata/releases/download/5.3.4-0.1.20240401"
+            foreach ($lang in @("eng", "chi_sim")) {
+              $filePath = "$TESSDATA_DIR\${lang}.traineddata"
+              if (-not (Test-Path $filePath)) {
+                Write-Host "  Downloading ${lang}.traineddata..."
+                Invoke-WebRequest -Uri "$TESSDATA_URL/${lang}.traineddata" -OutFile $filePath -TimeoutSec 120 -UseBasicParsing
+              }
             }
           }
 

@@ -59,6 +59,33 @@ class TessOcrBindings {
     }
   }
 
+  /// 获取 tessdata 目录路径
+  /// macOS: App.app/Contents/Resources/tessdata/
+  /// Linux: bundle/share/tessdata/ 或 bundle/tessdata/
+  static String getTessdataPath() {
+    try {
+      final exeDir = path.dirname(Platform.resolvedExecutable);
+      if (Platform.isMacOS) {
+        // macOS: AppName.app/Contents/Resources/tessdata/
+        return path.join(path.dirname(path.dirname(exeDir)), 'Resources', 'tessdata');
+      } else if (Platform.isLinux) {
+        // Linux: 同级目录下的 share/tessdata/ 或 tessdata/
+        final resourcesPath = path.join(exeDir, 'share', 'tessdata');
+        if (Directory(resourcesPath).existsSync()) {
+          return resourcesPath;
+        }
+        // 备用: bundle/tessdata/
+        return path.join(exeDir, 'tessdata');
+      } else if (Platform.isWindows) {
+        // Windows: exe 同级的 tessdata/
+        return path.join(exeDir, 'tessdata');
+      }
+    } catch (e) {
+      // ignore
+    }
+    return '';
+  }
+
   TessOcrBindings() {
     final candidates = <String>[];
 
