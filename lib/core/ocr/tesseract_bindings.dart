@@ -1,6 +1,7 @@
 import 'dart:ffi';
 import 'dart:io' show Platform;
 import 'package:ffi/ffi.dart';
+import 'package:path/path.dart' as path;
 
 typedef TessCreateC = Pointer<Void> Function();
 typedef TessCreateDart = Pointer<Void> Function();
@@ -41,14 +42,55 @@ class TessOcrBindings {
   bool _isLoaded = false;
   bool get isLoaded => _isLoaded;
 
+  /// 获取 macOS app bundle 中的 Frameworks 目录路径
+  String? _getMacOSFrameworksPath() {
+    try {
+      // 获取可执行文件路径
+      final exePath = path.dirname(Platform.resolvedExecutable);
+      // macOS app bundle 结构: AppName.app/Contents/MacOS/executable
+      // 我们需要: AppName.app/Contents/Frameworks/
+      final frameworksPath = path.join(
+        path.dirname(path.dirname(exePath)), // .. → Contents
+        'Frameworks'
+      );
+      return frameworksPath;
+    } catch (e) {
+      return null;
+    }
+  }
+
   TessOcrBindings() {
     final candidates = <String>[];
+
     if (Platform.isLinux) {
-      candidates.addAll(['libtesseract_ocr.so', 'libleptonica.so', 'libleptonica.so.1']);
+      candidates.addAll([
+        'libtesseract_ocr.so',
+        'libtesseract_ocr.so.1',
+        'libleptonica.so',
+        'libleptonica.so.1',
+      ]);
     } else if (Platform.isMacOS) {
-      candidates.addAll(['libtesseract_ocr.dylib', 'libtesseract.dylib', 'libleptonica.dylib']);
+      // 首先尝试 app bundle 中的 Frameworks 目录
+      final fwPath = _getMacOSFrameworksPath();
+      if (fwPath != null) {
+        candidates.addAll([
+          '$fwPath/libtesseract_ocr.dylib',
+          '$fwPath/libtesseract.dylib',
+          '$fwPath/libleptonica.dylib',
+        ]);
+      }
+      // 然后尝试系统路径
+      candidates.addAll([
+        'libtesseract_ocr.dylib',
+        'libtesseract.dylib',
+        'libleptonica.dylib',
+      ]);
     } else if (Platform.isWindows) {
-      candidates.addAll(['libtesseract-5.dll', 'tesseract-5.dll', 'tesseract.dll']);
+      candidates.addAll([
+        'libtesseract-5.dll',
+        'tesseract-5.dll',
+        'tesseract.dll',
+      ]);
     }
 
     for (final name in candidates) {

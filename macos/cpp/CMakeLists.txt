@@ -197,12 +197,24 @@ if(ENABLE_TESSERACT)
                 )
             endif()
 
-            # 设置 OCR 库路径
+            # 构建 tesseract_ocr 封装库 - 直接链接已安装的 dylib
             if(ENABLE_TESSERACT)
-                set(TESSERACT_OCR_LIBS
+                message(STATUS "=== Building tesseract_ocr wrapper ===")
+                add_library(tesseract_ocr SHARED tesseract_ocr.cpp)
+                target_include_directories(tesseract_ocr PRIVATE
+                    ${LEPTONICA_INSTALL_DIR}/include
+                    ${TESSERACT_DIR}/include
+                )
+                target_link_libraries(tesseract_ocr PRIVATE
                     "${LEPTONICA_INSTALL_DIR}/lib/libleptonica.dylib"
                     "${LEPTONICA_INSTALL_DIR}/lib/libtesseract.dylib"
                 )
+                set_target_properties(tesseract_ocr PROPERTIES
+                    INSTALL_NAME_DIR "@rpath"
+                    BUILD_RPATH "@loader_path"
+                    INSTALL_RPATH "@loader_path"
+                )
+                set(TESSERACT_OCR_TARGET tesseract_ocr)
                 message(STATUS "Tesseract/Leptonica build and install successful")
             endif()
         endif()

@@ -256,11 +256,19 @@ class _LinuxOcrService {
   static Future<bool> isInstalled() async {
     try {
       _log.info('OCR', '检查 Tesseract 是否可用...');
-      if (_ffi?.isLoaded ?? false) {
+      
+      // 检查 FFI 是否可用
+      final ffiLoaded = _ffi?.isLoaded ?? false;
+      _log.info('OCR', 'Tesseract FFI loaded: $ffiLoaded');
+      
+      if (ffiLoaded) {
         final version = _ffi?.getVersion();
         _log.info('OCR', 'Tesseract FFI 已加载${version != null ? ', 版本: $version' : ''}');
         return true;
       }
+      
+      // FFI 不可用，尝试命令行
+      _log.info('OCR', 'FFI 不可用，尝试命令行 tesseract...');
       final result = await Process.run('tesseract', ['--version']);
       _log.info('OCR', 'tesseract --version exitCode=${result.exitCode}');
       if (result.exitCode == 0 && result.stdout.toString().isNotEmpty) {
@@ -269,8 +277,8 @@ class _LinuxOcrService {
       }
       _log.warning('OCR', 'tesseract 未安装或不可用');
       return false;
-    } catch (e) {
-      _log.error('OCR', '检查 tesseract 失败: $e');
+    } catch (e, st) {
+      _log.error('OCR', '检查 tesseract 失败: $e\n$st');
       return false;
     }
   }
