@@ -96,14 +96,115 @@ if(ENABLE_TESSERACT)
 
         if(ENABLE_TESSERACT)
             message(STATUS "Building Tesseract/Leptonica from source")
-            set(BUILD_SHARED_LIBS ON)
-            set(ENABLE_OPENCL OFF)
-            set(ENABLE_TESSERACT_REDISTRIBUTABLE OFF)
 
-            add_subdirectory(${LEPTONICA_DIR} leptonica EXCLUDE_FROM_ALL)
-            add_subdirectory(${TESSERACT_DIR} tesseract EXCLUDE_FROM_ALL)
+            # 本地安装前缀
+            set(LOCAL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/local")
+            set(LEPTONICA_INSTALL_DIR "${LOCAL_PREFIX}")
 
-            list(APPEND OCR_LIBS tesseract leptonica)
+            # 构建并安装 Leptonica
+            message(STATUS "=== Building Leptonica ===")
+            execute_process(
+                COMMAND cmake -S ${LEPTONICA_DIR} -B ${CMAKE_CURRENT_BINARY_DIR}/leptonica_build
+                    -DCMAKE_BUILD_TYPE=Release
+                    -DCMAKE_INSTALL_PREFIX=${LEPTONICA_INSTALL_DIR}
+                    -DBUILD_SHARED_LIBS=ON
+                    -DBUILD_STATIC_LIBS=OFF
+                    -DBUILD_PROGRAMS=OFF
+                    -DBUILD_TESTS=OFF
+                    -DBUILD_DOCS=OFF
+                    -DLEPTONICA_BUILD_PROGRAMS=OFF
+                    -DLEPTONICA_BUILD_TESTS=OFF
+                    -DLEPTONICA_USING_PNG=ON
+                    -DLEPTONICA_USING_JPEG=ON
+                    -DLEPTONICA_USING_TIFF=ON
+                    -DLEPTONICA_USING_GIF=ON
+                    -DLEPTONICA_USING_WEBP=ON
+                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+                RESULT_VARIABLE RESULT
+            )
+            if(RESULT)
+                message(WARNING "Leptonica configure failed")
+                set(ENABLE_TESSERACT OFF)
+            endif()
+
+            if(ENABLE_TESSERACT)
+                execute_process(
+                    COMMAND cmake --build ${CMAKE_CURRENT_BINARY_DIR}/leptonica_build --config Release -j4
+                    RESULT_VARIABLE RESULT
+                )
+                if(RESULT)
+                    message(WARNING "Leptonica build failed")
+                    set(ENABLE_TESSERACT OFF)
+                endif()
+            endif()
+
+            if(ENABLE_TESSERACT)
+                execute_process(
+                    COMMAND cmake --install ${CMAKE_CURRENT_BINARY_DIR}/leptonica_build --config Release
+                    RESULT_VARIABLE RESULT
+                )
+                if(RESULT)
+                    message(WARNING "Leptonica install failed")
+                    set(ENABLE_TESSERACT OFF)
+                endif()
+            endif()
+
+            # 设置路径让 Tesseract 能够找到
+            set(Leptonica_DIR "${LEPTONICA_INSTALL_DIR}/lib/cmake/leptonica")
+            set(CMAKE_PREFIX_PATH "${LEPTONICA_INSTALL_DIR};${CMAKE_PREFIX_PATH}")
+            message(STATUS "Leptonica installed to ${LEPTONICA_INSTALL_DIR}")
+            message(STATUS "Leptonica_DIR=${Leptonica_DIR}")
+
+            # 构建并安装 Tesseract
+            if(ENABLE_TESSERACT)
+                message(STATUS "=== Building Tesseract ===")
+                execute_process(
+                    COMMAND cmake -S ${TESSERACT_DIR} -B ${CMAKE_CURRENT_BINARY_DIR}/tesseract_build
+                        -DCMAKE_BUILD_TYPE=Release
+                        -DCMAKE_INSTALL_PREFIX=${LEPTONICA_INSTALL_DIR}
+                        -DLeptonica_DIR=${Leptonica_DIR}
+                        -DBUILD_SHARED_LIBS=ON
+                        -DBUILD_STATIC_LIBS=OFF
+                        -DBUILD_PROGRAMS=OFF
+                        -DBUILD_TRAININGTOOLS=OFF
+                        -DBUILD_DOCS=OFF
+                        -DENABLE_TESSERACT_REDISTRIBUTABLE=OFF
+                        -DOPENMP_BUILD=OFF
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+                    RESULT_VARIABLE RESULT
+                )
+                if(RESULT)
+                    message(WARNING "Tesseract configure failed")
+                    set(ENABLE_TESSERACT OFF)
+                endif()
+            endif()
+
+            if(ENABLE_TESSERACT)
+                execute_process(
+                    COMMAND cmake --build ${CMAKE_CURRENT_BINARY_DIR}/tesseract_build --config Release -j4
+                    RESULT_VARIABLE RESULT
+                )
+                if(RESULT)
+                    message(WARNING "Tesseract build failed")
+                    set(ENABLE_TESSERACT OFF)
+                endif()
+            endif()
+
+            if(ENABLE_TESSERACT)
+                execute_process(
+                    COMMAND cmake --install ${CMAKE_CURRENT_BINARY_DIR}/tesseract_build --config Release
+                    RESULT_VARIABLE RESULT
+                )
+            endif()
+
+            # 设置 OCR 库路径
+            if(ENABLE_TESSERACT)
+                set(TESSERACT_OCR_LIBS
+                    "${LEPTONICA_INSTALL_DIR}/lib/libleptonica.dylib"
+                    "${LEPTONICA_INSTALL_DIR}/lib/libtesseract.dylib"
+                )
+                message(STATUS "Tesseract/Leptonica build and install successful")
+            endif()
         endif()
     endif()
 endif()
