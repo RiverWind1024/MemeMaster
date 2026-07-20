@@ -42,6 +42,10 @@ cmake "$LLM_DIR" \
 echo "=== cmake build ==="
 cmake --build . --config Release -j"$NPROC" 2>&1 | tail -50
 
+# 安装（将 tesseract_ocr 等库安装到 CMAKE_INSTALL_PREFIX）
+echo "=== cmake install ==="
+cmake --install . --config Release 2>&1 | tail -20
+
 # 检查产物
 if [ -f "libmeme_llm.dylib" ]; then
     SIZE=$(ls -lh libmeme_llm.dylib | awk '{print $5}')

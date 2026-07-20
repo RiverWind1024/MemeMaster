@@ -98,12 +98,15 @@ jobs:
           cd build/linux-llm
           cmake ../../linux/cpp \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/third_party/linux-llm-install" \
             -DLLAMA_CPP_DIR="$GITHUB_WORKSPACE/third_party/llama.cpp" \
             -DSPIRV_HEADERS_DIR="$GITHUB_WORKSPACE/third_party/spirv-headers-install" \
             -DENABLE_VULKAN=ON
           cmake --build . -j$(nproc)
+          cmake --install . --config Release
           echo "=== Build artifacts ==="
           ls -lh libmeme_llm* 2>/dev/null || echo "No libmeme_llm found"
+          ls -lh libtesseract_ocr* 2>/dev/null || echo "No libtesseract_ocr found"
 
       - name: Build Linux (Vulkan GPU)
         run: |
@@ -116,20 +119,30 @@ jobs:
           cp build/linux-llm/libmeme_llm.so build/linux/x64/release/bundle/lib/
           echo "✓ Copied libmeme_llm.so to bundle"
 
+          # tesseract 安装目录
+          TESS_INSTALL="$GITHUB_WORKSPACE/third_party/linux-llm-install"
+
           # 复制 tesseract_ocr 封装库（如果存在）
-          if [ -f "build/linux-llm/libtesseract_ocr.so" ]; then
-            cp build/linux-llm/libtesseract_ocr.so build/linux/x64/release/bundle/lib/
-            echo "✓ Copied libtesseract_ocr.so to bundle"
-          else
+          for dir in "build/linux-llm" "$TESS_INSTALL/lib"; do
+            if [ -f "$dir/libtesseract_ocr.so" ]; then
+              cp "$dir/libtesseract_ocr.so" build/linux/x64/release/bundle/lib/
+              echo "✓ Copied libtesseract_ocr.so to bundle"
+              break
+            fi
+          done
+          if [ ! -f "build/linux/x64/release/bundle/lib/libtesseract_ocr.so" ]; then
             echo "NOTE: libtesseract_ocr.so not found (OCR may use CLI fallback)"
           fi
 
           # 复制 tesseract 和 leptonica 库（如果存在）
           for lib in libtesseract.so libtesseract.so.5 libleptonica.so libleptonica.so.1; do
-            if [ -f "build/linux-llm/$lib" ]; then
-              cp build/linux-llm/$lib build/linux/x64/release/bundle/lib/
-              echo "✓ Copied $lib to bundle"
-            fi
+            for dir in "build/linux-llm" "$TESS_INSTALL/lib"; do
+              if [ -f "$dir/$lib" ]; then
+                cp "$dir/$lib" build/linux/x64/release/bundle/lib/
+                echo "✓ Copied $lib to bundle"
+                break
+              fi
+            done
           done
 
           echo "=== Bundled libraries ==="
