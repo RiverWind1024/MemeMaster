@@ -100,6 +100,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/third_party/linux-llm-install" \
             -DLLAMA_CPP_DIR="$GITHUB_WORKSPACE/third_party/llama.cpp" \
+            -DTESSERACT_DIR="$GITHUB_WORKSPACE/third_party/tesseract" \
+            -DLEPTONICA_DIR="$GITHUB_WORKSPACE/third_party/leptonica" \
             -DSPIRV_HEADERS_DIR="$GITHUB_WORKSPACE/third_party/spirv-headers-install" \
             -DENABLE_VULKAN=ON
           cmake --build . -j$(nproc)
