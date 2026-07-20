@@ -246,20 +246,30 @@ jobs:
           cp build/macos-llm/libmeme_llm.dylib "$FRAMEWORKS/"
           echo "✓ Copied libmeme_llm.dylib to $FRAMEWORKS"
 
+          # tesseract 安装目录（bundled 模式）
+          TESSERACT_INSTALL_DIR="build/macos-llm/install"
+
           # 复制 tesseract_ocr 封装库（如果存在）
-          if [ -f "build/macos-llm/libtesseract_ocr.dylib" ]; then
-            cp build/macos-llm/libtesseract_ocr.dylib "$FRAMEWORKS/"
-            echo "✓ Copied libtesseract_ocr.dylib to $FRAMEWORKS"
-          else
+          for dir in "build/macos-llm" "$TESSERACT_INSTALL_DIR/lib"; do
+            if [ -f "$dir/libtesseract_ocr.dylib" ]; then
+              cp "$dir/libtesseract_ocr.dylib" "$FRAMEWORKS/"
+              echo "✓ Copied libtesseract_ocr.dylib to $FRAMEWORKS"
+              break
+            fi
+          done
+          if [ ! -f "$FRAMEWORKS/libtesseract_ocr.dylib" ]; then
             echo "NOTE: libtesseract_ocr.dylib not found (OCR may use CLI fallback)"
           fi
 
           # 复制 tesseract 和 leptonica 库（如果存在）
           for lib in libtesseract.dylib libleptonica.dylib; do
-            if [ -f "build/macos-llm/$lib" ]; then
-              cp build/macos-llm/$lib "$FRAMEWORKS/"
-              echo "✓ Copied $lib to $FRAMEWORKS"
-            fi
+            for dir in "build/macos-llm" "$TESSERACT_INSTALL_DIR/lib"; do
+              if [ -f "$dir/$lib" ]; then
+                cp "$dir/$lib" "$FRAMEWORKS/"
+                echo "✓ Copied $lib to $FRAMEWORKS"
+                break
+              fi
+            done
           done
 
           echo "=== Bundled libraries ==="
