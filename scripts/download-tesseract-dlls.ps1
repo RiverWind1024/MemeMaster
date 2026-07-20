@@ -17,7 +17,7 @@ function Get-RetryWebRequest {
     while ($attempt -lt $MaxRetries) {
         $attempt++
         try {
-            Write-Host "Attempt $attempt/$MaxRetries: Downloading from $Url"
+            Write-Host "Attempt $attempt/${MaxRetries}: Downloading from $Url"
             Invoke-WebRequest -Uri $Url -OutFile $OutputPath -TimeoutSec $TimeoutSec -UseBasicParsing
             return $true
         } catch {
