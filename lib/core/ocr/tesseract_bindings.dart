@@ -45,15 +45,24 @@ class TessOcrBindings {
   /// 获取 macOS app bundle 中的 Frameworks 目录路径
   String? _getMacOSFrameworksPath() {
     try {
-      // 获取可执行文件路径
-      final exePath = path.dirname(Platform.resolvedExecutable);
-      // macOS app bundle 结构: AppName.app/Contents/MacOS/executable
-      // 我们需要: AppName.app/Contents/Frameworks/
-      final frameworksPath = path.join(
-        path.dirname(path.dirname(exePath)), // .. → Contents
-        'Frameworks'
-      );
-      return frameworksPath;
+      // Platform.resolvedExecutable 在 Flutter macOS app 中指向 Flutter engine
+      // (FlutterMacOS.framework/Versions/.../FlutterMacOS)，不是 app 的 MacOS 目录
+      // 因此需要向上找到 Contents/Frameworks/
+      String exePath = Platform.resolvedExecutable;
+      // 向上遍历直到找到 Frameworks 目录
+      for (int i = 0; i < 10; i++) {
+        final parent = path.dirname(exePath);
+        if (parent == exePath) break; // reached root
+        final frameworksPath = path.join(parent, 'Frameworks');
+        if (Directory(frameworksPath).existsSync()) {
+          return frameworksPath;
+        }
+        exePath = parent;
+      }
+      // Fallback: 尝试从 MacOS 子目录计算 (app bundle 标准结构)
+      // AppName.app/Contents/MacOS/executable -> AppName.app/Contents/Frameworks/
+      final exeDir = path.dirname(Platform.resolvedExecutable);
+      return path.join(path.dirname(path.dirname(exeDir)), 'Frameworks');
     } catch (e) {
       return null;
     }
@@ -66,8 +75,20 @@ class TessOcrBindings {
     try {
       final exeDir = path.dirname(Platform.resolvedExecutable);
       if (Platform.isMacOS) {
-        // macOS: AppName.app/Contents/Resources/tessdata/
-        return path.join(path.dirname(path.dirname(exeDir)), 'Resources', 'tessdata');
+        // macOS: 向上找到 Contents/Resources/tessdata/
+        // Platform.resolvedExecutable 指向 Flutter engine，不在 MacOS 子目录
+        String exePath = Platform.resolvedExecutable;
+        for (int i = 0; i < 10; i++) {
+          final parent = path.dirname(exePath);
+          if (parent == exePath) break;
+          final resourcesPath = path.join(parent, 'Resources', 'tessdata');
+          if (Directory(resourcesPath).existsSync()) {
+            return resourcesPath;
+          }
+          exePath = parent;
+        }
+        // Fallback: AppName.app/Contents/MacOS/executable -> Contents/Resources/tessdata
+        return path.join(path.dirname(path.dirname(path.dirname(exeDir))), 'Resources', 'tessdata');
       } else if (Platform.isLinux) {
         // Linux: 同级目录下的 share/tessdata/ 或 tessdata/
         final resourcesPath = path.join(exeDir, 'share', 'tessdata');
@@ -130,6 +151,14 @@ class TessOcrBindings {
         _dylib = null;
         _isLoaded = false;
       }
+    }
+    // Debug output
+    if (!_isLoaded) {
+      // ignore: avoid_print
+      print('[OCR] Failed to load tesseract_ocr dylib. Candidates tried: $candidates');
+    } else {
+      // ignore: avoid_print
+      print('[OCR] Successfully loaded tesseract_ocr dylib');
     }
   }
 
