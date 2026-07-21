@@ -234,6 +234,11 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Install pango for Tesseract
+        run: |
+          # Install pango + dependencies (cairo, fontconfig) for tesseract training tools configure
+          brew install pango 2>&1 || true
+
       - name: Init third-party (clone deps)
         run: |
           echo "=== Running init-third-party.sh ==="

@@ -257,7 +257,7 @@ if(NOT TESSERACT_SYSTEM)
                     -DBUILD_SHARED_LIBS=ON
                     -DBUILD_STATIC_LIBS=OFF
                     -DBUILD_PROGRAMS=OFF
-                    -DBUILD_TRAININGTOOLS=OFF
+                    -DBUILD_TRAINING_TOOLS=OFF
                     -DBUILD_DOCS=OFF
                     -DENABLE_TESSERACT_REDISTRIBUTABLE=OFF
                     -DOPENMP_BUILD=OFF
