@@ -60,3 +60,4 @@ const char* tess_version() {
     snprintf(version, sizeof(version), "%d.%d.%d", major, minor, micro);
     return version;
 }
+}
