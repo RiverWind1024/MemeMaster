@@ -330,6 +330,38 @@ jobs:
           echo "=== Bundled libraries ==="
           ls -lh "$FRAMEWORKS"/*.dylib 2>/dev/null || echo "No dylibs in Frameworks"
 
+          # 检查 libtesseract_ocr.dylib 的依赖链
+          if [ -f "$FRAMEWORKS/libtesseract_ocr.dylib" ]; then
+            echo "=== libtesseract_ocr.dylib dependencies ==="
+            otool -L "$FRAMEWORKS/libtesseract_ocr.dylib" 2>/dev/null || echo "Cannot read dependencies"
+          fi
+
+          # 修复依赖库的 install name（bundled 模式下用 @loader_path）
+          for lib in "$FRAMEWORKS"/libtesseract*.dylib "$FRAMEWORKS"/libleptonica*.dylib; do
+            if [ -f "$lib" ]; then
+              # 记录原始 install name
+              ORIGINAL_ID=$(otool -D "$lib" 2>/dev/null | grep -E "^/Users" | head -1 | tr -d ':')
+              if [ -n "$ORIGINAL_ID" ]; then
+                BASENAME=$(basename "$lib")
+                echo "Fixing install name: $ORIGINAL_ID -> @loader_path/$BASENAME"
+                install_name_tool -id "@loader_path/$BASENAME" "$lib" 2>/dev/null || echo "  (install_name_tool failed, may be OK)"
+              fi
+            fi
+          done
+
+          # 修复 libtesseract_ocr.dylib 对外的依赖引用（指向 @loader_path）
+          if [ -f "$FRAMEWORKS/libtesseract_ocr.dylib" ]; then
+            echo "=== Fixing libtesseract_ocr.dylib dependency paths ==="
+            # 找出所有引用 local build 目录的依赖，改为 @loader_path
+            for old_path in $(otool -L "$FRAMEWORKS/libtesseract_ocr.dylib" 2>/dev/null | grep "build/macos-llm" | awk '{print $1}'); do
+              BASENAME=$(basename "$old_path")
+              echo "  Replacing: $old_path -> @loader_path/$BASENAME"
+              install_name_tool -change "$old_path" "@loader_path/$BASENAME" "$FRAMEWORKS/libtesseract_ocr.dylib" 2>/dev/null || echo "    (failed)"
+            done
+            echo "=== After fix ==="
+            otool -L "$FRAMEWORKS/libtesseract_ocr.dylib" 2>/dev/null | grep -E "@loader_path|build/macos-llm" || echo "  (no more absolute paths to build dir)"
+          fi
+
       - name: Verify Metal library
         run: |
           # Search in build output directory
