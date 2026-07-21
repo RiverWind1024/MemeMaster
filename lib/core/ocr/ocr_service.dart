@@ -129,7 +129,7 @@ class OcrService {
     try {
       return await _LinuxOcrService.isInstalled();
     } catch (e, st) {
-      log.error('OCR', 'macOSCheckInstalled exception: $e\n$st');
+      LogService().error('OCR', 'macOSCheckInstalled exception: $e\n$st');
       return false;
     }
   }
