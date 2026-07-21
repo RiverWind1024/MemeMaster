@@ -119,9 +119,9 @@ jobs:
         run: |
           TESSDATA_DIR="build/linux/x64/release/bundle/share/tessdata"
           mkdir -p "$TESSDATA_DIR"
-          
+
           # 下载 tessdata 文件（eng + chi_sim）
-          TESSDATA_URL="https://github.com/tesseract-ocr/tessdata/releases/download/5.3.4-0.1.20240401"
+          TESSDATA_URL="https://raw.githubusercontent.com/tesseract-ocr/tessdata/main"
           for lang in eng chi_sim; do
             if [ ! -f "$TESSDATA_DIR/${lang}.traineddata" ]; then
               echo "Downloading ${lang}.traineddata..."
@@ -130,7 +130,7 @@ jobs:
               echo "${lang}.traineddata already exists"
             fi
           done
-          
+
           echo "=== Tessdata files ==="
           ls -lh "$TESSDATA_DIR"/*.traineddata 2>/dev/null || echo "No tessdata found"
 
@@ -309,7 +309,7 @@ jobs:
           # 复制 tessdata 到 Resources（macOS app bundle 结构）
           TESSDATA_DIR="$APP/Contents/Resources/tessdata"
           mkdir -p "$TESSDATA_DIR"
-          TESSDATA_URL="https://github.com/tesseract-ocr/tessdata/releases/download/5.3.4-0.1.20240401"
+          TESSDATA_URL="https://raw.githubusercontent.com/tesseract-ocr/tessdata/main"
           for lang in eng chi_sim; do
             if [ ! -f "$TESSDATA_DIR/${lang}.traineddata" ]; then
               echo "Downloading ${lang}.traineddata..."
@@ -654,7 +654,7 @@ jobs:
             # Download tessdata if not present (use curl.exe which follows redirects)
             Write-Host "Downloading tessdata..."
             New-Item -ItemType Directory -Force -Path $TESSDATA_DIR | Out-Null
-            $TESSDATA_URL = "https://github.com/tesseract-ocr/tessdata/releases/download/5.3.4-0.1.20240401"
+            $TESSDATA_URL = "https://raw.githubusercontent.com/tesseract-ocr/tessdata/main"
             foreach ($lang in @("eng", "chi_sim")) {
               $filePath = "$TESSDATA_DIR\${lang}.traineddata"
               if (-not (Test-Path $filePath)) {
