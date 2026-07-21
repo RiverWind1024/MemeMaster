@@ -156,7 +156,7 @@ class TessOcrBindings {
         _isLoaded = false;
       }
     }
-    // Debug output via LogService
+    // Debug output - write to /tmp file since LogService might crash
     final debugInfo = StringBuffer();
     debugInfo.writeln('resolvedExecutable: ${Platform.resolvedExecutable}');
     debugInfo.writeln('Frameworks path: ${_getMacOSFrameworksPath()}');
@@ -166,12 +166,16 @@ class TessOcrBindings {
       debugInfo.writeln('  $c');
     }
     debugInfo.writeln('Loaded: $_isLoaded');
-    debugInfo.writeln('dylib: $_dylib');
-    if (!_isLoaded) {
-      _log.warning('OCR', 'FFI dylib not loaded. Debug: ${debugInfo.toString()}');
-    } else {
-      _log.info('OCR', 'FFI dylib loaded. Debug: ${debugInfo.toString()}');
+    // Write to file for debugging
+    try {
+      File('/tmp/ocr_tess_debug.txt').writeAsStringSync(debugInfo.toString());
+    } catch (e) {
+      // ignore
     }
+    // Also try LogService
+    try {
+      _log.warning('OCR', 'FFI dylib debug: ${debugInfo.toString()}');
+    } catch (_) {}
   }
 
   void _bindFunctions() {
