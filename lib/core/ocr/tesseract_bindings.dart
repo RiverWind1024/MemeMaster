@@ -69,6 +69,10 @@ class TessOcrBindings {
       final exeDir = path.dirname(Platform.resolvedExecutable);
       return path.join(path.dirname(path.dirname(exeDir)), 'Frameworks');
     } catch (e) {
+      // 记录到文件
+      try {
+        File('/tmp/ocr_debug2.txt').writeAsStringSync('getMacOSFrameworksPath exception: $e\n');
+      } catch (_) {}
       return null;
     }
   }
@@ -113,6 +117,14 @@ class TessOcrBindings {
   }
 
   TessOcrBindings() {
+    // First thing: write resolvedExecutable to file so we know the path
+    try {
+      File('/tmp/ocr_constructor.txt').writeAsStringSync(
+          'resolvedExecutable: ${Platform.resolvedExecutable}\n'
+          'cwd: ${path.current}\n'
+          'constructor called\n');
+    } catch (_) {}
+
     final candidates = <String>[];
 
     if (Platform.isLinux) {
