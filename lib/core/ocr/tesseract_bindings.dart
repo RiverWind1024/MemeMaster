@@ -5,7 +5,8 @@ import 'package:path/path.dart' as path;
 
 import '../../services/log_service.dart';
 
-final _log = LogService();
+LogService? _logInstance;
+LogService _getLog() => _logInstance ??= LogService();
 
 typedef TessCreateC = Pointer<Void> Function();
 typedef TessCreateDart = Pointer<Void> Function();
@@ -174,7 +175,7 @@ class TessOcrBindings {
     }
     // Also try LogService
     try {
-      _log.warning('OCR', 'FFI dylib debug: ${debugInfo.toString()}');
+      _getLog().warning('OCR', 'FFI dylib debug: ${debugInfo.toString()}');
     } catch (_) {}
   }
 
