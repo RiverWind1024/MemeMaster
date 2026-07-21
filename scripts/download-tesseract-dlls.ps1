@@ -109,13 +109,24 @@ if (-not $isZip) {
 # Extract wheel (it's a zip file) to output directory
 Write-Host "Extracting wheel to $OUT_DIR_ABS..."
 try {
-    Expand-Archive -Path $WHL_PATH -DestinationPath $OUT_DIR_ABS -Force
+    # Use .NET ZipFile which handles more zip formats than Expand-Archive
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($WHL_PATH, $OUT_DIR_ABS)
     Write-Host "Extraction complete"
 } catch {
-    Write-Host "ERROR: Failed to extract archive"
+    Write-Host "ERROR: Failed to extract archive with ZipFile"
     Write-Host "Error: $_"
-    Remove-Item $WHL_PATH -Force -ErrorAction SilentlyContinue
-    exit 1
+    # Try Expand-Archive as fallback
+    Write-Host "Trying Expand-Archive as fallback..."
+    try {
+        Expand-Archive -Path $WHL_PATH -DestinationPath $OUT_DIR_ABS -Force
+        Write-Host "Extraction via Expand-Archive succeeded"
+    } catch {
+        Write-Host "ERROR: Expand-Archive also failed"
+        Write-Host "Error: $_"
+        Remove-Item $WHL_PATH -Force -ErrorAction SilentlyContinue
+        exit 1
+    }
 }
 
 # Clean up wheel file

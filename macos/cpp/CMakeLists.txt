@@ -191,9 +191,13 @@ else()
                     -DOPENMP_BUILD=OFF
                 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
                 RESULT_VARIABLE RESULT
+                OUTPUT_VARIABLE TESS_CONFIG_OUTPUT
+                ERROR_VARIABLE TESS_CONFIG_ERROR
             )
             if(RESULT)
-                message(WARNING "Tesseract configure failed")
+                message(WARNING "Tesseract configure failed with result ${RESULT}")
+                message(WARNING "Tesseract configure output: ${TESS_CONFIG_OUTPUT}")
+                message(WARNING "Tesseract configure error: ${TESS_CONFIG_ERROR}")
                 set(ENABLE_TESSERACT OFF)
             endif()
         endif()
@@ -202,9 +206,13 @@ else()
             execute_process(
                 COMMAND cmake --build ${CMAKE_CURRENT_BINARY_DIR}/tesseract_build --config Release -j4
                 RESULT_VARIABLE RESULT
+                OUTPUT_VARIABLE TESS_BUILD_OUTPUT
+                ERROR_VARIABLE TESS_BUILD_ERROR
             )
             if(RESULT)
-                message(WARNING "Tesseract build failed")
+                message(WARNING "Tesseract build failed with result ${RESULT}")
+                message(WARNING "Tesseract build output: ${TESS_BUILD_OUTPUT}")
+                message(WARNING "Tesseract build error: ${TESS_BUILD_ERROR}")
                 set(ENABLE_TESSERACT OFF)
             endif()
         endif()
