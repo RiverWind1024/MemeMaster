@@ -360,6 +360,13 @@ jobs:
             done
             echo "=== After fix ==="
             otool -L "$FRAMEWORKS/libtesseract_ocr.dylib" 2>/dev/null | grep -E "@loader_path|build/macos-llm" || echo "  (no more absolute paths to build dir)"
+
+            # 添加 LC_RPATH 让 @rpath 能被 dyld 正确解析
+            echo "=== Adding LC_RPATH for @rpath resolution ==="
+            install_name_tool -add_rpath "@executable_path/../Frameworks" "$FRAMEWORKS/libtesseract_ocr.dylib" 2>/dev/null && echo "✓ Added @executable_path/../Frameworks to LC_RPATH" || echo "  (add_rpath failed, may already exist)"
+            install_name_tool -add_rpath "@loader_path" "$FRAMEWORKS/libtesseract_ocr.dylib" 2>/dev/null && echo "✓ Added @loader_path to LC_RPATH" || echo "  (add_rpath failed, may already exist)"
+            echo "=== LC_RPATH after fix ==="
+            otool -l "$FRAMEWORKS/libtesseract_ocr.dylib" 2>/dev/null | grep -A2 RPATH || echo "  (no RPATH found)"
           fi
 
       - name: Verify Metal library
