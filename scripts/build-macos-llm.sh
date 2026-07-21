@@ -36,7 +36,7 @@ cmake "$LLM_DIR" \
     -DCMAKE_INSTALL_PREFIX="$BUILD_DIR/install" \
     -DENABLE_METAL="$ENABLE_METAL_FLAG" \
     -DTESSERACT_DIR="${TESSERACT_DIR:-$PROJECT_DIR/third_party/tesseract}" \
-    -DLEPTONICA_DIR="${LEPTONICA_DIR:-$PROJECT_DIR/third_party/leptonica}" 2>&1 | tail -30
+    -DLEPTONICA_DIR="${LEPTONICA_DIR:-$PROJECT_DIR/third_party/leptonica}" 2>&1
 
 # 构建
 echo "=== cmake build ==="

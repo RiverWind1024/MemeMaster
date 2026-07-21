@@ -18,15 +18,19 @@ function Get-RetryWebRequest {
         $attempt++
         try {
             Write-Host "Attempt $attempt/${MaxRetries}: Downloading from $Url"
-            Invoke-WebRequest -Uri $Url -OutFile $OutputPath -TimeoutSec $TimeoutSec -UseBasicParsing
-            return $true
+            # Use curl.exe which follows redirects properly
+            curl.exe -L -sS --retry 3 --retry-delay 5 -o $OutputPath $Url
+            if ($LASTEXITCODE -eq 0) {
+                return $true
+            }
+            Write-Host "Attempt $attempt failed with exit code $LASTEXITCODE"
         } catch {
             Write-Host "Attempt $attempt failed: $_"
-            if ($attempt -lt $MaxRetries) {
-                $waitSec = 5 * $attempt
-                Write-Host "Waiting ${waitSec}s before retry..."
-                Start-Sleep -Seconds $waitSec
-            }
+        }
+        if ($attempt -lt $MaxRetries) {
+            $waitSec = 5 * $attempt
+            Write-Host "Waiting ${waitSec}s before retry..."
+            Start-Sleep -Seconds $waitSec
         }
     }
     return $false
@@ -84,6 +88,23 @@ if (-not $success) {
 
 $actualSizeMB = [math]::Round((Get-Item $WHL_PATH).Length / 1MB, 1)
 Write-Host "Downloaded: $actualSizeMB MB"
+
+# Verify it's a valid zip file (wheel format)
+$zipTest = Test-Path $WHL_PATH -PathType Leaf
+if (-not $zipTest) {
+    Write-Host "ERROR: Downloaded file is not a regular file"
+    exit 1
+}
+
+# Check file signature to verify it's a zip
+$bytes = [System.IO.File]::ReadAllBytes($WHL_PATH)[0..3]
+$isZip = ($bytes[0] -eq 0x50 -and $bytes[1] -eq 0x4B)  # PK header
+if (-not $isZip) {
+    Write-Host "ERROR: Downloaded file is not a valid zip/wheel (signature: $($bytes -join ','))"
+    Write-Host "Content preview:"
+    Get-Content $WHL_PATH -Raw -ErrorAction SilentlyContinue | Select-Object -First 5
+    exit 1
+}
 
 # Extract wheel (it's a zip file) to output directory
 Write-Host "Extracting wheel to $OUT_DIR_ABS..."
