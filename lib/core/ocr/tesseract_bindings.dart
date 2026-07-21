@@ -1,7 +1,11 @@
 import 'dart:ffi';
-import 'dart:io' show Platform, Directory;
+import 'dart:io' show Platform, Directory, File;
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as path;
+
+import '../../services/log_service.dart';
+
+final _log = LogService();
 
 typedef TessCreateC = Pointer<Void> Function();
 typedef TessCreateDart = Pointer<Void> Function();
@@ -152,13 +156,21 @@ class TessOcrBindings {
         _isLoaded = false;
       }
     }
-    // Debug output
+    // Debug output via LogService
+    final debugInfo = StringBuffer();
+    debugInfo.writeln('resolvedExecutable: ${Platform.resolvedExecutable}');
+    debugInfo.writeln('Frameworks path: ${_getMacOSFrameworksPath()}');
+    debugInfo.writeln('tessdata path: ${getTessdataPath()}');
+    debugInfo.writeln('Candidates:');
+    for (final c in candidates) {
+      debugInfo.writeln('  $c');
+    }
+    debugInfo.writeln('Loaded: $_isLoaded');
+    debugInfo.writeln('dylib: $_dylib');
     if (!_isLoaded) {
-      // ignore: avoid_print
-      print('[OCR] Failed to load tesseract_ocr dylib. Candidates tried: $candidates');
+      _log.warning('OCR', 'FFI dylib not loaded. Debug: ${debugInfo.toString()}');
     } else {
-      // ignore: avoid_print
-      print('[OCR] Successfully loaded tesseract_ocr dylib');
+      _log.info('OCR', 'FFI dylib loaded. Debug: ${debugInfo.toString()}');
     }
   }
 
