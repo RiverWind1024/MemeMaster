@@ -284,15 +284,15 @@ jobs:
           TESSERACT_INSTALL_DIR="build/macos-llm/install"
 
           # 复制 tesseract_ocr 封装库（如果存在）
-          for dir in "build/macos-llm" "$TESSERACT_INSTALL_DIR/lib"; do
-            if [ -f "$dir/libtesseract_ocr.dylib" ]; then
-              cp "$dir/libtesseract_ocr.dylib" "$FRAMEWORKS/"
-              echo "✓ Copied libtesseract_ocr.dylib to $FRAMEWORKS"
-              break
-            fi
-          done
-          echo "=== Searching for tesseract_ocr files ==="
-          find build/macos-llm -name "*tesseract*" -type f 2>/dev/null | head -20 || echo "No tesseract files found"
+          TESS_OCR_FILE=$(find build/macos-llm -name "libtesseract_ocr.dylib" -type f 2>/dev/null | head -1)
+          if [ -n "$TESS_OCR_FILE" ]; then
+            cp "$TESS_OCR_FILE" "$FRAMEWORKS/"
+            echo "✓ Copied libtesseract_ocr.dylib to $FRAMEWORKS"
+          else
+            echo "=== Searching for tesseract_ocr in build tree ==="
+            find build/macos-llm -name "*tesseract*" -type f 2>/dev/null | head -20 || echo "No tesseract files found"
+            echo "NOTE: libtesseract_ocr.dylib not found (OCR will use CLI fallback)"
+          fi
           if [ ! -f "$FRAMEWORKS/libtesseract_ocr.dylib" ]; then
             echo "NOTE: libtesseract_ocr.dylib not found (OCR may use CLI fallback)"
           fi

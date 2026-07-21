@@ -47,19 +47,29 @@ echo "=== cmake install ==="
 cmake --install . --config Release 2>&1 | tail -20
 
 # 检查产物
-if [ -f "libmeme_llm.dylib" ]; then
-    SIZE=$(ls -lh libmeme_llm.dylib | awk '{print $5}')
+if [ -f "install/lib/libmeme_llm.dylib" ]; then
+    SIZE=$(ls -lh install/lib/libmeme_llm.dylib | awk '{print $5}')
     echo "=== Build successful ==="
-    echo "  Output: $BUILD_DIR/libmeme_llm.dylib"
+    echo "  Output: $BUILD_DIR/install/lib/libmeme_llm.dylib"
     echo "  Size: $SIZE"
 
     # 检查 Metal 符号
-    if nm libmeme_llm.dylib 2>/dev/null | grep -q ggml_metal; then
+    if nm install/lib/libmeme_llm.dylib 2>/dev/null | grep -q ggml_metal; then
         echo "  Metal GPU: ENABLED (ggml_metal symbols found)"
     else
         echo "  Metal GPU: WARNING - no ggml_metal symbols found"
     fi
+elif [ -f "libmeme_llm.dylib" ]; then
+    SIZE=$(ls -lh libmeme_llm.dylib | awk '{print $5}')
+    echo "=== Build successful (legacy location) ==="
+    echo "  Output: $BUILD_DIR/libmeme_llm.dylib"
+    echo "  Size: $SIZE"
 else
     echo "ERROR: Build failed - libmeme_llm.dylib not found"
+    echo "=== Build directory contents ==="
+    find . -name "*.dylib" -type f 2>/dev/null | head -20
     exit 1
 fi
+
+echo "=== All dylib files in build tree ==="
+find . -name "*.dylib" -type f 2>/dev/null | head -20
