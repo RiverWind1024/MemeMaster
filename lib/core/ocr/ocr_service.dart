@@ -126,7 +126,12 @@ class OcrService {
   /// macOS: 检查 Tesseract 是否已安装
   static Future<bool> macOSCheckInstalled() async {
     if (!Platform.isMacOS) return false;
-    return _LinuxOcrService.isInstalled();
+    try {
+      return await _LinuxOcrService.isInstalled();
+    } catch (e, st) {
+      log.error('OCR', 'macOSCheckInstalled exception: $e\n$st');
+      return false;
+    }
   }
 
   /// macOS: 后台检测 Tesseract，未安装时打印日志提示
