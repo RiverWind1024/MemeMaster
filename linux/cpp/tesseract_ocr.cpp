@@ -53,5 +53,10 @@ void tess_free_text(char* text) {
 }
 
 const char* tess_version() {
-    return TESSERACT_VERSION;
+    static char version[32];
+    int major = TESSERACT_VERSION >> 16;
+    int minor = (TESSERACT_VERSION >> 8) & 0xFF;
+    int micro = TESSERACT_VERSION & 0xFF;
+    snprintf(version, sizeof(version), "%d.%d.%d", major, minor, micro);
+    return version;
 }
