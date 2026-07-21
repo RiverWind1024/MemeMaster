@@ -138,10 +138,11 @@ $TESSERACT_DIR = Join-Path $OUT_DIR_ABS "tesseract"
 if (Test-Path $TESSERACT_DIR) {
     $foundDlls = Get-ChildItem -Path $TESSERACT_DIR -Filter "*.dll" -ErrorAction SilentlyContinue
     if ($foundDlls) {
-        Write-Host "Found DLLs in tesseract directory:"
+        Write-Host "Found $($foundDlls.Count) DLLs in tesseract subdirectory"
+        # Copy DLLs up to parent directory so CMake can find them
         foreach ($dll in $foundDlls) {
-            $sizeKB = [math]::Round($dll.Length / 1KB, 1)
-            Write-Host "  $($dll.Name) ($sizeKB KB)"
+            Copy-Item -Path $dll.FullName -Destination $OUT_DIR_ABS -Force
+            Write-Host "  Copied $($dll.Name) to $OUT_DIR_ABS"
         }
     }
 }
@@ -149,17 +150,13 @@ if (Test-Path $TESSERACT_DIR) {
 # Also check root directory
 $rootDlls = Get-ChildItem -Path $OUT_DIR_ABS -Filter "*.dll" -ErrorAction SilentlyContinue
 if ($rootDlls) {
-    Write-Host "Found DLLs in root directory:"
-    foreach ($dll in $rootDlls) {
-        $sizeKB = [math]::Round($dll.Length / 1KB, 1)
-        Write-Host "  $($dll.Name) ($sizeKB KB)"
-    }
+    Write-Host "Found $($rootDlls.Count) DLLs in root directory"
 }
 
-$allDlls = Get-ChildItem -Path $OUT_DIR_ABS -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue
+$allDlls = Get-ChildItem -Path $OUT_DIR_ABS -Filter "*.dll" -ErrorAction SilentlyContinue
 if ($allDlls.Count -eq 0) {
     Write-Host "WARNING: No DLLs found after extraction!"
 } else {
     Write-Host ""
-    Write-Host "=== Success: $($allDlls.Count) DLLs extracted to $OUT_DIR_ABS ==="
+    Write-Host "=== Success: $($allDlls.Count) DLLs available in $OUT_DIR_ABS ==="
 }

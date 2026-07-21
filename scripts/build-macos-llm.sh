@@ -40,11 +40,11 @@ cmake "$LLM_DIR" \
 
 # 构建
 echo "=== cmake build ==="
-cmake --build . --config Release -j"$NPROC" 2>&1 | tail -50
+cmake --build . --config Release -j"$NPROC" 2>&1
 
 # 安装（将 tesseract_ocr 等库安装到 CMAKE_INSTALL_PREFIX）
 echo "=== cmake install ==="
-cmake --install . --config Release 2>&1 | tail -20
+cmake --install . --config Release 2>&1
 
 # 检查产物
 if [ -f "install/lib/libmeme_llm.dylib" ]; then
