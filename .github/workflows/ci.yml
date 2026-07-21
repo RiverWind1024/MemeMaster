@@ -651,7 +651,7 @@ jobs:
             Write-Host "Copied tessdata files"
             Get-ChildItem $TESSDATA_DIR\*.traineddata | ForEach-Object { Write-Host "  $($_.Name)" }
           } else {
-            # Download tessdata if not present
+            # Download tessdata if not present (use curl.exe which follows redirects)
             Write-Host "Downloading tessdata..."
             New-Item -ItemType Directory -Force -Path $TESSDATA_DIR | Out-Null
             $TESSDATA_URL = "https://github.com/tesseract-ocr/tessdata/releases/download/5.3.4-0.1.20240401"
@@ -659,7 +659,7 @@ jobs:
               $filePath = "$TESSDATA_DIR\${lang}.traineddata"
               if (-not (Test-Path $filePath)) {
                 Write-Host "  Downloading ${lang}.traineddata..."
-                Invoke-WebRequest -Uri "$TESSDATA_URL/${lang}.traineddata" -OutFile $filePath -TimeoutSec 120 -UseBasicParsing
+                curl.exe -L "$TESSDATA_URL/${lang}.traineddata" -o $filePath --retry 3 --retry-delay 5
               }
             }
           }
