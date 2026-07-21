@@ -260,6 +260,13 @@ class _LinuxOcrService {
   /// 检查 tesseract 是否已安装（FFI 或命令行）
   static Future<bool> isInstalled() async {
     try {
+      // 写文件确认方法被调用了
+      try {
+        File('/tmp/isInstalled_called.txt').writeAsStringSync(
+          'isInstalled called at ${DateTime.now()}\n'
+          '_ffi access...(_bindings = $_bindings)\n'
+        );
+      } catch (_) {}
       _log.info('OCR', '检查 Tesseract 是否可用...');
       
       // 检查 FFI 是否可用
