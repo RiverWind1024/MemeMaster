@@ -303,8 +303,9 @@ jobs:
           fi
 
           # 复制 tesseract 和 leptonica 库（如果存在）
-          for lib in libtesseract.dylib libleptonica.dylib; do
-            for dir in "build/macos-llm" "$TESSERACT_INSTALL_DIR/lib"; do
+          # 注意：leptonica 可能安装了 libleptonica.6.0.0.dylib（带版本号）
+          for lib in libtesseract.dylib libleptonica.dylib libleptonica.6.dylib libleptonica.6.0.dylib libleptonica.6.0.0.dylib; do
+            for dir in "build/macos-llm" "build/macos-llm/local/lib" "$TESSERACT_INSTALL_DIR/lib"; do
               if [ -f "$dir/$lib" ]; then
                 cp "$dir/$lib" "$FRAMEWORKS/"
                 echo "✓ Copied $lib to $FRAMEWORKS"
