@@ -291,6 +291,8 @@ jobs:
               break
             fi
           done
+          echo "=== Searching for tesseract_ocr files ==="
+          find build/macos-llm -name "*tesseract*" -type f 2>/dev/null | head -20 || echo "No tesseract files found"
           if [ ! -f "$FRAMEWORKS/libtesseract_ocr.dylib" ]; then
             echo "NOTE: libtesseract_ocr.dylib not found (OCR may use CLI fallback)"
           fi
