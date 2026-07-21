@@ -253,7 +253,7 @@ jobs:
           LEPTONICA_DIR: ${{ github.workspace }}/third_party/leptonica
 
       - name: Build LLM (Metal)
-        run: bash -x ./scripts/build-macos-llm.sh 2>&1 | tail -100
+        run: bash -x ./scripts/build-macos-llm.sh 2>&1
         env:
           LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
           TESSERACT_DIR: ${{ github.workspace }}/third_party/tesseract

@@ -141,9 +141,13 @@ else()
                 -DLEPTONICA_USING_WEBP=ON
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
             RESULT_VARIABLE RESULT
+            OUTPUT_VARIABLE LEPTO_CONFIG_OUTPUT
+            ERROR_VARIABLE LEPTO_CONFIG_ERROR
         )
         if(RESULT)
-            message(WARNING "Leptonica configure failed")
+            message(WARNING "Leptonica configure failed with result ${RESULT}")
+            message(WARNING "Leptonica configure output: ${LEPTO_CONFIG_OUTPUT}")
+            message(WARNING "Leptonica configure error: ${LEPTO_CONFIG_ERROR}")
             set(ENABLE_TESSERACT OFF)
         endif()
 
@@ -151,9 +155,13 @@ else()
             execute_process(
                 COMMAND cmake --build ${CMAKE_CURRENT_BINARY_DIR}/leptonica_build --config Release -j4
                 RESULT_VARIABLE RESULT
+                OUTPUT_VARIABLE LEPTO_BUILD_OUTPUT
+                ERROR_VARIABLE LEPTO_BUILD_ERROR
             )
             if(RESULT)
-                message(WARNING "Leptonica build failed")
+                message(WARNING "Leptonica build failed with result ${RESULT}")
+                message(WARNING "Leptonica build output: ${LEPTO_BUILD_OUTPUT}")
+                message(WARNING "Leptonica build error: ${LEPTO_BUILD_ERROR}")
                 set(ENABLE_TESSERACT OFF)
             endif()
         endif()
@@ -162,9 +170,13 @@ else()
             execute_process(
                 COMMAND cmake --install ${CMAKE_CURRENT_BINARY_DIR}/leptonica_build --config Release
                 RESULT_VARIABLE RESULT
+                OUTPUT_VARIABLE LEPTO_INSTALL_OUTPUT
+                ERROR_VARIABLE LEPTO_INSTALL_ERROR
             )
             if(RESULT)
-                message(WARNING "Leptonica install failed")
+                message(WARNING "Leptonica install failed with result ${RESULT}")
+                message(WARNING "Leptonica install output: ${LEPTO_INSTALL_OUTPUT}")
+                message(WARNING "Leptonica install error: ${LEPTO_INSTALL_ERROR}")
                 set(ENABLE_TESSERACT OFF)
             endif()
         endif()

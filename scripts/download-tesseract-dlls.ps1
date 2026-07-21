@@ -132,13 +132,13 @@ try {
 # Clean up wheel file
 Remove-Item $WHL_PATH -Force -ErrorAction SilentlyContinue
 
-# Find DLLs in tesseract subdirectory
+# Find DLLs in tesserocr subdirectory (wheel extracts to tesserocr/ subdirectory)
 Write-Host "Finding DLLs..."
-$TESSERACT_DIR = Join-Path $OUT_DIR_ABS "tesseract"
-if (Test-Path $TESSERACT_DIR) {
-    $foundDlls = Get-ChildItem -Path $TESSERACT_DIR -Filter "*.dll" -ErrorAction SilentlyContinue
+$TESSERACT_SUBDIR = Join-Path $OUT_DIR_ABS "tesserocr"
+if (Test-Path $TESSERACT_SUBDIR) {
+    $foundDlls = Get-ChildItem -Path $TESSERACT_SUBDIR -Filter "*.dll" -ErrorAction SilentlyContinue
     if ($foundDlls) {
-        Write-Host "Found $($foundDlls.Count) DLLs in tesseract subdirectory"
+        Write-Host "Found $($foundDlls.Count) DLLs in tesserocr subdirectory"
         # Copy DLLs up to parent directory so CMake can find them
         foreach ($dll in $foundDlls) {
             Copy-Item -Path $dll.FullName -Destination $OUT_DIR_ABS -Force
