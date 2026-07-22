@@ -3,7 +3,6 @@ import 'dart:ffi';
 import 'dart:io';
 import 'dart:ui' show Rect;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
@@ -92,13 +91,13 @@ class OcrService {
     } else if (_macVisionService != null) {
       return _macVisionService.recognizeImage(imagePath);
     } else if (_windowsVisionService != null) {
-      final result = await _windowsVisionService!.recognizeImage(imagePath);
+      final result = await _windowsVisionService.recognizeImage(imagePath);
       if (result.isEmpty && _windowsTesseractService != null) {
-        return _windowsTesseractService!.recognizeImage(imagePath);
+        return _windowsTesseractService.recognizeImage(imagePath);
       }
       return result;
     } else if (_windowsTesseractService != null) {
-      return _windowsTesseractService!.recognizeImage(imagePath);
+      return _windowsTesseractService.recognizeImage(imagePath);
     }
     throw StateError('无可用的 OCR 服务');
   }
@@ -639,17 +638,6 @@ class _WindowsVisionOcrService {
   static WindowsOcrBindings? _bindings;
 
   static WindowsOcrBindings? get _ffi => _bindings ??= WindowsOcrBindings();
-
-  static Future<bool> isInstalled() async {
-    if (!Platform.isWindows) return false;
-    if (_ffi?.isLoaded ?? false) {
-      final version = _ffi?.getVersion();
-      _log.info('OCR', 'Windows OCR DLL loaded: $version');
-      return true;
-    }
-    _log.warning('OCR', 'Windows OCR DLL not loaded');
-    return false;
-  }
 
   Future<OcrResult> recognizeImage(String imagePath) async {
     if (_disposed) throw StateError('服务已释放');
