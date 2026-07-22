@@ -224,7 +224,6 @@ jobs:
         run: |
           FLUTTER_VERSION=3.44.0
           if [ ! -d "$HOME/flutter" ]; then
-            # macos 用 zip 格式（不是 tar.xz），用 unzip 解压
             curl -sSL "https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_${FLUTTER_VERSION}-stable.zip" -o /tmp/flutter.zip
             unzip -q /tmp/flutter.zip -d $HOME
             rm /tmp/flutter.zip
@@ -234,11 +233,6 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Install pango for Tesseract
-        run: |
-          # Install pango + dependencies (cairo, fontconfig) for tesseract training tools configure
-          brew install pango 2>&1 || true
-
       - name: Init third-party (clone deps)
         run: |
           echo "=== Running init-third-party.sh ==="
@@ -247,22 +241,18 @@ jobs:
           echo ""
           echo "=== init-third-party.sh exit code: $INIT_EXIT ==="
           if [ $INIT_EXIT -ne 0 ]; then
-            echo "⚠️ Script exited with error (see above)"
+            echo "Script exited with error (see above)"
           fi
           echo ""
           echo "=== third_party contents ==="
           ls -la third_party/ 2>/dev/null || echo "third_party missing"
         env:
           LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
-          TESSERACT_DIR: ${{ github.workspace }}/third_party/tesseract
-          LEPTONICA_DIR: ${{ github.workspace }}/third_party/leptonica
 
       - name: Build LLM (Metal)
         run: bash -x ./scripts/build-macos-llm.sh 2>&1
         env:
           LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
-          TESSERACT_DIR: ${{ github.workspace }}/third_party/tesseract
-          LEPTONICA_DIR: ${{ github.workspace }}/third_party/leptonica
 
       - name: Build macOS
         run: flutter build macos --release
@@ -280,172 +270,24 @@ jobs:
           fi
           FRAMEWORKS="$APP/Contents/Frameworks"
           mkdir -p "$FRAMEWORKS"
-
-          # 复制主库
           cp build/macos-llm/libmeme_llm.dylib "$FRAMEWORKS/"
-          echo "✓ Copied libmeme_llm.dylib to $FRAMEWORKS"
-
-          # tesseract 安装目录（bundled 模式）
-          TESSERACT_INSTALL_DIR="build/macos-llm/install"
-
-          # 复制 tesseract_ocr 封装库（如果存在）
-          TESS_OCR_FILE=$(find build/macos-llm -name "libtesseract_ocr.dylib" -type f 2>/dev/null | head -1)
-          if [ -n "$TESS_OCR_FILE" ]; then
-            cp "$TESS_OCR_FILE" "$FRAMEWORKS/"
-            echo "✓ Copied libtesseract_ocr.dylib to $FRAMEWORKS"
-          else
-            echo "=== Searching for tesseract_ocr in build tree ==="
-            find build/macos-llm -name "*tesseract*" -type f 2>/dev/null | head -20 || echo "No tesseract files found"
-            echo "NOTE: libtesseract_ocr.dylib not found (OCR will use CLI fallback)"
-          fi
-          if [ ! -f "$FRAMEWORKS/libtesseract_ocr.dylib" ]; then
-            echo "NOTE: libtesseract_ocr.dylib not found (OCR may use CLI fallback)"
-          fi
-
-          # 复制 tesseract 和 leptonica 库（如果存在）
-          # 注意：leptonica 可能安装了 libleptonica.6.0.0.dylib（带版本号）
-          for lib in libtesseract.dylib libleptonica.dylib libleptonica.6.dylib libleptonica.6.0.dylib libleptonica.6.0.0.dylib; do
-            for dir in "build/macos-llm" "build/macos-llm/local/lib" "$TESSERACT_INSTALL_DIR/lib"; do
-              if [ -f "$dir/$lib" ]; then
-                cp "$dir/$lib" "$FRAMEWORKS/"
-                echo "✓ Copied $lib to $FRAMEWORKS"
-                break
-              fi
-            done
-          done
-
-          # 复制 tessdata 到 Resources（macOS app bundle 结构）
-          TESSDATA_DIR="$APP/Contents/Resources/tessdata"
-          mkdir -p "$TESSDATA_DIR"
-          TESSDATA_URL="https://raw.githubusercontent.com/tesseract-ocr/tessdata/main"
-          for lang in eng chi_sim; do
-            if [ ! -f "$TESSDATA_DIR/${lang}.traineddata" ]; then
-              echo "Downloading ${lang}.traineddata..."
-              curl -sSL "${TESSDATA_URL}/${lang}.traineddata" -o "$TESSDATA_DIR/${lang}.traineddata"
-            fi
-          done
-          echo "=== Tessdata ==="
-          ls -lh "$TESSDATA_DIR"/*.traineddata 2>/dev/null || echo "No tessdata"
-
-          echo "=== Bundled libraries ==="
-          ls -lh "$FRAMEWORKS"/*.dylib 2>/dev/null || echo "No dylibs in Frameworks"
-
-          # 检查 libtesseract_ocr.dylib 的依赖链
-          if [ -f "$FRAMEWORKS/libtesseract_ocr.dylib" ]; then
-            echo "=== libtesseract_ocr.dylib dependencies ==="
-            otool -L "$FRAMEWORKS/libtesseract_ocr.dylib" 2>/dev/null || echo "Cannot read dependencies"
-          fi
-
-          # 修复依赖库的 install name（bundled 模式下用 @loader_path）
-          for lib in "$FRAMEWORKS"/libtesseract*.dylib "$FRAMEWORKS"/libleptonica*.dylib; do
-            if [ -f "$lib" ]; then
-              # 记录原始 install name
-              ORIGINAL_ID=$(otool -D "$lib" 2>/dev/null | grep -E "^/Users" | head -1 | tr -d ':')
-              if [ -n "$ORIGINAL_ID" ]; then
-                BASENAME=$(basename "$lib")
-                echo "Fixing install name: $ORIGINAL_ID -> @loader_path/$BASENAME"
-                install_name_tool -id "@loader_path/$BASENAME" "$lib" 2>/dev/null || echo "  (install_name_tool failed, may be OK)"
-              fi
-            fi
-          done
-
-          # 拷贝 libleptonica 的 Homebrew 传递依赖（sandbox 下 /opt/homebrew/ 不可访问）
-          echo "=== Bundling Homebrew transitive dependencies ==="
-          DEPS_COPIED=()
-          for lib in "$FRAMEWORKS"/libleptonica*.dylib "$FRAMEWORKS"/libtesseract*.dylib; do
-            [ -f "$lib" ] || continue
-            otool -L "$lib" 2>/dev/null | grep '/opt/homebrew/' | while read line; do
-              dep_path=$(echo "$line" | awk '{print $1}')
-              dep_name=$(basename "$dep_path")
-              if [ ! -f "$FRAMEWORKS/$dep_name" ] && [ -f "$dep_path" ]; then
-                echo "  Copying: $dep_name (from $dep_path)"
-                cp "$dep_path" "$FRAMEWORKS/"
-                install_name_tool -id "@loader_path/$dep_name" "$FRAMEWORKS/$dep_name" 2>/dev/null || true
-                install_name_tool -change "$dep_path" "@loader_path/$dep_name" "$lib" 2>/dev/null || true
-              fi
-            done
-          done
-
-          # 迭代处理传递依赖（如 libtiff 依赖 libjpeg）
-          for i in 1 2 3; do
-            for lib in "$FRAMEWORKS"/libjpeg*.dylib "$FRAMEWORKS"/libpng*.dylib "$FRAMEWORKS"/libtiff*.dylib "$FRAMEWORKS"/libwebp*.dylib "$FRAMEWORKS"/libgif*.dylib "$FRAMEWORKS"/libsharpyuv*.dylib "$FRAMEWORKS"/libfribidi*.dylib "$FRAMEWORKS"/libdatrie*.dylib "$FRAMEWORKS"/libthai*.dylib "$FRAMEWORKS"/libpango*.dylib "$FRAMEWORKS"/libharfbuzz*.dylib "$FRAMEWORKS"/libfontconfig*.dylib "$FRAMEWORKS"/libfreetype*.dylib "$FRAMEWORKS"/libpng16*.dylib; do
-              [ -f "$lib" ] || continue
-              otool -L "$lib" 2>/dev/null | grep '/opt/homebrew/' | while read line; do
-                dep_path=$(echo "$line" | awk '{print $1}')
-                dep_name=$(basename "$dep_path")
-                if [ ! -f "$FRAMEWORKS/$dep_name" ] && [ -f "$dep_path" ]; then
-                  echo "  Copying transitive dep: $dep_name"
-                  cp "$dep_path" "$FRAMEWORKS/"
-                  install_name_tool -id "@loader_path/$dep_name" "$FRAMEWORKS/$dep_name" 2>/dev/null || true
-                  install_name_tool -change "$dep_path" "@loader_path/$dep_name" "$lib" 2>/dev/null || true
-                fi
-              done
-            done
-          done
-
-          echo "=== Homebrew dependencies bundled ==="
-          ls "$FRAMEWORKS"/*.dylib 2>/dev/null | wc -l | xargs -I {} echo "Total dylibs: {}"
-
-          # 修复 libtesseract_ocr.dylib 对外的依赖引用（指向 @loader_path）
-          if [ -f "$FRAMEWORKS/libtesseract_ocr.dylib" ]; then
-            echo "=== Fixing libtesseract_ocr.dylib dependency paths ==="
-            # 找出所有引用 local build 目录的依赖，改为 @loader_path
-            for old_path in $(otool -L "$FRAMEWORKS/libtesseract_ocr.dylib" 2>/dev/null | grep "build/macos-llm" | awk '{print $1}'); do
-              BASENAME=$(basename "$old_path")
-              echo "  Replacing: $old_path -> @loader_path/$BASENAME"
-              install_name_tool -change "$old_path" "@loader_path/$BASENAME" "$FRAMEWORKS/libtesseract_ocr.dylib" 2>/dev/null || echo "    (failed)"
-            done
-            echo "=== After fix ==="
-            otool -L "$FRAMEWORKS/libtesseract_ocr.dylib" 2>/dev/null | grep -E "@loader_path|build/macos-llm" || echo "  (no more absolute paths to build dir)"
-
-            # 添加 LC_RPATH 让 @rpath 能被 dyld 正确解析
-            echo "=== Adding LC_RPATH for @rpath resolution ==="
-            install_name_tool -add_rpath "@executable_path/../Frameworks" "$FRAMEWORKS/libtesseract_ocr.dylib" 2>/dev/null && echo "✓ Added @executable_path/../Frameworks to LC_RPATH" || echo "  (add_rpath failed, may already exist)"
-            install_name_tool -add_rpath "@loader_path" "$FRAMEWORKS/libtesseract_ocr.dylib" 2>/dev/null && echo "✓ Added @loader_path to LC_RPATH" || echo "  (add_rpath failed, may already exist)"
-            echo "=== LC_RPATH after fix ==="
-            otool -l "$FRAMEWORKS/libtesseract_ocr.dylib" 2>/dev/null | grep -A2 RPATH || echo "  (no RPATH found)"
-          fi
-
-          # 重新签名所有修改过的 dylib（install_name_tool 会破坏代码签名）
-          echo "=== Re-signing modified dylibs ==="
-          for lib in "$FRAMEWORKS"/*.dylib; do
-            [ -f "$lib" ] || continue
-            codesign --force --sign - "$lib" 2>/dev/null && echo "✓ Signed $(basename "$lib")" || echo "  (sign failed for $(basename "$lib"))"
-          done
-          # 重新签名整个 app bundle
-          codesign --force --deep --sign - "$APP" 2>/dev/null && echo "✓ Signed app bundle" || echo "  (app bundle sign failed)"
+          echo "Copied libmeme_llm.dylib to $FRAMEWORKS"
 
       - name: Verify Metal library
         run: |
-          # Search in build output directory
           LIB=$(find build/macos-llm -name "libmeme_llm.dylib" -type f 2>/dev/null | head -1)
           if [ -z "$LIB" ]; then
-            # Search in app bundle
             LIB=$(find build/macos/Build/Products/Release -name "libmeme_llm.dylib" -type f 2>/dev/null | head -1)
           fi
           if [ -n "$LIB" ]; then
             ls -lh "$LIB"
             if nm "$LIB" 2>/dev/null | grep -q ggml_metal; then
-              echo "✓ Metal symbols found"
+              echo "Metal symbols found"
             else
-              echo "⚠ No Metal symbols found in $LIB"
+              echo "No Metal symbols found in $LIB"
             fi
           else
-            echo "⚠ No libmeme_llm.dylib found in build/macos-llm or app bundle (this is OK if Tesseract bundling is not needed)"
-          fi
-
-          # 检查 Tesseract OCR 库
-          TESS_LIB=$(find build/macos-llm -name "libtesseract_ocr.dylib" -type f 2>/dev/null | head -1)
-          if [ -n "$TESS_LIB" ]; then
-            echo "✓ Found libtesseract_ocr.dylib: $TESS_LIB"
-            ls -lh "$TESS_LIB"
-            if nm "$TESS_LIB" 2>/dev/null | grep -q "tess_"; then
-              echo "✓ Tesseract FFI symbols found"
-            else
-              echo "⚠ No tess_* symbols found in $TESS_LIB"
-            fi
-          else
-            echo "NOTE: libtesseract_ocr.dylib not found (OCR will use CLI fallback)"
+            echo "No libmeme_llm.dylib found"
           fi
 
       - name: Package macOS artifact

@@ -860,22 +860,8 @@ Future<void> _onOcrToggle(bool value, WidgetRef ref, BuildContext ctx) async {
       }
     }
   } else if (Platform.isMacOS) {
-    log.info('OCR', '检查 macOS Tesseract 安装状态...');
-    // macOS: 只检查 Tesseract 是否安装，不提供自动安装
-    final installed = await OcrService.macOSCheckInstalled();
-    log.info('OCR', 'macOS Tesseract 安装状态: $installed');
-    if (!installed) {
-      log.warning('OCR', 'macOS Tesseract 未安装，提示用户手动安装');
-      if (ctx.mounted) {
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          const SnackBar(
-            content: Text('Tesseract 未安装。请运行: brew install tesseract tesseract-lang'),
-            duration: Duration(seconds: 5),
-          ),
-        );
-      }
-      return;
-    }
+    log.info('OCR', 'macOS 使用 Apple Vision Framework，始终可用');
+    // macOS: Apple Vision 是系统框架，始终可用，无需检查安装
   } else if (Platform.isWindows) {
     log.info('OCR', '检查 Windows Tesseract 安装状态...');
     final installed = await OcrService.windowsCheckInstalled();

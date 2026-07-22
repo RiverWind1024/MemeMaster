@@ -4,6 +4,7 @@ import 'dart:ui' show Rect;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 import '../../services/log_service.dart';
@@ -35,14 +36,16 @@ class OcrBlock {
 /// OCR 识别服务
 ///
 /// - Android/iOS: Google ML Kit Text Recognition
-/// - Linux/macOS/Windows: Tesseract 命令行
+/// - macOS: Apple Vision Framework (Method Channel)
+/// - Linux: Tesseract FFI/CLI
+/// - Windows: Tesseract FFI/CLI
 ///
 /// 支持中文和英文文本识别。使用相机或图片文件进行 OCR。
 /// 每次使用后必须调用 [close] 释放资源。
 class OcrService {
   final _MlKitOcrService? _mlKitService;
   final _LinuxOcrService? _linuxService;
-  final _MacOSOcrService? _macOSService;
+  final _MacOSVisionOcrService? _macVisionService;
   final _WindowsOcrService? _windowsService;
 
   /// 工厂构造函数，根据平台返回对应实现
@@ -52,7 +55,7 @@ class OcrService {
     } else if (Platform.isLinux) {
       return OcrService._(linuxService: _LinuxOcrService());
     } else if (Platform.isMacOS) {
-      return OcrService._(macOSService: _MacOSOcrService());
+      return OcrService._(macVisionService: _MacOSVisionOcrService());
     } else if (Platform.isWindows) {
       return OcrService._(windowsService: _WindowsOcrService());
     } else {
@@ -63,11 +66,11 @@ class OcrService {
   OcrService._({
     _MlKitOcrService? mlKitService,
     _LinuxOcrService? linuxService,
-    _MacOSOcrService? macOSService,
+    _MacOSVisionOcrService? macVisionService,
     _WindowsOcrService? windowsService,
   })  : _mlKitService = mlKitService,
         _linuxService = linuxService,
-        _macOSService = macOSService,
+        _macVisionService = macVisionService,
         _windowsService = windowsService;
 
   /// 识图图片文件中的文字
@@ -78,8 +81,8 @@ class OcrService {
       return _mlKitService.recognizeImage(imagePath);
     } else if (_linuxService != null) {
       return _linuxService.recognizeImage(imagePath);
-    } else if (_macOSService != null) {
-      return _macOSService.recognizeImage(imagePath);
+    } else if (_macVisionService != null) {
+      return _macVisionService.recognizeImage(imagePath);
     } else if (_windowsService != null) {
       return _windowsService.recognizeImage(imagePath);
     }
@@ -90,7 +93,7 @@ class OcrService {
   void close() {
     _mlKitService?.close();
     _linuxService?.close();
-    _macOSService?.close();
+    _macVisionService?.close();
     _windowsService?.close();
   }
 
@@ -123,22 +126,15 @@ class OcrService {
     return _LinuxOcrService.tryInstall();
   }
 
-  /// macOS: 检查 Tesseract 是否已安装
+  /// macOS: 检查 Vision OCR 是否可用（始终可用，系统框架）
   static Future<bool> macOSCheckInstalled() async {
     if (!Platform.isMacOS) return false;
-    return _LinuxOcrService.isInstalled();
+    return true;
   }
 
-  /// macOS: 后台检测 Tesseract，未安装时打印日志提示
+  /// macOS: Vision OCR 已集成，无需额外安装
   static void macOSCheckAndNotify() {
-    if (!Platform.isMacOS) return;
-    Future.microtask(() async {
-      final installed = await _LinuxOcrService.isInstalled();
-      if (!installed) {
-        debugPrint('[macOS] Tesseract not found. To install run:');
-        debugPrint('[macOS]   brew install tesseract tesseract-lang');
-      }
-    });
+    // Apple Vision 是系统框架，始终可用，无需提示安装
   }
 
   /// Windows: 检查 Tesseract 是否已安装
@@ -163,8 +159,48 @@ class OcrService {
 
 /// macOS Tesseract OCR 实现
 ///
-/// 与 Linux 共用相同的 Tesseract 命令行实现
-typedef _MacOSOcrService = _LinuxOcrService;
+/// 使用 Apple Vision Framework 通过 Method Channel 调用 Swift 代码
+class _MacOSVisionOcrService {
+  static const _channel = MethodChannel('com.mememaster/vision_ocr');
+  static final _log = LogService.instance;
+
+  Future<OcrResult> recognizeImage(String imagePath) async {
+    try {
+      _log.info('OCR', '[Vision] 开始识别: $imagePath');
+      final result = await _channel.invokeMapMethod<String, dynamic>(
+        'recognizeText',
+        {'imagePath': imagePath},
+      );
+
+      if (result == null) {
+        _log.warning('OCR', '[Vision] 返回结果为 null');
+        return const OcrResult(text: '', blocks: []);
+      }
+
+      final text = result['text'] as String? ?? '';
+      final blocks = (result['blocks'] as List?)?.map((b) {
+        final block = b as Map<String, dynamic>;
+        return OcrBlock(
+          text: block['text'] as String,
+          boundingBox: Rect.fromLTWH(
+            (block['x'] as num).toDouble(),
+            (block['y'] as num).toDouble(),
+            (block['width'] as num).toDouble(),
+            (block['height'] as num).toDouble(),
+          ),
+        );
+      }).toList() ?? [];
+
+      _log.info('OCR', '[Vision] 识别完成: ${text.length} 字符, ${blocks.length} 块');
+      return OcrResult(text: text, blocks: blocks);
+    } on PlatformException catch (e) {
+      _log.error('OCR', '[Vision] 识别失败: ${e.message}');
+      return OcrResult(text: '', blocks: [], diagnostics: ['[Vision] ${e.message}']);
+    }
+  }
+
+  void close() {}
+}
 
 /// Google ML Kit OCR 实现（Android/iOS）
 class _MlKitOcrService {

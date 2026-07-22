@@ -258,17 +258,51 @@ class ParallelAnalysisScheduler {
         _log.info('OcrScheduler', 'OCR 诊断: ${result.diagnostics}');
 
         if (!result.isEmpty) {
-          final tags = result.text
-              .split(RegExp(r'[\s,;:.，；：、\n]+'))
-              .where((w) => w.trim().length >= 2)
-              .map((w) => TagEntry(
-                    id: '${meme.id}_ocr_${w.hashCode}',
-                    memeId: meme.id,
-                    content: w.trim(),
-                    source: 'ocr',
-                    confidence: 1.0,
-                  ))
+          // OCR 文本预处理：
+          // 1. 合并被空格分开的中文字符（Tesseract 中文输出的常见 artifact）
+          // 2. 按换行和标点分割成行/句
+          var text = result.text;
+          // 合并单个空格分隔的中文字符：`那 老 子` → `那老子`
+          text = text.replaceAllMapped(
+            RegExp(r'([\u4e00-\u9fff])\s+([\u4e00-\u9fff])'),
+            (m) => '${m[1]}${m[2]}',
+          );
+          // 多次执行以处理连续多个空格分隔的中文
+          var prev = '';
+          while (prev != text) {
+            prev = text;
+            text = text.replaceAllMapped(
+              RegExp(r'([\u4e00-\u9fff])\s+([\u4e00-\u9fff])'),
+              (m) => '${m[1]}${m[2]}',
+            );
+          }
+          // 按换行和标点分割（保留中文文本完整）
+          final lines = text.split(RegExp(r'[\n;：:，,。.、]+'))
+              .map((l) => l.trim())
+              .where((l) => l.isNotEmpty)
               .toList();
+          
+          final tags = <TagEntry>[];
+          for (final line in lines) {
+            // 过滤规则：
+            // - 长度 >= 2
+            // - 不能全是 ASCII 符号/数字（排除乱码如 L=, NG 等）
+            // - 不能全是空格
+            final trimmed = line.trim();
+            if (trimmed.length < 2) continue;
+            // 如果全是 ASCII 字符，必须包含至少一个字母或数字（排除纯符号）
+            if (RegExp(r'^[\x00-\x7f]+$').hasMatch(trimmed) &&
+                !RegExp(r'[a-zA-Z0-9]{2,}').hasMatch(trimmed)) {
+              continue;
+            }
+            tags.add(TagEntry(
+              id: '${meme.id}_ocr_${trimmed.hashCode}',
+              memeId: meme.id,
+              content: trimmed,
+              source: 'ocr',
+              confidence: 1.0,
+            ));
+          }
 
           _log.info('OcrScheduler', 'OCR 标签数量: ${tags.length}');
           if (tags.isNotEmpty) {
