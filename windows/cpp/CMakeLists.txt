@@ -59,6 +59,18 @@ endif()
 # ===== Windows 线程支持 =====
 find_package(Threads REQUIRED)
 
+# ===== Windows OCR DLL (独立构建，不依赖 llama.cpp) =====
+# C++/WinRT 需要 Windows SDK
+set(WINDOWS_OCR_SOURCES windows_ocr.cpp)
+add_library(windows_ocr SHARED ${WINDOWS_OCR_SOURCES})
+target_compile_definitions(windows_ocr PRIVATE WINDOWS_OCR_EXPORTS)
+target_include_directories(windows_ocr PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(windows_ocr PRIVATE /await)
+target_link_libraries(windows_ocr PRIVATE WindowsApp)
+install(TARGETS windows_ocr LIBRARY DESTINATION lib COMPONENT runtime)
+install(FILES windows_ocr.h DESTINATION include COMPONENT headers)
+message(STATUS "Windows OCR DLL will be built (using C++/WinRT)")
+
 # ===== 检查 llama.cpp =====
 if(NOT EXISTS "${LLAMA_CPP_DIR}/CMakeLists.txt")
     message(STATUS "llama.cpp not found at ${LLAMA_CPP_DIR}")

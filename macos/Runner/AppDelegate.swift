@@ -19,10 +19,10 @@ class AppDelegate: FlutterAppDelegate {
 
     let channel = FlutterMethodChannel(
       name: "com.mememaster/vision_ocr",
-      binaryMessenger: controller.binaryMessenger
+      binaryMessenger: controller.engine.binaryMessenger
     )
 
-    channel.setMethodCallHandler { [weak self] (call, result) in
+    channel.setMethodCallHandler { [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
       switch call.method {
       case "recognizeText":
         self?.handleRecognizeText(call: call, result: result)

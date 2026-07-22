@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:ui' show Rect;
@@ -9,6 +10,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 
 import '../../services/log_service.dart';
 import 'tesseract_bindings.dart';
+import 'windows_ocr_bindings.dart';
 
 /// OCR 识别结果
 class OcrResult {
@@ -38,7 +40,7 @@ class OcrBlock {
 /// - Android/iOS: Google ML Kit Text Recognition
 /// - macOS: Apple Vision Framework (Method Channel)
 /// - Linux: Tesseract FFI/CLI
-/// - Windows: Tesseract FFI/CLI
+/// - Windows: Windows.Media.Ocr (优先) / Tesseract FFI/CLI (回退)
 ///
 /// 支持中文和英文文本识别。使用相机或图片文件进行 OCR。
 /// 每次使用后必须调用 [close] 释放资源。
@@ -46,7 +48,8 @@ class OcrService {
   final _MlKitOcrService? _mlKitService;
   final _LinuxOcrService? _linuxService;
   final _MacOSVisionOcrService? _macVisionService;
-  final _WindowsOcrService? _windowsService;
+  final _WindowsVisionOcrService? _windowsVisionService;
+  final _WindowsOcrService? _windowsTesseractService;
 
   /// 工厂构造函数，根据平台返回对应实现
   factory OcrService() {
@@ -57,7 +60,10 @@ class OcrService {
     } else if (Platform.isMacOS) {
       return OcrService._(macVisionService: _MacOSVisionOcrService());
     } else if (Platform.isWindows) {
-      return OcrService._(windowsService: _WindowsOcrService());
+      return OcrService._(
+        windowsVisionService: _WindowsVisionOcrService(),
+        windowsTesseractService: _WindowsOcrService(),
+      );
     } else {
       throw UnsupportedError('不支持的平台: ${Platform.operatingSystem}');
     }
@@ -67,11 +73,13 @@ class OcrService {
     _MlKitOcrService? mlKitService,
     _LinuxOcrService? linuxService,
     _MacOSVisionOcrService? macVisionService,
-    _WindowsOcrService? windowsService,
+    _WindowsVisionOcrService? windowsVisionService,
+    _WindowsOcrService? windowsTesseractService,
   })  : _mlKitService = mlKitService,
         _linuxService = linuxService,
         _macVisionService = macVisionService,
-        _windowsService = windowsService;
+        _windowsVisionService = windowsVisionService,
+        _windowsTesseractService = windowsTesseractService;
 
   /// 识图图片文件中的文字
   ///
@@ -83,8 +91,14 @@ class OcrService {
       return _linuxService.recognizeImage(imagePath);
     } else if (_macVisionService != null) {
       return _macVisionService.recognizeImage(imagePath);
-    } else if (_windowsService != null) {
-      return _windowsService.recognizeImage(imagePath);
+    } else if (_windowsVisionService != null) {
+      final result = await _windowsVisionService!.recognizeImage(imagePath);
+      if (result.isEmpty && _windowsTesseractService != null) {
+        return _windowsTesseractService!.recognizeImage(imagePath);
+      }
+      return result;
+    } else if (_windowsTesseractService != null) {
+      return _windowsTesseractService!.recognizeImage(imagePath);
     }
     throw StateError('无可用的 OCR 服务');
   }
@@ -94,7 +108,8 @@ class OcrService {
     _mlKitService?.close();
     _linuxService?.close();
     _macVisionService?.close();
-    _windowsService?.close();
+    _windowsVisionService?.close();
+    _windowsTesseractService?.close();
   }
 
   /// Linux: 检查 Tesseract 是否已安装
@@ -608,6 +623,96 @@ class _WindowsOcrService {
     if (text.isEmpty) return '';
     if (text.length <= maxLen) return text;
     return '${text.substring(0, maxLen)}...';
+  }
+
+  void close() {
+    _disposed = true;
+  }
+}
+
+/// Windows Vision OCR 实现
+///
+/// 使用 Windows.Media.Ocr (系统自带 OCR)，回退到 Tesseract。
+class _WindowsVisionOcrService {
+  bool _disposed = false;
+  static final _log = LogService.instance;
+  static WindowsOcrBindings? _bindings;
+
+  static WindowsOcrBindings? get _ffi => _bindings ??= WindowsOcrBindings();
+
+  static Future<bool> isInstalled() async {
+    if (!Platform.isWindows) return false;
+    if (_ffi?.isLoaded ?? false) {
+      final version = _ffi?.getVersion();
+      _log.info('OCR', 'Windows OCR DLL loaded: $version');
+      return true;
+    }
+    _log.warning('OCR', 'Windows OCR DLL not loaded');
+    return false;
+  }
+
+  Future<OcrResult> recognizeImage(String imagePath) async {
+    if (_disposed) throw StateError('服务已释放');
+
+    final file = File(imagePath);
+    if (!await file.exists()) {
+      return OcrResult(text: '', blocks: [], diagnostics: ['文件不存在: $imagePath']);
+    }
+
+    final diag = StringBuffer();
+    diag.write('[Windows OCR] ');
+
+    if (!(_ffi?.isLoaded ?? false)) {
+      diag.write('DLL 未加载，将回退到 Tesseract');
+      return OcrResult(text: '', blocks: [], diagnostics: [diag.toString()]);
+    }
+
+    try {
+      final handle = _ffi!.create();
+      if (handle == nullptr) {
+        diag.write('创建 OCR 引擎失败');
+        return OcrResult(text: '', blocks: [], diagnostics: [diag.toString()]);
+      }
+
+      try {
+        final jsonResult = _ffi!.recognize(handle, imagePath);
+        if (jsonResult == null || jsonResult.isEmpty) {
+          diag.write('识别结果为空');
+          return OcrResult(text: '', blocks: [], diagnostics: [diag.toString()]);
+        }
+
+        final data = jsonDecode(jsonResult) as Map<String, dynamic>;
+        final error = data['error'] as String?;
+
+        if (error != null) {
+          diag.write('识别错误: $error');
+          return OcrResult(text: '', blocks: [], diagnostics: [diag.toString()]);
+        }
+
+        final text = data['text'] as String? ?? '';
+        final blocks = (data['blocks'] as List?)?.map((b) {
+          final block = b as Map<String, dynamic>;
+          return OcrBlock(
+            text: block['text'] as String,
+            boundingBox: Rect.fromLTWH(
+              (block['x'] as num).toDouble(),
+              (block['y'] as num).toDouble(),
+              (block['width'] as num).toDouble(),
+              (block['height'] as num).toDouble(),
+            ),
+          );
+        }).toList() ?? [];
+
+        diag.write('识别到 ${text.length} 字符, ${blocks.length} 文本块');
+        _log.info('OCR', '[Windows OCR] 识别完成: ${text.length} 字符, ${blocks.length} 块');
+        return OcrResult(text: text, blocks: blocks, diagnostics: [diag.toString()]);
+      } finally {
+        _ffi!.destroy(handle);
+      }
+    } catch (e) {
+      diag.write('识别异常: $e');
+      return OcrResult(text: '', blocks: [], diagnostics: [diag.toString()]);
+    }
   }
 
   void close() {
