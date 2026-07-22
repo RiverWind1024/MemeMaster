@@ -166,7 +166,7 @@ class _MacOSVisionOcrService {
   Future<OcrResult> recognizeImage(String imagePath) async {
     try {
       _log.info('OCR', '[Vision] 开始识别: $imagePath');
-      final result = await _channel.invokeMapMethod<String, dynamic>(
+      final result = await _channel.invokeMethod<Map>(
         'recognizeText',
         {'imagePath': imagePath},
       );
@@ -178,7 +178,7 @@ class _MacOSVisionOcrService {
 
       final text = result['text'] as String? ?? '';
       final blocks = (result['blocks'] as List?)?.map((b) {
-        final block = b as Map<String, dynamic>;
+        final block = b as Map;
         return OcrBlock(
           text: block['text'] as String,
           boundingBox: Rect.fromLTWH(
