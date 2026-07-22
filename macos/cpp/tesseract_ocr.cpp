@@ -18,10 +18,11 @@ void tess_destroy(void* handle) {
     }
 }
 
+// TessBaseAPI::Init() 返回 0 表示成功，-1 表示失败，直接传递返回值
 int tess_init(void* handle, const char* datapath, const char* language) {
     if (!handle) return -1;
     tesseract::TessBaseAPI* api = static_cast<tesseract::TessBaseAPI*>(handle);
-    return api->Init(datapath, language) ? 0 : -1;
+    return api->Init(datapath, language);
 }
 
 void tess_end(void* handle) {
