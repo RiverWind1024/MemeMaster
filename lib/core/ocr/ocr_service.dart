@@ -350,15 +350,22 @@ class _LinuxOcrService {
     try {
       handle = ffi.create();
       if (handle == nullptr) {
+        _log.error('OCR', '创建 Tesseract handle 失败');
         return OcrResult(text: '', blocks: [], diagnostics: ['${diag}创建 Tesseract handle 失败']);
       }
+      _log.info('OCR', '创建 Tesseract handle 成功');
 
       final datapath = TessOcrBindings.getTessdataPath();
       _log.info('OCR', 'FFI datapath: $datapath');
+      _log.info('OCR', '图片路径: $imagePath');
+      
       var result = ffi.init(handle, datapath, 'chi_sim+eng');
+      _log.info('OCR', 'Tesseract init 结果: $result (语言=chi_sim+eng)');
       if (result != 0) {
         result = ffi.init(handle, datapath, 'eng');
+        _log.info('OCR', 'Tesseract init 结果: $result (语言=eng)');
         if (result != 0) {
+          _log.error('OCR', 'Tesseract 初始化失败: $result');
           return OcrResult(text: '', blocks: [], diagnostics: ['${diag}Tesseract 初始化失败 (FFI)']);
         }
         diag.write('语言=eng(降级) ');
@@ -366,11 +373,15 @@ class _LinuxOcrService {
         diag.write('语言=chi_sim+eng ');
       }
 
-      if (ffi.setImageFile(handle, imagePath) != 0) {
+      final setImageResult = ffi.setImageFile(handle, imagePath);
+      _log.info('OCR', 'setImageFile 结果: $setImageResult');
+      if (setImageResult != 0) {
+        _log.error('OCR', '加载图片失败: $imagePath');
         return OcrResult(text: '', blocks: [], diagnostics: ['${diag}加载图片失败: $imagePath']);
       }
 
       final text = ffi.getUtf8Text(handle);
+      _log.info('OCR', 'OCR 识别结果: ${text?.length ?? 0} 字符');
       diag.write('文字="${_truncateText(text ?? '', 80)}"');
       return OcrResult(text: text ?? '', blocks: [], diagnostics: [diag.toString()]);
     } finally {

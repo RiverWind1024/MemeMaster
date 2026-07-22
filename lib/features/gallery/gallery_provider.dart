@@ -22,6 +22,8 @@ import '../../core/llm/openai_service.dart';
 import '../../core/llm/vision_enricher.dart';
 import '../../services/parallel_analysis_scheduler.dart';
 import '../../services/file_storage_service.dart';
+import '../../core/ocr/ocr_service.dart';
+import '../../core/ocr/tesseract_bindings.dart';
 import '../../services/log_service.dart';
 import '../../services/s3_config.dart';
 import '../../services/s3_sync_service.dart';
@@ -789,10 +791,25 @@ final modelManagerProvider = Provider<ModelManager>((ref) {
 class OcrEnabledNotifier extends Notifier<bool> {
   @override
   bool build() {
-    // Linux/macOS: 检查 Tesseract 是否安装，未安装则强制关闭 OCR
-    if (Platform.isLinux || Platform.isMacOS) {
+    // macOS: 通过 FFI 检测（sandbox 下 CLI 不可用）
+    if (Platform.isMacOS) {
       try {
-        // 用 tesseract --version 直接检测，比 which 更可靠
+        final ffi = TessOcrBindings();
+        if (ffi.isLoaded) {
+          debugPrint('[OCR] Tesseract FFI detected: ${ffi.getVersion()}');
+        } else {
+          debugPrint('[OCR] Tesseract FFI not loaded');
+          return false;
+        }
+      } catch (e) {
+        debugPrint('[OCR] Tesseract FFI check failed: $e');
+        return false;
+      }
+    }
+
+    // Linux: 检查 Tesseract CLI
+    if (Platform.isLinux) {
+      try {
         final result = Process.runSync('tesseract', ['--version']);
         if (result.exitCode != 0) {
           debugPrint('[OCR] Tesseract check failed: exitCode=${result.exitCode}');

@@ -246,10 +246,16 @@ class ParallelAnalysisScheduler {
         throw Exception('Meme not found: ${job.memeId}');
       }
 
+      _log.info('OcrScheduler', '图片路径: ${meme.filePath}');
       final imageFile = await _storage.getImage(meme.filePath);
+      _log.info('OcrScheduler', '图片文件: ${imageFile.absolute.path}, 存在: ${imageFile.existsSync()}');
+      
       final ocr = OcrService();
       try {
+        _log.info('OcrScheduler', '开始调用 Tesseract FFI...');
         final result = await ocr.recognizeImage(imageFile.absolute.path);
+        _log.info('OcrScheduler', 'OCR 结果: 文字长度=${result.text.length}, 空=${result.isEmpty}');
+        _log.info('OcrScheduler', 'OCR 诊断: ${result.diagnostics}');
 
         if (!result.isEmpty) {
           final tags = result.text
@@ -264,6 +270,7 @@ class ParallelAnalysisScheduler {
                   ))
               .toList();
 
+          _log.info('OcrScheduler', 'OCR 标签数量: ${tags.length}');
           if (tags.isNotEmpty) {
             await _memeRepo.saveTags(tags);
           }
