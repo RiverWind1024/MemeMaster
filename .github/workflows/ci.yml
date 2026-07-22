@@ -601,19 +601,6 @@ jobs:
 
           Get-ChildItem "$FLUTTER_DIR\*.dll" | ForEach-Object { Write-Host $_.Name }
 
-      - name: Bundle windows_ocr.dll
-        shell: pwsh
-        run: |
-          $FLUTTER_DIR = "build\windows\x64\runner\Release"
-          $WINOCR_DLL = "build\windows-llm\Release\windows_ocr.dll"
-          if (Test-Path $WINOCR_DLL) {
-            Copy-Item $WINOCR_DLL -Destination $FLUTTER_DIR\ -Force
-            Write-Host "Copied windows_ocr.dll to $FLUTTER_DIR"
-          } else {
-            Write-Host "WARNING: windows_ocr.dll not found at $WINOCR_DLL"
-            Write-Host "Windows OCR will use Tesseract fallback"
-          }
-
       - name: Verify DLL
         shell: pwsh
         run: |
@@ -624,52 +611,6 @@ jobs:
           } else {
             Write-Host "No meme_llm.dll found - may be using stub"
           }
-
-      - name: Verify windows_ocr.dll
-        shell: pwsh
-        run: |
-          $FLUTTER_DIR = "build\windows\x64\runner\Release"
-          $WINOCR = "$FLUTTER_DIR\windows_ocr.dll"
-          if (Test-Path $WINOCR) {
-            $size = (Get-Item $WINOCR).Length / 1MB
-            Write-Host "windows_ocr.dll found: $([math]::Round($size, 2)) MB"
-            Write-Host "Windows OCR: Using Windows.Media.Ocr (primary)"
-          } else {
-            Write-Host "windows_ocr.dll not found - will use Tesseract fallback"
-          }
-
-      - name: Test Windows OCR (Windows.Media.Ocr)
-        shell: pwsh
-        run: |
-          # Download a sample test image (English meme-like image)
-          $TestImage = "$env:TEMP\test_ocr.png"
-          Write-Host "Downloading test image..."
-          try {
-            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/tesseract-ocr/test/main/images/phototest.png" -OutFile $TestImage -TimeoutSec 30
-            Write-Host "Test image downloaded: $TestImage"
-          } catch {
-            Write-Host "WARNING: Could not download test image, running engine-only test"
-            $TestImage = ""
-          }
-
-          # Run the OCR test script
-          Write-Host "Running Windows OCR test..."
-          if ($TestImage -ne "") {
-            & "$env:GITHUB_WORKSPACE\scripts\test-windows-ocr.ps1" -ImagePath $TestImage
-          } else {
-            & "$env:GITHUB_WORKSPACE\scripts\test-windows-ocr.ps1"
-          }
-
-          $exitCode = $LASTEXITCODE
-          if ($exitCode -eq 0) {
-            Write-Host "Windows OCR test PASSED"
-          } elseif ($exitCode -eq 2) {
-            Write-Host "Windows OCR test: No text detected (may be normal for this image)"
-          } else {
-            Write-Host "Windows OCR test FAILED (exit code: $exitCode)"
-            Write-Host "This may indicate WinRT OCR is not available on this runner"
-          }
-          # Don't fail the build - Tesseract fallback will still work
 
       - name: Verify Tesseract DLLs
         shell: pwsh
