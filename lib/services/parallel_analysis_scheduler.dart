@@ -69,7 +69,7 @@ class ParallelAnalysisScheduler {
         _memeRepo = memeRepo,
         _colorExtractor = colorExtractor,
         _storage = storage,
-        _log = log ?? LogService();
+        _log = log ?? LogService.instance;
 
   /// 启动所有调度器
   void start() {

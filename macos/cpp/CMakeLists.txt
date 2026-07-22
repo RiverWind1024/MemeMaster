@@ -290,6 +290,23 @@ if(ENABLE_TESSERACT)
             "${LEPTONICA_INSTALL_DIR}/lib/libtesseract.dylib"
             DESTINATION lib COMPONENT runtime
         )
+
+        # 修正 bundled dylib 的 install name 为 @rpath，确保打包后依赖链正确
+        # 默认 install name 是构建机器的绝对路径，复制到 Contents/Frameworks/ 后会找不到
+        install(CODE "
+            execute_process(COMMAND install_name_tool -id @rpath/libleptonica.dylib
+                \"\${CMAKE_INSTALL_PREFIX}/lib/libleptonica.dylib\")
+            execute_process(COMMAND install_name_tool -id @rpath/libtesseract.dylib
+                \"\${CMAKE_INSTALL_PREFIX}/lib/libtesseract.dylib\")
+            # 修正 libtesseract_ocr.dylib 对 libleptonica 的引用
+            execute_process(COMMAND install_name_tool -change
+                \"${LEPTONICA_INSTALL_DIR}/lib/libleptonica.dylib\" @rpath/libleptonica.dylib
+                \"\${CMAKE_INSTALL_PREFIX}/lib/libtesseract_ocr.dylib\")
+            # 修正 libtesseract_ocr.dylib 对 libtesseract 的引用
+            execute_process(COMMAND install_name_tool -change
+                \"${LEPTONICA_INSTALL_DIR}/lib/libtesseract.dylib\" @rpath/libtesseract.dylib
+                \"\${CMAKE_INSTALL_PREFIX}/lib/libtesseract_ocr.dylib\")
+        ")
     endif()
 
     message(STATUS "=== tesseract_ocr wrapper built (bundled=${BUNDLED_TESSERACT}) ===")

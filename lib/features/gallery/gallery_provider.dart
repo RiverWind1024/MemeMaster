@@ -110,7 +110,8 @@ void initLogFilePath(String path) {
 }
 
 final logServiceProvider = Provider<LogService>((ref) {
-  return LogService(logFilePath: _logFilePath, mllmLogPath: getMllmLogFilePath());
+  LogService.init(logFilePath: _logFilePath, mllmLogPath: getMllmLogFilePath());
+  return LogService.instance;
 });
 
 final importServiceProvider = Provider<ImportService>((ref) {

@@ -6,7 +6,7 @@ import 'package:path/path.dart' as path;
 import '../../services/log_service.dart';
 
 LogService? _logInstance;
-LogService _getLog() => _logInstance ??= LogService();
+LogService _getLog() => _logInstance ??= LogService.instance;
 
 typedef TessCreateC = Pointer<Void> Function();
 typedef TessCreateDart = Pointer<Void> Function();
@@ -68,11 +68,7 @@ class TessOcrBindings {
       // AppName.app/Contents/MacOS/executable -> AppName.app/Contents/Frameworks/
       final exeDir = path.dirname(Platform.resolvedExecutable);
       return path.join(path.dirname(path.dirname(exeDir)), 'Frameworks');
-    } catch (e) {
-      // 记录到文件
-      try {
-        File('/tmp/ocr_debug2.txt').writeAsStringSync('getMacOSFrameworksPath exception: $e\n');
-      } catch (_) {}
+    } catch (_) {
       return null;
     }
   }
@@ -117,14 +113,6 @@ class TessOcrBindings {
   }
 
   TessOcrBindings() {
-    // First thing: write resolvedExecutable to file so we know the path
-    try {
-      File('/tmp/ocr_constructor.txt').writeAsStringSync(
-          'resolvedExecutable: ${Platform.resolvedExecutable}\n'
-          'cwd: ${path.current}\n'
-          'constructor called\n');
-    } catch (_) {}
-
     final candidates = <String>[];
 
     if (Platform.isLinux) {
@@ -169,25 +157,14 @@ class TessOcrBindings {
         _isLoaded = false;
       }
     }
-    // Debug output - write to /tmp file since LogService might crash
+
+    // 通过单例 LogService 记录加载结果（沙盒环境下 /tmp 不可写，不再写文件）
     final debugInfo = StringBuffer();
-    debugInfo.writeln('resolvedExecutable: ${Platform.resolvedExecutable}');
     debugInfo.writeln('Frameworks path: ${_getMacOSFrameworksPath()}');
-    debugInfo.writeln('tessdata path: ${getTessdataPath()}');
-    debugInfo.writeln('Candidates:');
-    for (final c in candidates) {
-      debugInfo.writeln('  $c');
-    }
+    debugInfo.writeln('Candidates: ${candidates.join(", ")}');
     debugInfo.writeln('Loaded: $_isLoaded');
-    // Write to file for debugging
     try {
-      File('/tmp/ocr_tess_debug.txt').writeAsStringSync(debugInfo.toString());
-    } catch (e) {
-      // ignore
-    }
-    // Also try LogService
-    try {
-      _getLog().warning('OCR', 'FFI dylib debug: ${debugInfo.toString()}');
+      _getLog().info('OCR', 'FFI dylib: ${debugInfo.toString()}');
     } catch (_) {}
   }
 

@@ -35,7 +35,7 @@ class AnalysisQueueScheduler {
     required this._colorExtractor,
     required this._storage,
     LogService? log,
-  }) : _log = log ?? LogService();
+  }) : _log = log ?? LogService.instance;
 
   void start() {
     if (_isRunning) return;

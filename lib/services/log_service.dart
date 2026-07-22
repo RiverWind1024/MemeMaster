@@ -46,10 +46,13 @@ class LogEntry {
   }
 }
 
-/// 带文件持久化的日志服务。
+/// 带文件持久化的日志服务（单例）。
 ///
 /// 日志以 JSON-Lines 格式追加写入 [logFilePath]，
 /// 重启应用后自动恢复上一次会话的日志。
+///
+/// 使用前必须调用 [LogService.init] 初始化（通常在 Riverpod Provider 中）。
+/// 之后通过 [LogService.instance] 获取全局唯一的单例实例。
 class LogService {
   static const int maxEntries = 1000;
   final Queue<LogEntry> _entries = Queue();
@@ -60,9 +63,37 @@ class LogService {
   /// C++ 端 mllm_init 写入的日志文件路径（plain 格式）
   String? mllmLogPath;
 
-  LogService({this.logFilePath, this.mllmLogPath}) {
+  // ---- 单例 ----
+
+  static LogService? _instance;
+
+  /// 全局单例。未初始化时返回一个纯内存实例（不会崩溃）。
+  static LogService get instance => _instance ??= LogService._();
+
+  /// 初始化全局单例并配置持久化路径。
+  /// 通常在 Riverpod Provider 中调用一次即可。
+  static void init({String? logFilePath, String? mllmLogPath}) {
+    final existing = _instance;
+    if (existing != null) {
+      // 已有实例，更新路径并重新加载
+      existing.logFilePath = logFilePath;
+      existing.mllmLogPath = mllmLogPath;
+      existing._loadFromFile();
+      existing.loadMllmLog(mllmLogPath);
+    } else {
+      _instance = LogService._(logFilePath: logFilePath, mllmLogPath: mllmLogPath);
+    }
+  }
+
+  LogService._({this.logFilePath, this.mllmLogPath}) {
     _loadFromFile();
     loadMllmLog(mllmLogPath);
+  }
+
+  /// @Deprecated 使用 [LogService.instance] 代替
+  factory LogService({String? logFilePath, String? mllmLogPath}) {
+    init(logFilePath: logFilePath, mllmLogPath: mllmLogPath);
+    return _instance!;
   }
 
   // ---- 持久化 ----

@@ -126,19 +126,7 @@ class OcrService {
   /// macOS: 检查 Tesseract 是否已安装
   static Future<bool> macOSCheckInstalled() async {
     if (!Platform.isMacOS) return false;
-    // 入口就写文件
-    try {
-      await File('/tmp/macOSCheckInstalled_entry.txt').writeAsString('entry at ${DateTime.now()}\n');
-    } catch (_) {}
-    try {
-      return await _LinuxOcrService.isInstalled();
-    } catch (e, st) {
-      try {
-        await File('/tmp/macOSCheckInstalled_error.txt').writeAsString('exception: $e\n$st\n');
-      } catch (_) {}
-      LogService().error('OCR', 'macOSCheckInstalled exception: $e\n$st');
-      return false;
-    }
+    return _LinuxOcrService.isInstalled();
   }
 
   /// macOS: 后台检测 Tesseract，未安装时打印日志提示
@@ -258,7 +246,7 @@ class _MlKitOcrService {
 /// 回退到命令行 tesseract（如果 FFI 不可用）。
 class _LinuxOcrService {
   bool _disposed = false;
-  static final _log = LogService();
+  static final _log = LogService.instance;
   static TessOcrBindings? _bindings;
 
   /// 获取 FFI bindings（延迟初始化）
@@ -267,13 +255,6 @@ class _LinuxOcrService {
   /// 检查 tesseract 是否已安装（FFI 或命令行）
   static Future<bool> isInstalled() async {
     try {
-      // 写文件确认方法被调用了
-      try {
-        File('/tmp/isInstalled_called.txt').writeAsStringSync(
-          'isInstalled called at ${DateTime.now()}\n'
-          '_ffi access...(_bindings = $_bindings)\n'
-        );
-      } catch (_) {}
       _log.info('OCR', '检查 Tesseract 是否可用...');
       
       // 检查 FFI 是否可用
@@ -287,13 +268,29 @@ class _LinuxOcrService {
       }
       
       // FFI 不可用，尝试命令行
-      _log.info('OCR', 'FFI 不可用，尝试命令行 tesseract...');
-      final result = await Process.run('tesseract', ['--version']);
-      _log.info('OCR', 'tesseract --version exitCode=${result.exitCode}');
-      if (result.exitCode == 0 && result.stdout.toString().isNotEmpty) {
-        _log.info('OCR', 'tesseract 命令行版本: ${result.stdout.toString().trim()}');
-        return true;
+      // macOS sandbox app 的 PATH 不包含 /opt/homebrew/bin，需要尝试常见路径
+      final candidates = <String>['tesseract'];
+      if (Platform.isMacOS) {
+        candidates.addAll([
+          '/opt/homebrew/bin/tesseract',  // Apple Silicon Homebrew
+          '/usr/local/bin/tesseract',      // Intel Homebrew
+        ]);
       }
+      
+      for (final cmd in candidates) {
+        try {
+          _log.info('OCR', '尝试命令行: $cmd');
+          final result = await Process.run(cmd, ['--version']);
+          _log.info('OCR', '$cmd exitCode=${result.exitCode}');
+          if (result.exitCode == 0 && result.stdout.toString().isNotEmpty) {
+            _log.info('OCR', 'tesseract 命令行版本: ${result.stdout.toString().trim()}');
+            return true;
+          }
+        } catch (e) {
+          _log.info('OCR', '$cmd 不可用: $e');
+        }
+      }
+      
       _log.warning('OCR', 'tesseract 未安装或不可用');
       return false;
     } catch (e, st) {
@@ -431,7 +428,7 @@ class _LinuxOcrService {
 /// 使用 FFI 调用打包的 Tesseract DLL，或回退到命令行 tesseract。
 class _WindowsOcrService {
   bool _disposed = false;
-  static final _log = LogService();
+  static final _log = LogService.instance;
   static TessOcrBindings? _bindings;
 
   /// 获取 FFI bindings（延迟初始化）
