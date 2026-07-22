@@ -306,6 +306,9 @@ if(ENABLE_TESSERACT)
             execute_process(COMMAND install_name_tool -change
                 \"${LEPTONICA_INSTALL_DIR}/lib/libtesseract.dylib\" @rpath/libtesseract.dylib
                 \"\${CMAKE_INSTALL_PREFIX}/lib/libtesseract_ocr.dylib\")
+            # 拷贝 Homebrew 传递依赖（sandbox 下不可访问）
+            execute_process(COMMAND bash \"${CMAKE_CURRENT_SOURCE_DIR}/fix-tesseract-deps.sh\"
+                \"\${CMAKE_INSTALL_PREFIX}/lib\")
         ")
     endif()
 
