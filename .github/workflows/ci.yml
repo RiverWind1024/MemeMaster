@@ -349,6 +349,43 @@ jobs:
             fi
           done
 
+          # 拷贝 libleptonica 的 Homebrew 传递依赖（sandbox 下 /opt/homebrew/ 不可访问）
+          echo "=== Bundling Homebrew transitive dependencies ==="
+          DEPS_COPIED=()
+          for lib in "$FRAMEWORKS"/libleptonica*.dylib "$FRAMEWORKS"/libtesseract*.dylib; do
+            [ -f "$lib" ] || continue
+            otool -L "$lib" 2>/dev/null | grep '/opt/homebrew/' | while read line; do
+              dep_path=$(echo "$line" | awk '{print $1}')
+              dep_name=$(basename "$dep_path")
+              if [ ! -f "$FRAMEWORKS/$dep_name" ] && [ -f "$dep_path" ]; then
+                echo "  Copying: $dep_name (from $dep_path)"
+                cp "$dep_path" "$FRAMEWORKS/"
+                install_name_tool -id "@loader_path/$dep_name" "$FRAMEWORKS/$dep_name" 2>/dev/null || true
+                install_name_tool -change "$dep_path" "@loader_path/$dep_name" "$lib" 2>/dev/null || true
+              fi
+            done
+          done
+
+          # 迭代处理传递依赖（如 libtiff 依赖 libjpeg）
+          for i in 1 2 3; do
+            for lib in "$FRAMEWORKS"/libjpeg*.dylib "$FRAMEWORKS"/libpng*.dylib "$FRAMEWORKS"/libtiff*.dylib "$FRAMEWORKS"/libwebp*.dylib "$FRAMEWORKS"/libgif*.dylib "$FRAMEWORKS"/libsharpyuv*.dylib "$FRAMEWORKS"/libfribidi*.dylib "$FRAMEWORKS"/libdatrie*.dylib "$FRAMEWORKS"/libthai*.dylib "$FRAMEWORKS"/libpango*.dylib "$FRAMEWORKS"/libharfbuzz*.dylib "$FRAMEWORKS"/libfontconfig*.dylib "$FRAMEWORKS"/libfreetype*.dylib "$FRAMEWORKS"/libpng16*.dylib; do
+              [ -f "$lib" ] || continue
+              otool -L "$lib" 2>/dev/null | grep '/opt/homebrew/' | while read line; do
+                dep_path=$(echo "$line" | awk '{print $1}')
+                dep_name=$(basename "$dep_path")
+                if [ ! -f "$FRAMEWORKS/$dep_name" ] && [ -f "$dep_path" ]; then
+                  echo "  Copying transitive dep: $dep_name"
+                  cp "$dep_path" "$FRAMEWORKS/"
+                  install_name_tool -id "@loader_path/$dep_name" "$FRAMEWORKS/$dep_name" 2>/dev/null || true
+                  install_name_tool -change "$dep_path" "@loader_path/$dep_name" "$lib" 2>/dev/null || true
+                fi
+              done
+            done
+          done
+
+          echo "=== Homebrew dependencies bundled ==="
+          ls "$FRAMEWORKS"/*.dylib 2>/dev/null | wc -l | xargs -I {} echo "Total dylibs: {}"
+
           # 修复 libtesseract_ocr.dylib 对外的依赖引用（指向 @loader_path）
           if [ -f "$FRAMEWORKS/libtesseract_ocr.dylib" ]; then
             echo "=== Fixing libtesseract_ocr.dylib dependency paths ==="
