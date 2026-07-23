@@ -286,7 +286,7 @@ abstract class _TesseractOcrServiceBase {
   static TessOcrBindings? get _ffi => _bindings ??= TessOcrBindings();
 
   /// 检查 tesseract 是否已安装（FFI 或命令行）- 由子类实现平台特定逻辑
-  static Future<bool> isInstalled();
+  Future<bool> isInstalled();
 
   bool _disposed = false;
 
@@ -425,37 +425,38 @@ class _LinuxOcrService extends _TesseractOcrServiceBase {
   String get _installHint => '尝试自动安装: OcrService.linuxTryInstall()';
 
   /// 检查 tesseract 是否已安装（FFI 或命令行）
-  static Future<bool> isInstalled() async {
+  @override
+  Future<bool> isInstalled() async {
     try {
-      _log.info('OCR', '检查 Tesseract 是否可用...');
+      _TesseractOcrServiceBase._log.info('OCR', '检查 Tesseract 是否可用...');
 
       // 检查 FFI 是否可用
-      final ffiLoaded = _ffi?.isLoaded ?? false;
-      _log.info('OCR', 'Tesseract FFI loaded: $ffiLoaded');
+      final ffiLoaded = _TesseractOcrServiceBase._ffi?.isLoaded ?? false;
+      _TesseractOcrServiceBase._log.info('OCR', 'Tesseract FFI loaded: $ffiLoaded');
 
       if (ffiLoaded) {
-        final version = _ffi?.getVersion();
-        _log.info('OCR', 'Tesseract FFI 已加载${version != null ? ', 版本: $version' : ''}');
+        final version = _TesseractOcrServiceBase._ffi?.getVersion();
+        _TesseractOcrServiceBase._log.info('OCR', 'Tesseract FFI 已加载${version != null ? ', 版本: $version' : ''}');
         return true;
       }
 
       // FFI 不可用，尝试命令行
       try {
-        _log.info('OCR', '尝试命令行: tesseract');
+        _TesseractOcrServiceBase._log.info('OCR', '尝试命令行: tesseract');
         final result = await Process.run('tesseract', ['--version']);
-        _log.info('OCR', 'tesseract exitCode=${result.exitCode}');
+        _TesseractOcrServiceBase._log.info('OCR', 'tesseract exitCode=${result.exitCode}');
         if (result.exitCode == 0 && result.stdout.toString().isNotEmpty) {
-          _log.info('OCR', 'tesseract 命令行版本: ${result.stdout.toString().trim()}');
+          _TesseractOcrServiceBase._log.info('OCR', 'tesseract 命令行版本: ${result.stdout.toString().trim()}');
           return true;
         }
       } catch (e) {
-        _log.info('OCR', 'tesseract 不可用: $e');
+        _TesseractOcrServiceBase._log.info('OCR', 'tesseract 不可用: $e');
       }
 
-      _log.warning('OCR', 'tesseract 未安装或不可用');
+      _TesseractOcrServiceBase._log.warning('OCR', 'tesseract 未安装或不可用');
       return false;
     } catch (e, st) {
-      _log.error('OCR', '检查 tesseract 失败: $e\n$st');
+      _TesseractOcrServiceBase._log.error('OCR', '检查 tesseract 失败: $e\n$st');
       return false;
     }
   }
@@ -482,24 +483,25 @@ class _WindowsOcrService extends _TesseractOcrServiceBase {
   String get _installHint => '请从 https://github.com/UB-Mannheim/tesseract/wiki 下载安装';
 
   /// 检查 tesseract 是否已安装（FFI 或命令行）
-  static Future<bool> isInstalled() async {
+  @override
+  Future<bool> isInstalled() async {
     try {
-      _log.info('OCR', '检查 Tesseract 是否可用 (Windows)...');
-      if (_ffi?.isLoaded ?? false) {
-        final version = _ffi?.getVersion();
-        _log.info('OCR', 'Tesseract FFI 已加载${version != null ? ', 版本: $version' : ''}');
+      _TesseractOcrServiceBase._log.info('OCR', '检查 Tesseract 是否可用 (Windows)...');
+      if (_TesseractOcrServiceBase._ffi?.isLoaded ?? false) {
+        final version = _TesseractOcrServiceBase._ffi?.getVersion();
+        _TesseractOcrServiceBase._log.info('OCR', 'Tesseract FFI 已加载${version != null ? ', 版本: $version' : ''}');
         return true;
       }
       final result = await Process.run('where', ['tesseract']);
-      _log.info('OCR', 'where tesseract exitCode=${result.exitCode}');
+      _TesseractOcrServiceBase._log.info('OCR', 'where tesseract exitCode=${result.exitCode}');
       if (result.exitCode == 0 && result.stdout.toString().isNotEmpty) {
-        _log.info('OCR', 'tesseract 命令行路径: ${result.stdout.toString().trim()}');
+        _TesseractOcrServiceBase._log.info('OCR', 'tesseract 命令行路径: ${result.stdout.toString().trim()}');
         return true;
       }
-      _log.warning('OCR', 'tesseract 未安装或不在 PATH 中 (Windows)');
+      _TesseractOcrServiceBase._log.warning('OCR', 'tesseract 未安装或不在 PATH 中 (Windows)');
       return false;
     } catch (e) {
-      _log.error('OCR', '检查 tesseract 失败 (Windows): $e');
+      _TesseractOcrServiceBase._log.error('OCR', '检查 tesseract 失败 (Windows): $e');
       return false;
     }
   }
