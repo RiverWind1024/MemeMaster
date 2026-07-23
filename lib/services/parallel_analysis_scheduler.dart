@@ -252,7 +252,7 @@ class ParallelAnalysisScheduler {
       
       final ocr = OcrService();
       try {
-        _log.info('OcrScheduler', '开始调用 Tesseract FFI...');
+        _log.info('OcrScheduler', '开始 OCR 识别...');
         final result = await ocr.recognizeImage(imageFile.absolute.path);
         _log.info('OcrScheduler', 'OCR 结果: 文字长度=${result.text.length}, 空=${result.isEmpty}');
         _log.info('OcrScheduler', 'OCR 诊断: ${result.diagnostics}');
