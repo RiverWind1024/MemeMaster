@@ -260,7 +260,7 @@ class ParallelAnalysisScheduler {
 
         if (!result.isEmpty) {
           // OCR 文本预处理：
-          // 1. 合并被空格分开的中文字符（Tesseract 中文输出的常见 artifact）
+          // 1. 合并被空格分开的中文字符（某些 OCR 引擎的常见 artifact）
           // 2. 按换行和标点分割成行/句
           var text = result.text;
           // 合并单个空格分隔的中文字符：`那 老 子` → `那老子`

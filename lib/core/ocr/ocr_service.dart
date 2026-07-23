@@ -275,78 +275,25 @@ class _MlKitOcrService {
   void close() {}
 }
 
-/// Linux Tesseract OCR 实现
+/// Tesseract OCR 服务基类（Linux/Windows 共用）
 ///
-/// 使用 FFI 调用 libtesseract_ocr.so（内置 Tesseract + Leptonica 共享库）。
-/// 回退到命令行 tesseract（如果 FFI 不可用）。
-class _LinuxOcrService {
-  bool _disposed = false;
+/// 使用 FFI 调用 libtesseract_ocr.so/libtesseract-5.dll，或回退到命令行 tesseract。
+abstract class _TesseractOcrServiceBase {
   static final _log = LogService.instance;
   static TessOcrBindings? _bindings;
 
   /// 获取 FFI bindings（延迟初始化）
   static TessOcrBindings? get _ffi => _bindings ??= TessOcrBindings();
 
-  /// 检查 tesseract 是否已安装（FFI 或命令行）
-  static Future<bool> isInstalled() async {
-    try {
-      _log.info('OCR', '检查 Tesseract 是否可用...');
-      
-      // 检查 FFI 是否可用
-      final ffiLoaded = _ffi?.isLoaded ?? false;
-      _log.info('OCR', 'Tesseract FFI loaded: $ffiLoaded');
-      
-      if (ffiLoaded) {
-        final version = _ffi?.getVersion();
-        _log.info('OCR', 'Tesseract FFI 已加载${version != null ? ', 版本: $version' : ''}');
-        return true;
-      }
-      
-      // FFI 不可用，尝试命令行
-      // macOS sandbox app 的 PATH 不包含 /opt/homebrew/bin，需要尝试常见路径
-      final candidates = <String>['tesseract'];
-      if (Platform.isMacOS) {
-        candidates.addAll([
-          '/opt/homebrew/bin/tesseract',  // Apple Silicon Homebrew
-          '/usr/local/bin/tesseract',      // Intel Homebrew
-        ]);
-      }
-      
-      for (final cmd in candidates) {
-        try {
-          _log.info('OCR', '尝试命令行: $cmd');
-          final result = await Process.run(cmd, ['--version']);
-          _log.info('OCR', '$cmd exitCode=${result.exitCode}');
-          if (result.exitCode == 0 && result.stdout.toString().isNotEmpty) {
-            _log.info('OCR', 'tesseract 命令行版本: ${result.stdout.toString().trim()}');
-            return true;
-          }
-        } catch (e) {
-          _log.info('OCR', '$cmd 不可用: $e');
-        }
-      }
-      
-      _log.warning('OCR', 'tesseract 未安装或不可用');
-      return false;
-    } catch (e, st) {
-      _log.error('OCR', '检查 tesseract 失败: $e\n$st');
-      return false;
-    }
-  }
+  /// 检查 tesseract 是否已安装（FFI 或命令行）- 由子类实现平台特定逻辑
+  static Future<bool> isInstalled();
 
-  /// 尝试自动安装 tesseract（需要 root 权限）
-  /// 返回安装是否成功
-  static Future<bool> tryInstall() async {
-    try {
-      final result = await Process.run('pkexec', [
-        'dnf', 'install', '-y', 'tesseract', 'tesseract-lang', 'leptonica'
-      ]);
-      return result.exitCode == 0;
-    } catch (e) {
-      return false;
-    }
-  }
+  bool _disposed = false;
 
+  /// 获取安装提示消息 - 由子类实现
+  String get _installHint;
+
+  /// 识图图片文件中的文字
   Future<OcrResult> recognizeImage(String imagePath) async {
     if (_disposed) throw StateError('服务已释放');
 
@@ -364,7 +311,7 @@ class _LinuxOcrService {
         return OcrResult(
           text: '',
           blocks: [],
-          diagnostics: ['${diag}Tesseract 未安装。尝试自动安装: OcrService.linuxTryInstall()'],
+          diagnostics: ['${diag}Tesseract 未安装。$_installHint'],
         );
       }
 
@@ -393,7 +340,7 @@ class _LinuxOcrService {
       final datapath = TessOcrBindings.getTessdataPath();
       _log.info('OCR', 'FFI datapath: $datapath');
       _log.info('OCR', '图片路径: $imagePath');
-      
+
       var result = ffi.init(handle, datapath, 'chi_sim+eng');
       _log.info('OCR', 'Tesseract init 结果: $result (语言=chi_sim+eng)');
       if (result != 0) {
@@ -469,16 +416,70 @@ class _LinuxOcrService {
   }
 }
 
+/// Linux Tesseract OCR 实现
+///
+/// 使用 FFI 调用 libtesseract_ocr.so（内置 Tesseract + Leptonica 共享库）。
+/// 回退到命令行 tesseract（如果 FFI 不可用）。
+class _LinuxOcrService extends _TesseractOcrServiceBase {
+  @override
+  String get _installHint => '尝试自动安装: OcrService.linuxTryInstall()';
+
+  /// 检查 tesseract 是否已安装（FFI 或命令行）
+  static Future<bool> isInstalled() async {
+    try {
+      _log.info('OCR', '检查 Tesseract 是否可用...');
+
+      // 检查 FFI 是否可用
+      final ffiLoaded = _ffi?.isLoaded ?? false;
+      _log.info('OCR', 'Tesseract FFI loaded: $ffiLoaded');
+
+      if (ffiLoaded) {
+        final version = _ffi?.getVersion();
+        _log.info('OCR', 'Tesseract FFI 已加载${version != null ? ', 版本: $version' : ''}');
+        return true;
+      }
+
+      // FFI 不可用，尝试命令行
+      try {
+        _log.info('OCR', '尝试命令行: tesseract');
+        final result = await Process.run('tesseract', ['--version']);
+        _log.info('OCR', 'tesseract exitCode=${result.exitCode}');
+        if (result.exitCode == 0 && result.stdout.toString().isNotEmpty) {
+          _log.info('OCR', 'tesseract 命令行版本: ${result.stdout.toString().trim()}');
+          return true;
+        }
+      } catch (e) {
+        _log.info('OCR', 'tesseract 不可用: $e');
+      }
+
+      _log.warning('OCR', 'tesseract 未安装或不可用');
+      return false;
+    } catch (e, st) {
+      _log.error('OCR', '检查 tesseract 失败: $e\n$st');
+      return false;
+    }
+  }
+
+  /// 尝试自动安装 tesseract（需要 root 权限）
+  /// 返回安装是否成功
+  static Future<bool> tryInstall() async {
+    try {
+      final result = await Process.run('pkexec', [
+        'dnf', 'install', '-y', 'tesseract', 'tesseract-lang', 'leptonica'
+      ]);
+      return result.exitCode == 0;
+    } catch (e) {
+      return false;
+    }
+  }
+}
+
 /// Windows Tesseract OCR 实现
 ///
 /// 使用 FFI 调用打包的 Tesseract DLL，或回退到命令行 tesseract。
-class _WindowsOcrService {
-  bool _disposed = false;
-  static final _log = LogService.instance;
-  static TessOcrBindings? _bindings;
-
-  /// 获取 FFI bindings（延迟初始化）
-  static TessOcrBindings? get _ffi => _bindings ??= TessOcrBindings();
+class _WindowsOcrService extends _TesseractOcrServiceBase {
+  @override
+  String get _installHint => '请从 https://github.com/UB-Mannheim/tesseract/wiki 下载安装';
 
   /// 检查 tesseract 是否已安装（FFI 或命令行）
   static Future<bool> isInstalled() async {
@@ -501,116 +502,6 @@ class _WindowsOcrService {
       _log.error('OCR', '检查 tesseract 失败 (Windows): $e');
       return false;
     }
-  }
-
-  Future<OcrResult> recognizeImage(String imagePath) async {
-    if (_disposed) throw StateError('服务已释放');
-
-    final file = File(imagePath);
-    if (!await file.exists()) {
-      return OcrResult(text: '', blocks: [], diagnostics: ['文件不存在: $imagePath']);
-    }
-
-    final diag = StringBuffer();
-    diag.write('[Tesseract] ');
-
-    try {
-      final installed = await isInstalled();
-      if (!installed) {
-        return OcrResult(
-          text: '',
-          blocks: [],
-          diagnostics: ['${diag}Tesseract 未安装。请从 https://github.com/UB-Mannheim/tesseract/wiki 下载安装'],
-        );
-      }
-
-      if (_ffi?.isLoaded ?? false) {
-        return _recognizeWithFfi(imagePath, diag);
-      } else {
-        return _recognizeWithCli(imagePath, diag);
-      }
-    } catch (e) {
-      diag.write('识别异常: $e');
-      return OcrResult(text: '', blocks: [], diagnostics: [diag.toString()]);
-    }
-  }
-
-  OcrResult _recognizeWithFfi(String imagePath, StringBuffer diag) {
-    Pointer<Void>? handle;
-    final ffi = _ffi!;
-    try {
-      handle = ffi.create();
-      if (handle == nullptr) {
-        return OcrResult(text: '', blocks: [], diagnostics: ['${diag}创建 Tesseract handle 失败']);
-      }
-
-      final datapath = TessOcrBindings.getTessdataPath();
-      _log.info('OCR', 'FFI datapath: $datapath');
-      var result = ffi.init(handle, datapath, 'chi_sim+eng');
-      if (result != 0) {
-        result = ffi.init(handle, datapath, 'eng');
-        if (result != 0) {
-          return OcrResult(text: '', blocks: [], diagnostics: ['${diag}Tesseract 初始化失败 (FFI)']);
-        }
-        diag.write('语言=eng(降级) ');
-      } else {
-        diag.write('语言=chi_sim+eng ');
-      }
-
-      if (ffi.setImageFile(handle, imagePath) != 0) {
-        return OcrResult(text: '', blocks: [], diagnostics: ['${diag}加载图片失败: $imagePath']);
-      }
-
-      final text = ffi.getUtf8Text(handle);
-      diag.write('文字="${_truncateText(text ?? '', 80)}"');
-      return OcrResult(text: text ?? '', blocks: [], diagnostics: [diag.toString()]);
-    } finally {
-      if (handle != null && handle != nullptr) {
-        ffi.end(handle);
-        ffi.destroy(handle);
-      }
-    }
-  }
-
-  Future<OcrResult> _recognizeWithCli(String imagePath, StringBuffer diag) async {
-    var result = await _runTesseract(imagePath, 'chi_sim+eng');
-    if (result.text.trim().isEmpty) {
-      result = await _runTesseract(imagePath, 'eng');
-      diag.write('语言=eng(降级) ');
-    } else {
-      diag.write('语言=chi_sim+eng ');
-    }
-    diag.write('文字="${_truncateText(result.text, 80)}"');
-    return OcrResult(
-      text: result.text,
-      blocks: [],
-      diagnostics: [diag.toString()],
-    );
-  }
-
-  Future<_TesseractResult> _runTesseract(String imagePath, String language) async {
-    final result = await Process.run('tesseract', [
-      imagePath,
-      'stdout',
-      '-l', language,
-      '--psm', '6',
-    ]);
-    return _TesseractResult(
-      text: result.stdout.toString().trim(),
-      language: language,
-      exitCode: result.exitCode,
-      stderr: result.stderr.toString(),
-    );
-  }
-
-  String _truncateText(String text, int maxLen) {
-    if (text.isEmpty) return '';
-    if (text.length <= maxLen) return text;
-    return '${text.substring(0, maxLen)}...';
-  }
-
-  void close() {
-    _disposed = true;
   }
 }
 
