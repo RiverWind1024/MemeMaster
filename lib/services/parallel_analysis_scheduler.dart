@@ -307,6 +307,8 @@ class ParallelAnalysisScheduler {
 
           _log.info('OcrScheduler', 'OCR 标签数量: ${tags.length}');
           if (tags.isNotEmpty) {
+            // 有新结果时，先删除旧的 ocr 标签再保存新标签
+            await _memeRepo.deleteAutoTags(job.memeId, sources: ['ocr']);
             await _memeRepo.saveTags(tags);
           }
         }

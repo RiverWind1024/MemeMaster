@@ -76,6 +76,13 @@ class ColorAnalysisQueueDao {
     return rows.map((r) => r.memeId).toList();
   }
 
+  Future<List<String>> getPendingMemeIds() async {
+    final rows = await (_db.select(_db.colorAnalysisQueueTable)
+          ..where((t) => t.status.equals('pending')))
+        .get();
+    return rows.map((r) => r.memeId).toList();
+  }
+
   Future<int> getPendingCount() async {
     final result = await _db.customSelect(
       'SELECT COUNT(*) as count FROM color_analysis_queue_table WHERE status = ?',

@@ -1187,17 +1187,21 @@ final analysisProgressProvider = StreamProvider<AnalysisProgress>((ref) async* {
     final ocrDao = ref.read(ocrAnalysisQueueDaoProvider);
     final aiDao = ref.read(aiAnalysisQueueDaoProvider);
     try {
-      final total = await Future.wait([
-        colorDao.getPendingCount(),
-        colorDao.getRunningCount(),
-        ocrDao.getPendingCount(),
-        ocrDao.getRunningCount(),
-        aiDao.getPendingCount(),
-        aiDao.getRunningCount(),
+      // 获取所有待处理和运行中的 memeId（去重统计，而非统计任务数）
+      final results = await Future.wait([
+        colorDao.getPendingMemeIds(),
+        colorDao.getRunningMemeIds(),
+        ocrDao.getPendingMemeIds(),
+        ocrDao.getRunningMemeIds(),
+        aiDao.getPendingMemeIds(),
+        aiDao.getRunningMemeIds(),
       ]);
+      // 按 memeId 去重，统计唯一图片数量
+      final pendingMemeIds = <String>{...results[0], ...results[2], ...results[4]};
+      final runningMemeIds = <String>{...results[1], ...results[3], ...results[5]};
       yield AnalysisProgress(
-        queued: total[0] + total[2] + total[4],
-        running: total[1] + total[3] + total[5],
+        queued: pendingMemeIds.length,
+        running: runningMemeIds.length,
       );
     } catch (_) {
       yield const AnalysisProgress();

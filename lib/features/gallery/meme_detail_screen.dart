@@ -41,7 +41,7 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
 
     try {
       await repo.deleteColors(meme.id);
-      await repo.deleteAutoTags(meme.id);
+      // 不删除 auto tags —— 分析流程会在有新结果时才覆盖旧标签
       await repo.updateAnalysisStatus(meme.id, 'pending');
       await repo.enqueueAnalysis(meme.id, priority: 1);
 

@@ -280,8 +280,9 @@ class MemeRepository {
   Future<void> saveTags(List<TagEntry> tags) => _tagDao.insertAll(tags);
   Future<void> deleteTags(String memeId) => _tagDao.deleteByMemeId(memeId);
   /// 仅删除自动生成的标签（ocr/llm），保留用户自定义的
-  Future<void> deleteAutoTags(String memeId) =>
-      _tagDao.deleteBySourcesForMeme(memeId, ['ocr', 'llm']);
+  /// [sources] 指定要删除的来源列表，默认删除 ocr 和 llm
+  Future<void> deleteAutoTags(String memeId, {List<String>? sources}) =>
+      _tagDao.deleteBySourcesForMeme(memeId, sources ?? ['ocr', 'llm']);
   Future<int> countTagsBySource(String source) => _tagDao.countBySource(source);
 
   Future<List<ColorEntry>> getColors(String memeId) =>

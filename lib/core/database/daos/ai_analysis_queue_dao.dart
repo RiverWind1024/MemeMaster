@@ -76,6 +76,13 @@ class AiAnalysisQueueDao {
     return rows.map((r) => r.memeId).toList();
   }
 
+  Future<List<String>> getPendingMemeIds() async {
+    final rows = await (_db.select(_db.aiAnalysisQueueTable)
+          ..where((t) => t.status.equals('pending')))
+        .get();
+    return rows.map((r) => r.memeId).toList();
+  }
+
   Future<int> getPendingCount() async {
     final result = await _db.customSelect(
       'SELECT COUNT(*) as count FROM ai_analysis_queue_table WHERE status = ?',
