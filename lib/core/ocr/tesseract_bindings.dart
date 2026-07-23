@@ -82,7 +82,16 @@ class TessOcrBindings {
         'libleptonica.so.1',
       ]);
     } else if (Platform.isWindows) {
+      // Windows: 尝试 exe 同级目录下的 DLL（bundled 形式）
+      // 以及系统 PATH 中的 DLL
+      final exeDir = path.dirname(Platform.resolvedExecutable);
       candidates.addAll([
+        path.join(exeDir, 'tesseract55.dll'),
+        path.join(exeDir, 'libtesseract-5.dll'),
+        path.join(exeDir, 'tesseract-5.dll'),
+        path.join(exeDir, 'tesseract.dll'),
+        // 回退到系统 PATH
+        'tesseract55.dll',
         'libtesseract-5.dll',
         'tesseract-5.dll',
         'tesseract.dll',
