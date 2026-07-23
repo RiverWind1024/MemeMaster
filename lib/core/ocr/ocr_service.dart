@@ -99,7 +99,7 @@ class OcrService {
   /// Linux: 检查 Tesseract 是否已安装
   static Future<bool> linuxCheckInstalled() async {
     if (!Platform.isLinux) return false;
-    return _LinuxOcrService.isInstalled();
+    return _LinuxOcrService().isInstalled();
   }
 
   /// Linux: 后台检测 Tesseract，未安装时打印日志提示
@@ -108,7 +108,7 @@ class OcrService {
   static void linuxCheckAndNotify() {
     if (!Platform.isLinux) return;
     Future.microtask(() async {
-      final installed = await _LinuxOcrService.isInstalled();
+      final installed = await _LinuxOcrService().isInstalled();
       if (!installed) {
         debugPrint('[Linux] Tesseract not found. To install run:');
         debugPrint('[Linux]   sudo dnf install tesseract tesseract-lang leptonica');
@@ -139,14 +139,14 @@ class OcrService {
   /// Windows: 检查 Tesseract 是否已安装
   static Future<bool> windowsCheckInstalled() async {
     if (!Platform.isWindows) return false;
-    return _WindowsOcrService.isInstalled();
+    return _WindowsOcrService().isInstalled();
   }
 
   /// Windows: 后台检测 Tesseract，未安装时打印日志提示
   static void windowsCheckAndNotify() {
     if (!Platform.isWindows) return;
     Future.microtask(() async {
-      final installed = await _WindowsOcrService.isInstalled();
+      final installed = await _WindowsOcrService().isInstalled();
       if (!installed) {
         debugPrint('[Windows] Tesseract not found. To install download from:');
         debugPrint('[Windows]   https://github.com/UB-Mannheim/tesseract/wiki');
