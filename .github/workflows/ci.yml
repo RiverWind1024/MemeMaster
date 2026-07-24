@@ -395,13 +395,20 @@ jobs:
 
       - name: Setup Android signing
         run: |
-          keytool -genkey -v -keystore android/app/release-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias mememaster -storepass mememaster -keypass mememaster -dname "CN=MemeMaster, OU=Development, O=MemeMaster, L=Shanghai, ST=Shanghai, C=CN"
+          # 配置签名信息
           printf 'storePassword=mememaster\nkeyPassword=mememaster\nkeyAlias=mememaster\nstoreFile=release-keystore.jks\n' > android/key.properties
-
-      - name: Debug signing files
-        run: |
           echo "=== key.properties ==="
           cat android/key.properties
+          echo ""
+          # 如果有持久化的 keystore（从 secrets 解码），直接使用
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "Using keystore from secrets..."
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release-keystore.jks
+          else
+            # 没有 secrets 时生成临时 keystore（仅用于本地开发）
+            echo "Generating temporary keystore for CI build..."
+            keytool -genkey -v -keystore android/app/release-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias mememaster -storepass mememaster -keypass mememaster -dname "CN=MemeMaster, OU=Development, O=MemeMaster, L=Shanghai, ST=Shanghai, C=CN"
+          fi
           echo ""
           echo "=== keystore file ==="
           ls -la android/app/release-keystore.jks
