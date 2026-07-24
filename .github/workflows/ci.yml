@@ -353,6 +353,15 @@ jobs:
       - name: Init third-party
         run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
 
+      - name: Pin llama.cpp version
+        run: |
+          # 固定 llama.cpp 到已知可用的版本 (17a05e4)
+          # 原因: llama.cpp master 分支 API 变更移除了 use_mmap，导致编译失败
+          cd third_party/llama.cpp
+          git fetch --unshallow 2>/dev/null || true
+          git checkout 17a05e451fd175d1d82a1ee96b266338f6b07005
+          echo "llama.cpp pinned to: $(git log --oneline -1)"
+
       - name: Debug SPIRV-Headers install
         run: |
           echo "=== third_party contents ==="
