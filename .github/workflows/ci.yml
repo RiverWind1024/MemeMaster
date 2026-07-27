@@ -395,20 +395,20 @@ jobs:
 
       - name: Setup Android signing
         run: |
-          # 配置签名信息
-          printf 'storePassword=mememaster\nkeyPassword=mememaster\nkeyAlias=mememaster\nstoreFile=release-keystore.jks\n' > android/key.properties
-          echo "=== key.properties ==="
-          cat android/key.properties
-          echo ""
-          # 如果有持久化的 keystore（从 secrets 解码），直接使用
-          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+          # 如果有持久化的 keystore（从 secrets），直接使用
+          if [ -n "$ANDROID_KEYSTORE" ]; then
             echo "Using keystore from secrets..."
-            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release-keystore.jks
+            # GitHub secrets 存储二进制时会 base64 编码
+            printf '%s' "$ANDROID_KEYSTORE" | base64 -d > android/app/release-keystore.jks
+            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=release-keystore.jks\n' "$ANDROID_STORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" > android/key.properties
           else
             # 没有 secrets 时生成临时 keystore（仅用于本地开发）
-            echo "Generating temporary keystore for CI build..."
+            echo "Generating temporary keystore for local build..."
             keytool -genkey -v -keystore android/app/release-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias mememaster -storepass mememaster -keypass mememaster -dname "CN=MemeMaster, OU=Development, O=MemeMaster, L=Shanghai, ST=Shanghai, C=CN"
+            printf 'storePassword=mememaster\nkeyPassword=mememaster\nkeyAlias=mememaster\nstoreFile=release-keystore.jks\n' > android/key.properties
           fi
+          echo "=== key.properties ==="
+          cat android/key.properties
           echo ""
           echo "=== keystore file ==="
           ls -la android/app/release-keystore.jks
