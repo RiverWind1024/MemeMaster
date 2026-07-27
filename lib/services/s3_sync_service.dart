@@ -257,13 +257,18 @@ class S3SyncService {
     }
     int totalBytes = 0;
     int objectCount = 0;
-    final results =
-        _getClient().listObjects(_config.bucket, recursive: true);
-    await for (final batch in results) {
-      for (final obj in batch.objects) {
-        totalBytes += obj.size ?? 0;
-        objectCount++;
+    try {
+      final results =
+          _getClient().listObjects(_config.bucket, recursive: true);
+      await for (final batch in results) {
+        for (final obj in batch.objects) {
+          totalBytes += obj.size ?? 0;
+          objectCount++;
+        }
       }
+    } catch (e) {
+      _log?.warning('S3', '获取存储统计失败: $e');
+      // 网络错误时返回当前统计值（可能是部分结果）
     }
     return SyncStats(totalBytes: totalBytes, objectCount: objectCount);
   }
@@ -453,12 +458,12 @@ class S3SyncService {
             }
 
             if (meme.deletedAt != null) {
-              // 墓碑：通知 S3 删除该 meme 的元数据和图片
+              // 墓碑：上传墓碑到 S3（支持删除传播到其他设备）
               try {
-                await _deleteRemoteMeme(meme.id, meme.fileHash, meme.filePath);
-                _log?.info('S3Sync', '已删除远程 meme: ${meme.id}');
+                await _deleteRemoteMeme(meme.id, meme.fileHash, meme.filePath, meme.deletedAt!);
+                _log?.info('S3Sync', '已上传墓碑到远程: ${meme.id}');
               } catch (e) {
-                _log?.warning('S3Sync', '删除远程 meme 失败: ${meme.id}, $e');
+                _log?.warning('S3Sync', '上传墓碑失败: ${meme.id}, $e');
               }
             } else {
               // 并发上传图片和元数据
@@ -500,6 +505,65 @@ class S3SyncService {
         }
       } catch (e) {
         _log?.warning('S3', '列出 S3 meme 文件失败: $e');
+      }
+
+      // 兼容处理：如果没有 individual files，尝试读取 snapshot-v1.json（全量备份格式）
+      if (s3MemeKeys.isEmpty) {
+        final snapshotJson = await _getJson('snapshot-v1.json');
+        if (snapshotJson != null) {
+          _log?.info('S3Sync', '未发现增量文件，使用 snapshot-v1.json 进行全量同步');
+          final data = FullSyncData.fromJson(snapshotJson as Map<String, dynamic>);
+          final totalSteps = data.memes.length + 1;
+          yield S3SyncProgress(
+            status: S3SyncStatus.downloading,
+            completed: 0,
+            total: totalSteps,
+          );
+
+          // 全量导入
+          await _serializer.importFull(data);
+
+          // 下载图片
+          var completed = 1;
+          for (final memeData in data.memes) {
+            if (_cancelled) {
+              yield S3SyncProgress(
+                status: S3SyncStatus.idle,
+                errorMessage: '已取消',
+              );
+              return;
+            }
+            try {
+              await _downloadImageIfNeeded(memeData.meme);
+            } catch (e) {
+              _log?.warning('S3Sync', '下载图片失败: ${memeData.meme.filename}: $e');
+            }
+            completed++;
+            yield S3SyncProgress(
+              status: S3SyncStatus.downloading,
+              completed: completed,
+              total: totalSteps,
+            );
+          }
+
+          // 更新同步状态
+          await _syncStateDao.setLastSyncAt(now);
+          await _syncStateDao.setLastSnapshotVersion(1);
+
+          yield S3SyncProgress(
+            status: S3SyncStatus.idle,
+            completed: completed,
+            total: totalSteps,
+          );
+          return;
+        } else if (lastSyncAt == null) {
+          // 首次同步但 S3 上没有任何数据
+          yield const S3SyncProgress(
+            status: S3SyncStatus.idle,
+            errorMessage: 'S3 上没有找到备份数据，请先执行全量上传',
+          );
+          return;
+        }
       }
 
       if (s3MemeKeys.isNotEmpty) {
@@ -628,27 +692,37 @@ class S3SyncService {
     }
   }
 
-  /// 删除 S3 上的 meme 元数据和图片
-  Future<void> _deleteRemoteMeme(String memeId, String fileHash, String filePath) async {
-    final client = _getClient();
+  /// 在 S3 上创建墓碑（软删除标记），支持删除传播到其他设备
+  ///
+  /// 元数据保留墓碑记录（deletedAt），图片彻底删除（节省空间）。
+  Future<void> _uploadTombstone(String memeId, int deletedAt) async {
+    // 上传墓碑而不是删除（保留删除记录供其他设备同步）
+    final tombstoneData = {
+      'id': memeId,
+      'deletedAt': deletedAt,
+    };
+    await _uploadJson('data/memes/$memeId.json', tombstoneData);
+  }
 
-    // 删除元数据 JSON
-    final metadataKey = 'data/memes/$memeId.json';
+  /// 删除 S3 上的 meme 图片（彻底删除，不留墓碑）
+  Future<void> _deleteRemoteImage(String fileHash, String filePath) async {
+    if (fileHash.isEmpty) return;
+    final client = _getClient();
+    final imageKey = 'memes/$fileHash${_ext(filePath)}';
     try {
-      await client.removeObject(_config.bucket, metadataKey);
+      await client.removeObject(_config.bucket, imageKey);
     } on MinioS3Error {
       // 文件不存在，忽略
     }
+  }
 
-    // 删除图片（如果 fileHash 可用）
-    if (fileHash.isNotEmpty) {
-      final imageKey = 'memes/$fileHash${_ext(filePath)}';
-      try {
-        await client.removeObject(_config.bucket, imageKey);
-      } on MinioS3Error {
-        // 文件不存在，忽略
-      }
-    }
+  /// 删除 S3 上的 meme 元数据和图片（保留墓碑机制）
+  Future<void> _deleteRemoteMeme(String memeId, String fileHash, String filePath, int deletedAt) async {
+    // 1. 上传墓碑（支持删除传播到其他设备）
+    await _uploadTombstone(memeId, deletedAt);
+
+    // 2. 删除图片（节省 S3 存储空间）
+    await _deleteRemoteImage(fileHash, filePath);
   }
 
   // ---- 定时同步 ----

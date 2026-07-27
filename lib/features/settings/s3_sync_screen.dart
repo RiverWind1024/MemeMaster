@@ -38,14 +38,18 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
     _syncSubscription = syncFn().listen((progress) {
       if (!mounted) return;
       setState(() => _lastProgress = progress);
-      
-      // 显示增量同步的结果提示
-      if (progress.status == S3SyncStatus.idle && 
-          progress.errorMessage != null && 
-          progress.errorMessage!.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(progress.errorMessage!)),
-        );
+
+      // 同步完成后刷新图库
+      if (progress.status == S3SyncStatus.idle) {
+        // 刷新 meme 列表
+        ref.invalidate(memeListProvider);
+        ref.invalidate(memeCountProvider);
+        // 显示成功或错误提示
+        if (progress.errorMessage != null && progress.errorMessage!.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(progress.errorMessage!)),
+          );
+        }
       }
     }, onError: (error) {
       if (!mounted) return;
