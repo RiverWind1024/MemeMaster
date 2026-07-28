@@ -810,6 +810,14 @@ jobs:
           New-Item -ItemType Directory -Path $TEST_DIR -Force | Out-Null
           Copy-Item (Join-Path $WORKDIR "scripts\test_win_ocr.dart") "$TEST_DIR\"
 
+          # 复制所有 OCR DLL 到测试目录（Windows DLL 依赖搜索路径相对于主进程）
+          Write-Host "Copying OCR DLLs to test directory..."
+          $TESS_DLLS = Get-ChildItem "$FLUTTER_DIR\*.dll" -ErrorAction SilentlyContinue
+          if ($TESS_DLLS) {
+            $TESS_DLLS | Copy-Item -Destination "$TEST_DIR\" -Force
+            Write-Host "Copied $($TESS_DLLS.Count) DLLs to test directory"
+          }
+
           $pubspecContent = "name: ocr_win_test`ndescription: Windows OCR FFI test`nversion: 1.0.0`nenvironment:`n  sdk: '>=3.0.0 <4.0.0'`ndependencies:`n  ffi: ^2.1.0`n  path: ^1.9.1`n"
           Set-Content -Path "$TEST_DIR\pubspec.yaml" -Value $pubspecContent
 
@@ -818,7 +826,7 @@ jobs:
 
           # 运行测试
           Write-Host "Running OCR FFI test..."
-          dart run test_win_ocr.dart "$FLUTTER_DIR" "$TEST_IMAGE" ""
+          dart run test_win_ocr.dart "$TEST_DIR" "$TEST_IMAGE" ""
           if ($LASTEXITCODE -ne 0) {
             Write-Host "OCR FFI test failed"
             exit 1
