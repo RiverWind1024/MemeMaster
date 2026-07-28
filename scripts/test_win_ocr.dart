@@ -318,35 +318,35 @@ void main(List<String> args) {
   }
 
   // 初始化
-  final initResult = bindings.init(handle, tessdataPath, 'eng+chi_sim');
+  final initResult = bindings.init(handle!, tessdataPath, 'eng+chi_sim');
   if (initResult != 0) {
     print('✗ OCR 初始化失败: $initResult');
-    bindings.destroy(handle);
+    bindings.destroy(handle!);
     exit(1);
   }
   print('✓ OCR 初始化成功');
 
   // 设置 PSM=3 (自动分页)
-  bindings.setVariable(handle, 'tessedit_pageseg_mode', '3');
+  bindings.setVariable(handle!, 'tessedit_pageseg_mode', '3');
   // 设置 OEM=1 (神经网络 LSTM)
-  bindings.setVariable(handle, 'tessedit_ocr_engine_mode', '1');
+  bindings.setVariable(handle!, 'tessedit_ocr_engine_mode', '1');
 
   // 读取图像并识别
-  final setImageResult = bindings.setImage(handle, testImage);
+  final setImageResult = bindings.setImage(handle!, testImage);
   if (setImageResult != 0) {
     print('✗ 无法设置图像');
-    bindings.end(handle);
-    bindings.destroy(handle);
+    bindings.end(handle!);
+    bindings.destroy(handle!);
     exit(1);
   }
   print('✓ 图像设置成功');
 
   // 获取识别结果
-  final text = bindings.getUtf8Text(handle);
+  final text = bindings.getUtf8Text(handle!);
   if (text == null) {
     print('✗ OCR 识别失败');
-    bindings.end(handle);
-    bindings.destroy(handle);
+    bindings.end(handle!);
+    bindings.destroy(handle!);
     exit(1);
   }
 
@@ -363,8 +363,8 @@ void main(List<String> args) {
   }
 
   // 清理
-  bindings.end(handle);
-  bindings.destroy(handle);
+  bindings.end(handle!);
+  bindings.destroy(handle!);
 
   print('\n=== 测试完成 ===');
 }
