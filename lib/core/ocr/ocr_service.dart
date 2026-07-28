@@ -369,8 +369,9 @@ abstract class _TesseractOcrServiceBase {
 
       final text = ffi.getUtf8Text(handle);
       _log.info('OCR', 'OCR 识别结果: ${text?.length ?? 0} 字符');
-      diag.write('文字="${_truncateText(text ?? '', 80)}"');
-      return OcrResult(text: text ?? '', blocks: [], diagnostics: [diag.toString()]);
+      final normalizedText = _normalizeOcrText(text ?? '');
+      diag.write('文字="${_truncateText(normalizedText, 80)}"');
+      return OcrResult(text: normalizedText, blocks: [], diagnostics: [diag.toString()]);
     } finally {
       if (handle != null && handle != nullptr) {
         ffi.end(handle);
@@ -387,9 +388,10 @@ abstract class _TesseractOcrServiceBase {
     } else {
       diag.write('语言=chi_sim+eng ');
     }
-    diag.write('文字="${_truncateText(result.text, 80)}"');
+    final normalizedText = _normalizeOcrText(result.text);
+    diag.write('文字="${_truncateText(normalizedText, 80)}"');
     return OcrResult(
-      text: result.text,
+      text: normalizedText,
       blocks: [],
       diagnostics: [diag.toString()],
     );
@@ -414,6 +416,15 @@ abstract class _TesseractOcrServiceBase {
     if (text.isEmpty) return '';
     if (text.length <= maxLen) return text;
     return '${text.substring(0, maxLen)}...';
+  }
+
+  /// 清理 OCR 文本中的字符间空格
+  /// Tesseract 有时会输出 "当 你 有" 这样每个字之间有空格的结果
+  String _normalizeOcrText(String text) {
+    if (text.isEmpty) return text;
+    // 移除中文/日文/韩文字符之间的单个空格
+    // 匹配模式:CJK字符 + 空格 + CJK字符
+    return text.replaceAll(RegExp(r'([\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af])\s+([\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af])'), r'$1$2');
   }
 
   void close() {
