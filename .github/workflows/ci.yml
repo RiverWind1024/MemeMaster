@@ -166,7 +166,8 @@ jobs:
 
           # 复制 tesseract 和 leptonica 库（匹配实际构建的版本）
           # 构建产物可能是: libleptonica.so.6.0.0, libleptonica.so.6, libtesseract.so.5.5.3, libtesseract.so.5.5 等
-          for dir in "build/linux-llm" "$TESS_INSTALL/lib"; do
+          # 注意: CMake install 可能把库放到 local/lib 子目录
+          for dir in "build/linux-llm/local/lib" "build/linux-llm" "$TESS_INSTALL/lib"; do
             # 复制 libleptonica (版本 6)
             for lib in "$dir"/libleptonica.so*; do
               if [ -f "$lib" ] && [ ! -L "$lib" ]; then
