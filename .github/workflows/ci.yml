@@ -178,49 +178,70 @@ jobs:
           echo "=== Bundled libraries ==="
           ls -lh build/linux/x64/release/bundle/lib/*.so 2>/dev/null || echo "No .so files"
 
-      - name: Test OCR functionality
+      - name: Test OCR functionality (real FFI test)
         run: |
-          echo "=== OCR 功能测试 ==="
+          echo "=== OCR FFI 功能测试 ==="
 
-          # 检查 tesseract OCR 库
-          TESS_LIB=build/linux/x64/release/bundle/lib/libtesseract_ocr.so
+          BUNDLE_DIR="build/linux/x64/release/bundle"
+          TEST_IMAGE="docs/assets/meme_example.jpg"
+
+          # 1. 检查必要文件
+          echo "--- 检查必要文件 ---"
+          TESS_LIB="$BUNDLE_DIR/lib/libtesseract_ocr.so"
           if [ -f "$TESS_LIB" ]; then
             echo "✓ Found libtesseract_ocr.so"
             ls -lh "$TESS_LIB"
-            nm "$TESS_LIB" 2>/dev/null | grep -q "tess_" && echo "✓ Tesseract FFI symbols found"
           else
-            echo "⚠ libtesseract_ocr.so not found (OCR will use CLI fallback)"
+            echo "⚠ libtesseract_ocr.so not found (will test CLI fallback only)"
           fi
 
-          # 检查 tessdata
-          TESSDATA_DIR="build/linux/x64/release/bundle/share/tessdata"
+          TESSDATA_DIR="$BUNDLE_DIR/share/tessdata"
           if [ -d "$TESSDATA_DIR" ]; then
             echo "✓ Found tessdata directory"
             ls -lh "$TESSDATA_DIR"/
           else
-            echo "⚠ tessdata directory not found"
+            echo "✗ tessdata directory not found"
+            exit 1
           fi
 
-          # 设置 LD_LIBRARY_PATH
-          export LD_LIBRARY_PATH="build/linux/x64/release/bundle/lib:$LD_LIBRARY_PATH"
-
-          # 检查 tesseract CLI 是否可用
-          if command -v tesseract &> /dev/null; then
-            echo "✓ tesseract CLI available: $(tesseract --version 2>&1 | head -1)"
-          else
-            echo "⚠ tesseract CLI not available"
+          if [ ! -f "$TEST_IMAGE" ]; then
+            echo "✗ Test image not found: $TEST_IMAGE"
+            exit 1
           fi
+          echo "✓ Test image: $TEST_IMAGE"
 
-          # 安装 xvfb 用于 headless 测试
-          echo "=== Installing xvfb for headless testing ==="
-          sudo apt-get install -y xvfb
+          # 2. 设置环境
+          export LD_LIBRARY_PATH="$BUNDLE_DIR/lib:$LD_LIBRARY_PATH"
+          export LD_LIBRARY_PATH="$BUNDLE_DIR/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
 
-          # 运行测试脚本
-          chmod +x scripts/test-ocr.sh
-          xvfb-run bash scripts/test-ocr.sh \
-            "build/linux/x64/release/bundle" \
-            "docs/assets/meme_example.jpg" \
-            "" || echo "⚠ OCR test script completed (see above for details)"
+          # 3. 安装 dart (用于运行 FFI 测试脚本)
+          echo "--- 安装 Dart ---"
+          if [ ! -d "$HOME/dart-sdk" ]; then
+            DART_VERSION=3.5.0
+            curl -sSL "https://storage.googleapis.com/dart-archive/channels/stable/release/${DART_VERSION}/sdk/dartsdk-linux-x64-release.zip" -o /tmp/dart.zip
+            unzip -q /tmp/dart.zip -d $HOME
+            rm /tmp/dart.zip
+          fi
+          export PATH="$HOME/dart-sdk/bin:$PATH"
+          dart --version
+
+          # 4. 获取项目依赖（用于 FFI）
+          echo "--- 获取 Dart 依赖 ---"
+          flutter pub get
+
+          # 5. 运行 Dart OCR FFI 测试脚本
+          echo ""
+          echo "--- 运行 OCR FFI 测试 ---"
+          dart run scripts/test_ocr_ffi.dart \
+            "$BUNDLE_DIR" \
+            "$TEST_IMAGE" \
+            "" || {
+            echo "✗ OCR FFI 测试失败"
+            exit 1
+          }
+
+          echo ""
+          echo "✓ OCR 功能测试通过"
 
       - name: Verify GPU library
         run: |
