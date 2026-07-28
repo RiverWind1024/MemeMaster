@@ -811,7 +811,14 @@ jobs:
           Copy-Item (Join-Path $WORKDIR "scripts\test_win_ocr.dart") "$TEST_DIR\"
 
           Get-ChildItem "$FLUTTER_DIR\*.dll" -ErrorAction SilentlyContinue | Copy-Item -Destination "$TEST_DIR\" -Force
-          Copy-Item (Join-Path $FLUTTER_DIR "tessdata") -Destination "$TEST_DIR\" -Recurse -Force
+          Write-Host "Copying tessdata from $FLUTTER_DIR\tessdata..."
+          if (Test-Path (Join-Path $FLUTTER_DIR "tessdata")) {
+            Copy-Item (Join-Path $FLUTTER_DIR "tessdata") -Destination "$TEST_DIR\" -Recurse -Force
+            Write-Host "Tessdata copied successfully"
+          } else {
+            Write-Host "ERROR: tessdata directory not found at $FLUTTER_DIR\tessdata"
+            Get-ChildItem "$FLUTTER_DIR" -ErrorAction SilentlyContinue | Select-Object Name, Mode
+          }
 
           $pubspecContent = "name: ocr_win_test`ndescription: Windows OCR FFI test`nversion: 1.0.0`nenvironment:`n  sdk: '>=3.0.0 <4.0.0'`ndependencies:`n  ffi: ^2.1.0`n  path: ^1.9.1`n"
           Set-Content -Path "$TEST_DIR\pubspec.yaml" -Value $pubspecContent
