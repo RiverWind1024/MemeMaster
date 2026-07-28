@@ -22,7 +22,7 @@ import '../../core/llm/openai_service.dart';
 import '../../core/llm/vision_enricher.dart';
 import '../../services/parallel_analysis_scheduler.dart';
 import '../../services/file_storage_service.dart';
-import '../../core/ocr/ocr_service.dart';
+import '../../core/ocr/tesseract_bindings.dart';
 import '../../services/log_service.dart';
 import '../../services/s3_config.dart';
 import '../../services/s3_sync_service.dart';
@@ -790,26 +790,42 @@ final modelManagerProvider = Provider<ModelManager>((ref) {
 class OcrEnabledNotifier extends Notifier<bool> {
   @override
   bool build() {
-    // macOS: Apple Vision Framework 始终可用，无需检查
-    // Linux: 检查 Tesseract CLI
+    // macOS: Apple Vision Framework 始终可用
+    if (Platform.isMacOS) {
+      return _getSavedEnabled() ?? true;
+    }
+
+    // Linux/Windows: 检查 FFI 是否加载成功
+    final ffiLoaded = TessOcrBindings.ffiIsLoaded;
+    debugPrint('[OCR] FFI loaded: $ffiLoaded');
+
+    if (ffiLoaded) {
+      return _getSavedEnabled() ?? true;
+    }
+
+    // Linux: FFI 未加载，尝试 CLI fallback
     if (Platform.isLinux) {
       try {
         final result = Process.runSync('tesseract', ['--version']);
-        if (result.exitCode != 0) {
-          debugPrint('[OCR] Tesseract check failed: exitCode=${result.exitCode}');
-          return false;
+        if (result.exitCode == 0) {
+          debugPrint('[OCR] CLI Tesseract detected: ${result.stdout.toString().split('\n').first}');
+          return _getSavedEnabled() ?? true;
         }
-        debugPrint('[OCR] Tesseract detected: ${result.stdout.toString().split('\n').first}');
+        debugPrint('[OCR] CLI Tesseract check failed: exitCode=${result.exitCode}');
       } catch (e) {
-        debugPrint('[OCR] Tesseract not found: $e');
-        return false;
+        debugPrint('[OCR] CLI Tesseract not found: $e');
       }
     }
 
+    // FFI 和 CLI 都不可用 → OCR 无法使用
+    return false;
+  }
+
+  bool? _getSavedEnabled() {
     try {
-      return ref.read(sharedPreferencesProvider).getBool('ocr_enabled') ?? true;
+      return ref.read(sharedPreferencesProvider).getBool('ocr_enabled');
     } catch (_) {
-      return false;
+      return null;
     }
   }
 

@@ -98,6 +98,12 @@ class TessOcrBindings {
   bool _isLoaded = false;
   bool get isLoaded => _isLoaded;
 
+  /// 静态方法检测 FFI 是否已加载（跨库访问用）
+  static bool get ffiIsLoaded => _instance?._isLoaded ?? false;
+
+  /// 单例实例
+  static TessOcrBindings? _instance;
+
   static String getTessdataPath() {
     try {
       final exeDir = path.dirname(Platform.resolvedExecutable);
@@ -117,6 +123,7 @@ class TessOcrBindings {
   }
 
   TessOcrBindings() {
+    _instance = this;
     if (Platform.isLinux) {
       _loadLinux();
     } else if (Platform.isWindows) {
