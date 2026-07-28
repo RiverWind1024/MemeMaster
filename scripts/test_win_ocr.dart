@@ -56,13 +56,27 @@ class WinTessOcrBindings {
       _setDllSearchPath(dllDir);
     }
 
-    final candidates = [
+    // 先尝试直接用文件名（从 PATH 或当前目录加载）
+    final pathCandidates = ['tesseract55.dll', 'libtesseract-5.dll'];
+    for (final name in pathCandidates) {
+      try {
+        _dylib = DynamicLibrary.open(name);
+        _isLoaded = true;
+        _bindFunctions();
+        print('WinTessOcrBindings: loaded from PATH: $name');
+        return;
+      } catch (e) {
+        print('  Failed to load $name from PATH: $e');
+      }
+    }
+
+    // 再尝试完整路径
+    final fullCandidates = [
       path.join(dllDir, 'tesseract55.dll'),
       path.join(dllDir, 'libtesseract-5.dll'),
-      path.join(dllDir, 'tesseract55.dll'),
     ];
 
-    for (final name in candidates) {
+    for (final name in fullCandidates) {
       try {
         _dylib = DynamicLibrary.open(name);
         _isLoaded = true;
@@ -70,8 +84,7 @@ class WinTessOcrBindings {
         print('WinTessOcrBindings: loaded $name');
         return;
       } catch (e) {
-        _dylib = null;
-        _isLoaded = false;
+        print('  Failed to load $name: $e');
       }
     }
     print('WinTessOcrBindings: failed to load any candidate DLL');
@@ -165,8 +178,10 @@ void main(List<String> args) async {
   final expectedText = args.length > 2 ? args[2] : '';
 
   print('=== Windows OCR FFI 功能测试 ===');
+  print('当前目录: ${Directory.current.path}');
   print('Bundle 目录: $bundleDir');
   print('测试图片: $testImage');
+  print('PATH 中的目录: ${Platform.environment['PATH']}');
 
   if (!Directory(bundleDir).existsSync()) {
     print('✗ Bundle 目录不存在: $bundleDir');

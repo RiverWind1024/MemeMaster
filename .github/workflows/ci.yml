@@ -826,6 +826,11 @@ jobs:
           Set-Location $TEST_DIR
           dart pub get
 
+          # 将 DLL 目录添加到 PATH（SetDllDirectory 在 dart run 子进程中不生效）
+          $env:PATH = "$TEST_DIR;$env:PATH"
+          Write-Host "PATH updated with $TEST_DIR"
+          Get-ChildItem "$TEST_DIR\*.dll" | ForEach-Object { Write-Host "  DLL: $($_.Name)" }
+
           Write-Host "Running OCR FFI test..."
           dart run test_win_ocr.dart "$TEST_DIR" "$TEST_IMAGE" ""
           if ($LASTEXITCODE -ne 0) {
