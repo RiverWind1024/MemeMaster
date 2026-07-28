@@ -207,6 +207,27 @@ jobs:
             fi
           done
 
+          # 找出 leptonica 依赖的系统库并复制到 bundle
+          echo "=== 检查 leptonica 依赖的系统库 ==="
+          for lib in libleptonica.so.6.0.0 libtesseract.so.5.5.3; do
+            if [ -f "$lib" ]; then
+              # 找出此库依赖的共享库
+              deps=$(ldd "$lib" 2>/dev/null | awk '{print $3}' | grep -E '^\/' | grep -v "^/lib.*/" | head -20)
+              for dep in $deps; do
+                if [ -f "$dep" ]; then
+                  depname=$(basename "$dep")
+                  # 只复制第三方库（跳过 glibc, gcc 等系统库）
+                  if [[ ! "$depname" =~ ^(ld-linux|librt|libpthread|libdl|libm|libc|libgcc_s|libstdc\+\+|linux-vdso) ]]; then
+                    if [ ! -f "$depname" ]; then
+                      cp "$dep" .
+                      echo "✓ Copied dependency: $depname"
+                    fi
+                  fi
+                fi
+              done
+            fi
+          done
+
           echo "=== Bundled libraries ==="
           ls -lh build/linux/x64/release/bundle/lib/*.so 2>/dev/null || echo "No .so files"
 
