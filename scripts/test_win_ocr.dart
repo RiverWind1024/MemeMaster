@@ -27,6 +27,9 @@ typedef WinTessBaseAPIDeleteTextDart = void Function(Pointer<Utf8>);
 typedef WinTessVersionC = Pointer<Utf8> Function();
 typedef WinTessVersionDart = Pointer<Utf8> Function();
 
+typedef WinTessBaseAPISetVariableC = Int32 Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
+typedef WinTessBaseAPISetVariableDart = int Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
+
 class WinTessOcrBindings {
   DynamicLibrary? _dylib;
 
@@ -38,6 +41,7 @@ class WinTessOcrBindings {
   late WinTessBaseAPIGetUTF8TextDart tessGetUtf8Text;
   late WinTessBaseAPIDeleteTextDart tessDeleteText;
   late WinTessVersionDart tessVersion;
+  late WinTessBaseAPISetVariableDart tessSetVariable;
 
   bool _isLoaded = false;
   bool get isLoaded => _isLoaded;
@@ -75,6 +79,7 @@ class WinTessOcrBindings {
     tessGetUtf8Text = _dylib!.lookupFunction<WinTessBaseAPIGetUTF8TextC, WinTessBaseAPIGetUTF8TextDart>('TessBaseAPIGetUTF8Text');
     tessDeleteText = _dylib!.lookupFunction<WinTessBaseAPIDeleteTextC, WinTessBaseAPIDeleteTextDart>('TessBaseAPIDeleteText');
     tessVersion = _dylib!.lookupFunction<WinTessVersionC, WinTessVersionDart>('TessVersion');
+    tessSetVariable = _dylib!.lookupFunction<WinTessBaseAPISetVariableC, WinTessBaseAPISetVariableDart>('TessBaseAPISetVariable');
   }
 
   Pointer<Void> create() => tessCreate();
@@ -111,6 +116,15 @@ class WinTessOcrBindings {
     final resultPtr = tessVersion();
     if (resultPtr == nullptr) return null;
     return resultPtr.toDartString();
+  }
+
+  int setVariable(Pointer<Void> handle, String name, String value) {
+    final namePtr = name.toNativeUtf8();
+    final valuePtr = value.toNativeUtf8();
+    final result = tessSetVariable(handle, namePtr, valuePtr);
+    malloc.free(namePtr);
+    malloc.free(valuePtr);
+    return result;
   }
 }
 
@@ -191,6 +205,11 @@ void main(List<String> args) async {
     } else {
       print('✓ Tesseract 初始化成功 (chi_sim+eng)');
     }
+
+    // 设置 PSM=3 (全自动页面分割) 和 OEM=1 (LSTM+传统混合)
+    bindings.setVariable(handle, 'tessedit_pageseg_mode', '3');
+    bindings.setVariable(handle, 'tessedit_ocr_engine_mode', '1');
+    print('设置 PSM=3, OEM=1');
 
     print('设置图片: $testImage');
     final setImageResult = bindings.setImageFile(handle, testImage);

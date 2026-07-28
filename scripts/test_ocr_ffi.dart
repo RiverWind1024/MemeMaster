@@ -261,10 +261,11 @@ void main(List<String> args) async {
     }
 
     // 设置 OCR 参数以提高识别精度
-    // PSM 6 = 假设均匀文本块
-    // OEM 3 = LSTM 深度学习模型
-    bindings.setVariable(handle, 'tessedit_pageseg_mode', '6');
-    print('✓ 设置 PSM=6');
+    // PSM 3 = 全自动页面分割（自动分析布局）
+    // OEM 1 = LSTM + 传统引擎混合模式
+    bindings.setVariable(handle, 'tessedit_pageseg_mode', '3');
+    bindings.setVariable(handle, 'tessedit_ocr_engine_mode', '1');
+    print('✓ 设置 PSM=3, OEM=1');
 
     // 设置图片
     print('设置图片: $testImage');

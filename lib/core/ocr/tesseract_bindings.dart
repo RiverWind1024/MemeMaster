@@ -33,6 +33,9 @@ typedef LinuxTessFreeTextDart = void Function(Pointer<Utf8>);
 typedef LinuxTessVersionC = Pointer<Utf8> Function();
 typedef LinuxTessVersionDart = Pointer<Utf8> Function();
 
+typedef LinuxTessSetVariableC = Int32 Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
+typedef LinuxTessSetVariableDart = int Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
+
 // ============= Windows 原生 API 类型 =============
 typedef WinTessBaseAPICreateC = Pointer<Void> Function();
 typedef WinTessBaseAPICreateDart = Pointer<Void> Function();
@@ -62,6 +65,10 @@ typedef WinTessBaseAPIDeleteTextDart = void Function(Pointer<Utf8>);
 typedef WinTessVersionC = Pointer<Utf8> Function();
 typedef WinTessVersionDart = Pointer<Utf8> Function();
 
+// TessBaseAPISetVariable 设置 OCR 参数
+typedef WinTessBaseAPISetVariableC = Int32 Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
+typedef WinTessBaseAPISetVariableDart = int Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
+
 class TessOcrBindings {
   DynamicLibrary? _dylib;
   bool _isLinux = false;
@@ -75,6 +82,7 @@ class TessOcrBindings {
   LinuxTessGetUtf8TextDart? _linuxGetUtf8Text;
   LinuxTessFreeTextDart? _linuxFreeText;
   LinuxTessVersionDart? _linuxVersion;
+  LinuxTessSetVariableDart? _linuxSetVariable;
 
   // Windows 原生 API
   WinTessBaseAPICreateDart? _winCreate;
@@ -85,6 +93,7 @@ class TessOcrBindings {
   WinTessBaseAPIGetUTF8TextDart? _winGetUtf8Text;
   WinTessBaseAPIDeleteTextDart? _winDeleteText;
   WinTessVersionDart? _winVersion;
+  WinTessBaseAPISetVariableDart? _winSetVariable;
 
   bool _isLoaded = false;
   bool get isLoaded => _isLoaded;
@@ -145,6 +154,7 @@ class TessOcrBindings {
     _linuxGetUtf8Text = _dylib!.lookupFunction<LinuxTessGetUtf8TextC, LinuxTessGetUtf8TextDart>('tess_get_utf8_text');
     _linuxFreeText = _dylib!.lookupFunction<LinuxTessFreeTextC, LinuxTessFreeTextDart>('tess_free_text');
     _linuxVersion = _dylib!.lookupFunction<LinuxTessVersionC, LinuxTessVersionDart>('tess_version');
+    _linuxSetVariable = _dylib!.lookupFunction<LinuxTessSetVariableC, LinuxTessSetVariableDart>('tess_set_variable');
   }
 
   void _loadWindows() {
@@ -180,6 +190,7 @@ class TessOcrBindings {
     _winGetUtf8Text = _dylib!.lookupFunction<WinTessBaseAPIGetUTF8TextC, WinTessBaseAPIGetUTF8TextDart>('TessBaseAPIGetUTF8Text');
     _winDeleteText = _dylib!.lookupFunction<WinTessBaseAPIDeleteTextC, WinTessBaseAPIDeleteTextDart>('TessBaseAPIDeleteText');
     _winVersion = _dylib!.lookupFunction<WinTessVersionC, WinTessVersionDart>('TessVersion');
+    _winSetVariable = _dylib!.lookupFunction<WinTessBaseAPISetVariableC, WinTessBaseAPISetVariableDart>('TessBaseAPISetVariable');
   }
 
   Pointer<Void> create() {
@@ -264,5 +275,19 @@ class TessOcrBindings {
       if (ptr == nullptr) return null;
       return ptr.toDartString();
     }
+  }
+
+  int setVariable(Pointer<Void> handle, String name, String value) {
+    final namePtr = name.toNativeUtf8();
+    final valuePtr = value.toNativeUtf8();
+    int result;
+    if (_isLinux) {
+      result = _linuxSetVariable!(handle, namePtr, valuePtr);
+    } else {
+      result = _winSetVariable!(handle, namePtr, valuePtr);
+    }
+    malloc.free(namePtr);
+    malloc.free(valuePtr);
+    return result;
   }
 }

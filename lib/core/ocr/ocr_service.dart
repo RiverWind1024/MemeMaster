@@ -355,6 +355,11 @@ abstract class _TesseractOcrServiceBase {
         diag.write('语言=chi_sim+eng ');
       }
 
+      // 设置 PSM=3 (全自动页面分割) 和 OEM=1 (LSTM+传统混合)
+      ffi.setVariable(handle, 'tessedit_pageseg_mode', '3');
+      ffi.setVariable(handle, 'tessedit_ocr_engine_mode', '1');
+      _log.info('OCR', '设置 PSM=3, OEM=1');
+
       final setImageResult = ffi.setImageFile(handle, imagePath);
       _log.info('OCR', 'setImageFile 结果: $setImageResult');
       if (setImageResult != 0) {
@@ -395,7 +400,7 @@ abstract class _TesseractOcrServiceBase {
       imagePath,
       'stdout',
       '-l', language,
-      '--psm', '6',
+      '--psm', '3', '--oem', '1',
     ]);
     return _TesseractResult(
       text: result.stdout.toString().trim(),
