@@ -757,38 +757,38 @@ jobs:
         run: |
           echo "=== OCR FFI 功能测试 ==="
 
-          $FLUTTER_DIR = "build\windows\x64\runner\Release"
           $WORKDIR = "$PWD"
-          $TEST_IMAGE = "$WORKDIR\docs\assets\meme_example.jpg"
+          $FLUTTER_DIR = Join-Path $WORKDIR "build\windows\x64\runner\Release"
+          $TEST_IMAGE = Join-Path $WORKDIR "docs\assets\meme_example.jpg"
 
           # 检查文件
-          if (-not (Test-Path "$FLUTTER_DIR\tesseract55.dll")) {
-            Write-Host "✗ tesseract55.dll not found in bundle"
+          if (-not (Test-Path (Join-Path $FLUTTER_DIR "tesseract55.dll"))) {
+            Write-Host "tesseract55.dll not found in bundle"
             exit 1
           }
-          Write-Host "✓ Found tesseract55.dll"
+          Write-Host "Found tesseract55.dll"
 
-          if (-not (Test-Path "$FLUTTER_DIR\tessdata")) {
-            Write-Host "✗ tessdata directory not found"
+          if (-not (Test-Path (Join-Path $FLUTTER_DIR "tessdata"))) {
+            Write-Host "tessdata directory not found"
             exit 1
           }
-          Write-Host "✓ Found tessdata directory"
+          Write-Host "Found tessdata directory"
 
-          $chiSim = Get-ChildItem "$FLUTTER_DIR\tessdata\chi_sim.traineddata" -ErrorAction SilentlyContinue
-          $eng = Get-ChildItem "$FLUTTER_DIR\tessdata\eng.traineddata" -ErrorAction SilentlyContinue
-          Write-Host "chi_sim.traineddata: $(if ($chiSim) { '✓' } else { '✗' })"
-          Write-Host "eng.traineddata: $(if ($eng) { '✓' } else { '✗' })"
+          $chiSim = Get-ChildItem (Join-Path $FLUTTER_DIR "tessdata\chi_sim.traineddata") -ErrorAction SilentlyContinue
+          $eng = Get-ChildItem (Join-Path $FLUTTER_DIR "tessdata\eng.traineddata") -ErrorAction SilentlyContinue
+          Write-Host "chi_sim.traineddata: $(if ($chiSim) { 'ok' } else { 'missing' })"
+          Write-Host "eng.traineddata: $(if ($eng) { 'ok' } else { 'missing' })"
 
           if (-not $chiSim -or -not $eng) {
-            Write-Host "✗ Missing traineddata files"
+            Write-Host "Missing traineddata files"
             exit 1
           }
 
           if (-not (Test-Path $TEST_IMAGE)) {
-            Write-Host "✗ Test image not found: $TEST_IMAGE"
+            Write-Host "Test image not found: $TEST_IMAGE"
             exit 1
           }
-          Write-Host "✓ Test image: $TEST_IMAGE"
+          Write-Host "Test image: $TEST_IMAGE"
 
           # 安装 Dart SDK
           Write-Host "Installing Dart SDK..."
@@ -808,7 +808,7 @@ jobs:
           $TEST_DIR = "$env:TEMP\ocr_win_test"
           if (Test-Path $TEST_DIR) { Remove-Item $TEST_DIR -Recurse -Force }
           New-Item -ItemType Directory -Path $TEST_DIR -Force | Out-Null
-          Copy-Item "$WORKDIR\scripts\test_win_ocr.dart" "$TEST_DIR\"
+          Copy-Item (Join-Path $WORKDIR "scripts\test_win_ocr.dart") "$TEST_DIR\"
 
           $pubspecContent = "name: ocr_win_test`ndescription: Windows OCR FFI test`nversion: 1.0.0`nenvironment:`n  sdk: '>=3.0.0 <4.0.0'`ndependencies:`n  ffi: ^2.1.0`n  path: ^1.9.1`n"
           Set-Content -Path "$TEST_DIR\pubspec.yaml" -Value $pubspecContent
