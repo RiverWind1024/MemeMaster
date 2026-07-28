@@ -40,6 +40,12 @@ int tess_set_image_file(void* handle, const char* filename) {
     return 0;
 }
 
+int tess_set_variable(void* handle, const char* name, const char* value) {
+    if (!handle || !name || !value) return -1;
+    tesseract::TessBaseAPI* api = static_cast<tesseract::TessBaseAPI*>(handle);
+    return api->SetVariable(name, value) ? 0 : -1;
+}
+
 char* tess_get_utf8_text(void* handle) {
     if (!handle) return nullptr;
     tesseract::TessBaseAPI* api = static_cast<tesseract::TessBaseAPI*>(handle);

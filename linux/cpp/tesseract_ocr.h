@@ -10,6 +10,7 @@ void tess_destroy(void* handle);
 int tess_init(void* handle, const char* datapath, const char* language);
 void tess_end(void* handle);
 int tess_set_image_file(void* handle, const char* filename);
+int tess_set_variable(void* handle, const char* name, const char* value);
 char* tess_get_utf8_text(void* handle);
 void tess_free_text(char* text);
 const char* tess_version();

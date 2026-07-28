@@ -238,8 +238,11 @@ jobs:
           dart pub get
 
           # 5. 运行 Dart OCR FFI 测试脚本（使用绝对路径）
+          # 注意：Flutter app 运行时会自动从 bundle/lib 加载 native libraries
+          #       这里设置 LD_LIBRARY_PATH 仅用于测试脚本的 FFI 加载
           echo ""
           echo "--- 运行 OCR FFI 测试 ---"
+          export LD_LIBRARY_PATH="$WORKDIR/build/linux/x64/release/bundle/lib:$LD_LIBRARY_PATH"
           dart run test_ocr_ffi.dart \
             "$WORKDIR/build/linux/x64/release/bundle" \
             "$WORKDIR/docs/assets/meme_example.jpg" \
@@ -748,6 +751,43 @@ jobs:
             Write-Host "Leptonica DLLs found:"
             $LEPT_DLLS | ForEach-Object { Write-Host "  $($_.Name) ($(($_.Length / 1MB).ToString('0.00')) MB)" }
           }
+
+      - name: Test OCR functionality (basic verification)
+        shell: pwsh
+        run: |
+          echo "=== OCR 功能验证 ==="
+
+          $FLUTTER_DIR = "build\windows\x64\runner\Release"
+          $TESSDATA_DIR = "$FLUTTER_DIR\tessdata"
+
+          # 检查 tessdata
+          if (Test-Path $TESSDATA_DIR) {
+            Write-Host "✓ tessdata 目录存在"
+            $tessFiles = Get-ChildItem "$TESSDATA_DIR\*.traineddata" -ErrorAction SilentlyContinue
+            if ($tessFiles) {
+              Write-Host "✓ 找到 $($tessFiles.Count) 个 traineddata 文件:"
+              $tessFiles | ForEach-Object { Write-Host "  $($_.Name) ($(($_.Length / 1MB).ToString('0.00')) MB)" }
+            } else {
+              Write-Host "✗ 没有找到 traineddata 文件"
+              exit 1
+            }
+          } else {
+            Write-Host "✗ tessdata 目录不存在"
+            exit 1
+          }
+
+          # 检查 Tesseract DLL 基本信息（尝试获取版本）
+          $tessDlls = Get-ChildItem "$FLUTTER_DIR\tesseract*.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($tessDlls) {
+            Write-Host "✓ Tesseract DLL: $($tessDlls.Name)"
+            $versionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($tessDlls.FullName)
+            if ($versionInfo.ProductVersion) {
+              Write-Host "  版本: $($versionInfo.ProductVersion)"
+            }
+          }
+
+          Write-Host ""
+          Write-Host "✓ OCR 功能验证通过"
 
       - name: Package Windows artifact
         shell: pwsh

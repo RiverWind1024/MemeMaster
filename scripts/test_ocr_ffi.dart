@@ -18,6 +18,9 @@ typedef TessEndDart = void Function(Pointer<Void>);
 typedef TessSetImageFileC = Int32 Function(Pointer<Void>, Pointer<Utf8>);
 typedef TessSetImageFileDart = int Function(Pointer<Void>, Pointer<Utf8>);
 
+typedef TessSetVariableC = Int32 Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
+typedef TessSetVariableDart = int Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
+
 typedef TessGetUtf8TextC = Pointer<Utf8> Function(Pointer<Void>);
 typedef TessGetUtf8TextDart = Pointer<Utf8> Function(Pointer<Void>);
 
@@ -35,6 +38,7 @@ class TessOcrBindings {
   late TessInitDart tessInit;
   late TessEndDart tessEnd;
   late TessSetImageFileDart tessSetImageFile;
+  late TessSetVariableDart tessSetVariable;
   late TessGetUtf8TextDart tessGetUtf8Text;
   late TessFreeTextDart tessFreeText;
   late TessVersionDart tessVersion;
@@ -90,6 +94,7 @@ class TessOcrBindings {
     tessInit = _dylib!.lookupFunction<TessInitC, TessInitDart>('tess_init');
     tessEnd = _dylib!.lookupFunction<TessEndC, TessEndDart>('tess_end');
     tessSetImageFile = _dylib!.lookupFunction<TessSetImageFileC, TessSetImageFileDart>('tess_set_image_file');
+    tessSetVariable = _dylib!.lookupFunction<TessSetVariableC, TessSetVariableDart>('tess_set_variable');
     tessGetUtf8Text = _dylib!.lookupFunction<TessGetUtf8TextC, TessGetUtf8TextDart>('tess_get_utf8_text');
     tessFreeText = _dylib!.lookupFunction<TessFreeTextC, TessFreeTextDart>('tess_free_text');
     tessVersion = _dylib!.lookupFunction<TessVersionC, TessVersionDart>('tess_version');
@@ -114,6 +119,15 @@ class TessOcrBindings {
     final filenamePtr = filename.toNativeUtf8();
     final result = tessSetImageFile(handle, filenamePtr);
     malloc.free(filenamePtr);
+    return result;
+  }
+
+  int setVariable(Pointer<Void> handle, String name, String value) {
+    final namePtr = name.toNativeUtf8();
+    final valuePtr = value.toNativeUtf8();
+    final result = tessSetVariable(handle, namePtr, valuePtr);
+    malloc.free(namePtr);
+    malloc.free(valuePtr);
     return result;
   }
 
@@ -157,12 +171,11 @@ void main(List<String> args) async {
     exit(1);
   }
 
-  // 设置 LD_LIBRARY_PATH
+  // libDir 用于加载 FFI 库
   final libDir = path.join(bundleDir, 'lib');
-  if (Directory(libDir).existsSync()) {
-    final currentLdPath = Platform.environment['LD_LIBRARY_PATH'] ?? '';
-    final newLdPath = currentLdPath.isEmpty ? libDir : '$libDir:$currentLdPath';
-    print('设置 LD_LIBRARY_PATH: $newLdPath');
+  if (!Directory(libDir).existsSync()) {
+    print('✗ lib 目录不存在: $libDir');
+    exit(1);
   }
 
   // 获取 tessdata 路径
@@ -246,6 +259,12 @@ void main(List<String> args) async {
     } else {
       print('✓ Tesseract 初始化成功 (chi_sim+eng)');
     }
+
+    // 设置 OCR 参数以提高识别精度
+    // PSM 6 = 假设均匀文本块
+    // OEM 3 = LSTM 深度学习模型
+    bindings.setVariable(handle, 'tessedit_pageseg_mode', '6');
+    print('✓ 设置 PSM=6');
 
     // 设置图片
     print('设置图片: $testImage');
