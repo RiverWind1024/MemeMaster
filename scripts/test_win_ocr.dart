@@ -1,5 +1,5 @@
 import 'dart:ffi';
-import 'dart:io' show Directory, File, exit;
+import 'dart:io' show Directory, File, exit, Platform;
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as path;
 
@@ -30,6 +30,10 @@ typedef WinTessVersionDart = Pointer<Utf8> Function();
 typedef WinTessBaseAPISetVariableC = Int32 Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
 typedef WinTessBaseAPISetVariableDart = int Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
 
+// Windows DLL search path API (Unicode version)
+typedef SetDllDirectoryC = Int32 Function(Pointer<Utf16>);
+typedef SetDllDirectoryDart = int Function(Pointer<Utf16>);
+
 class WinTessOcrBindings {
   DynamicLibrary? _dylib;
 
@@ -47,6 +51,11 @@ class WinTessOcrBindings {
   bool get isLoaded => _isLoaded;
 
   WinTessOcrBindings(String dllDir) {
+    // Windows: 设置 DLL 搜索路径（影响依赖 DLL 加载）
+    if (Platform.isWindows) {
+      _setDllSearchPath(dllDir);
+    }
+
     final candidates = [
       path.join(dllDir, 'tesseract55.dll'),
       path.join(dllDir, 'libtesseract-5.dll'),
@@ -66,6 +75,23 @@ class WinTessOcrBindings {
       }
     }
     print('WinTessOcrBindings: failed to load any candidate DLL');
+  }
+
+  void _setDllSearchPath(String dllDir) {
+    try {
+      final kernel32 = DynamicLibrary.open('kernel32.dll');
+      final setDllDirectory = kernel32.lookupFunction<SetDllDirectoryC, SetDllDirectoryDart>('SetDllDirectoryW');
+      final dirPtr = dllDir.toNativeUtf16();
+      final result = setDllDirectory(dirPtr);
+      malloc.free(dirPtr);
+      if (result != 0) {
+        print('SetDllDirectory: succeeded for $dllDir');
+      } else {
+        print('SetDllDirectory: failed for $dllDir');
+      }
+    } catch (e) {
+      print('SetDllDirectory: $e');
+    }
   }
 
   void _bindFunctions() {
