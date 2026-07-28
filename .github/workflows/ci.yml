@@ -752,42 +752,80 @@ jobs:
             $LEPT_DLLS | ForEach-Object { Write-Host "  $($_.Name) ($(($_.Length / 1MB).ToString('0.00')) MB)" }
           }
 
-      - name: Test OCR functionality (basic verification)
+      - name: Test OCR functionality (real FFI test)
         shell: pwsh
         run: |
-          echo "=== OCR 功能验证 ==="
+          echo "=== OCR FFI 功能测试 ==="
 
           $FLUTTER_DIR = "build\windows\x64\runner\Release"
-          $TESSDATA_DIR = "$FLUTTER_DIR\tessdata"
+          $WORKDIR = "$PWD"
+          $TEST_IMAGE = "$WORKDIR\docs\assets\meme_example.jpg"
 
-          # 检查 tessdata
-          if (Test-Path $TESSDATA_DIR) {
-            Write-Host "✓ tessdata 目录存在"
-            $tessFiles = Get-ChildItem "$TESSDATA_DIR\*.traineddata" -ErrorAction SilentlyContinue
-            if ($tessFiles) {
-              Write-Host "✓ 找到 $($tessFiles.Count) 个 traineddata 文件:"
-              $tessFiles | ForEach-Object { Write-Host "  $($_.Name) ($(($_.Length / 1MB).ToString('0.00')) MB)" }
-            } else {
-              Write-Host "✗ 没有找到 traineddata 文件"
-              exit 1
-            }
-          } else {
-            Write-Host "✗ tessdata 目录不存在"
+          # 检查文件
+          if (-not (Test-Path "$FLUTTER_DIR\tesseract55.dll")) {
+            Write-Host "✗ tesseract55.dll not found in bundle"
+            exit 1
+          }
+          Write-Host "✓ Found tesseract55.dll"
+
+          if (-not (Test-Path "$FLUTTER_DIR\tessdata")) {
+            Write-Host "✗ tessdata directory not found"
+            exit 1
+          }
+          Write-Host "✓ Found tessdata directory"
+
+          $chiSim = Get-ChildItem "$FLUTTER_DIR\tessdata\chi_sim.traineddata" -ErrorAction SilentlyContinue
+          $eng = Get-ChildItem "$FLUTTER_DIR\tessdata\eng.traineddata" -ErrorAction SilentlyContinue
+          Write-Host "chi_sim.traineddata: $(if ($chiSim) { '✓' } else { '✗' })"
+          Write-Host "eng.traineddata: $(if ($eng) { '✓' } else { '✗' })"
+
+          if (-not $chiSim -or -not $eng) {
+            Write-Host "✗ Missing traineddata files"
             exit 1
           }
 
-          # 检查 Tesseract DLL 基本信息（尝试获取版本）
-          $tessDlls = Get-ChildItem "$FLUTTER_DIR\tesseract*.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($tessDlls) {
-            Write-Host "✓ Tesseract DLL: $($tessDlls.Name)"
-            $versionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($tessDlls.FullName)
-            if ($versionInfo.ProductVersion) {
-              Write-Host "  版本: $($versionInfo.ProductVersion)"
-            }
+          if (-not (Test-Path $TEST_IMAGE)) {
+            Write-Host "✗ Test image not found: $TEST_IMAGE"
+            exit 1
+          }
+          Write-Host "✓ Test image: $TEST_IMAGE"
+
+          # 安装 Dart SDK
+          Write-Host "Installing Dart SDK..."
+          if (-not (Test-Path "$env:USERPROFILE\dart-sdk")) {
+            $DART_VERSION = "3.5.0"
+            $DART_URL = "https://storage.googleapis.com/dart-archive/channels/stable/release/${DART_VERSION}/sdk/dartsdk-windows-x64-release.zip"
+            $DART_ZIP = "$env:TEMP\dart.zip"
+            curl.exe -L -sS $DART_URL -o $DART_ZIP
+            Expand-Archive -Path $DART_ZIP -DestinationPath $env:USERPROFILE -Force
+            Remove-Item $DART_ZIP -Force
+          }
+          $env:PATH = "$env:USERPROFILE\dart-sdk\bin;$env:PATH"
+          dart --version
+
+          # 创建独立测试项目
+          Write-Host "Creating test project..."
+          $TEST_DIR = "$env:TEMP\ocr_win_test"
+          if (Test-Path $TEST_DIR) { Remove-Item $TEST_DIR -Recurse -Force }
+          New-Item -ItemType Directory -Path $TEST_DIR -Force | Out-Null
+          Copy-Item "$WORKDIR\scripts\test_win_ocr.dart" "$TEST_DIR\"
+
+          $pubspecContent = "name: ocr_win_test`ndescription: Windows OCR FFI test`nversion: 1.0.0`nenvironment:`n  sdk: '>=3.0.0 <4.0.0'`ndependencies:`n  ffi: ^2.1.0`n  path: ^1.9.1`n"
+          Set-Content -Path "$TEST_DIR\pubspec.yaml" -Value $pubspecContent
+
+          Set-Location $TEST_DIR
+          dart pub get
+
+          # 运行测试
+          Write-Host "Running OCR FFI test..."
+          dart run test_win_ocr.dart "$FLUTTER_DIR" "$TEST_IMAGE" ""
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "OCR FFI test failed"
+            exit 1
           }
 
           Write-Host ""
-          Write-Host "✓ OCR 功能验证通过"
+          Write-Host "OCR FFI test passed"
 
       - name: Package Windows artifact
         shell: pwsh
