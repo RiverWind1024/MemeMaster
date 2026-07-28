@@ -228,20 +228,21 @@ jobs:
           # 4. 创建独立测试项目（避免 objective_c 依赖问题）
           echo "--- 创建独立测试项目 ---"
           TEST_DIR="/tmp/ocr_ffi_test"
+          WORKDIR="$GITHUB_WORKSPACE"
           rm -rf "$TEST_DIR"
           mkdir -p "$TEST_DIR"
-          cp scripts/test_ocr_ffi.dart "$TEST_DIR/"
+          cp "$WORKDIR/scripts/test_ocr_ffi.dart" "$TEST_DIR/"
           printf '%s\n' 'name: ocr_ffi_test' 'description: Standalone OCR FFI test' 'version: 1.0.0' 'environment:' '  sdk: ">=3.0.0 <4.0.0"' 'dependencies:' '  ffi: ^2.1.0' '  path: ^1.9.1' > "$TEST_DIR/pubspec.yaml"
 
           cd "$TEST_DIR"
           dart pub get
 
-          # 5. 运行 Dart OCR FFI 测试脚本
+          # 5. 运行 Dart OCR FFI 测试脚本（使用绝对路径）
           echo ""
           echo "--- 运行 OCR FFI 测试 ---"
           dart run test_ocr_ffi.dart \
-            "$BUNDLE_DIR" \
-            "$TEST_IMAGE" \
+            "$WORKDIR/build/linux/x64/release/bundle" \
+            "$WORKDIR/docs/assets/meme_example.jpg" \
             "" || {
             echo "✗ OCR FFI 测试失败"
             exit 1
