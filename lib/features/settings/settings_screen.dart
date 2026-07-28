@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/ocr/ocr_service.dart';
+import '../../core/ocr/tesseract_bindings.dart';
 import '../../services/config_exporter.dart';
 import '../../services/log_service.dart';
 import '../../services/opencl_diagnostic.dart';
@@ -863,15 +864,15 @@ Future<void> _onOcrToggle(bool value, WidgetRef ref, BuildContext ctx) async {
     log.info('OCR', 'macOS 使用 Apple Vision Framework，始终可用');
     // macOS: Apple Vision 是系统框架，始终可用，无需检查安装
   } else if (Platform.isWindows) {
-    log.info('OCR', '检查 Windows Tesseract 安装状态...');
-    final installed = await OcrService.windowsCheckInstalled();
-    log.info('OCR', 'Windows Tesseract 安装状态: $installed');
-    if (!installed) {
-      log.warning('OCR', 'Windows Tesseract 未安装，提示用户手动安装');
+    // Windows: 检查 FFI 是否加载（Tesseract DLL 随 app bundle 打包）
+    final ffiLoaded = TessOcrBindings.ffiIsLoaded;
+    log.info('OCR', 'Windows Tesseract FFI 状态: ${ffiLoaded ? "已加载" : "未加载"}');
+    if (!ffiLoaded) {
+      log.error('OCR', 'Windows Tesseract FFI 未加载');
       if (ctx.mounted) {
         ScaffoldMessenger.of(ctx).showSnackBar(
           const SnackBar(
-            content: Text('Tesseract 未安装。请从 https://github.com/UB-Mannheim/tesseract/wiki 下载安装'),
+            content: Text('Tesseract FFI 未加载，请检查 DLL 是否正确打包'),
             duration: Duration(seconds: 5),
           ),
         );

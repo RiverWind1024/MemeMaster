@@ -498,26 +498,22 @@ class _WindowsOcrService extends _TesseractOcrServiceBase {
   @override
   String get _installHint => '请从 https://github.com/UB-Mannheim/tesseract/wiki 下载安装';
 
-  /// 检查 tesseract 是否已安装（FFI 或命令行）
+  /// 检查 tesseract 是否已安装（FFI）
+  /// Windows 只支持 FFI，不支持 CLI
   @override
   Future<bool> isInstalled() async {
     try {
-      _TesseractOcrServiceBase._log.info('OCR', '检查 Tesseract 是否可用 (Windows)...');
+      _TesseractOcrServiceBase._log.info('OCR', '检查 Tesseract FFI (Windows)...');
       if (_TesseractOcrServiceBase._ffi?.isLoaded ?? false) {
         final version = _TesseractOcrServiceBase._ffi?.getVersion();
         _TesseractOcrServiceBase._log.info('OCR', 'Tesseract FFI 已加载${version != null ? ', 版本: $version' : ''}');
         return true;
       }
-      final result = await Process.run('where', ['tesseract']);
-      _TesseractOcrServiceBase._log.info('OCR', 'where tesseract exitCode=${result.exitCode}');
-      if (result.exitCode == 0 && result.stdout.toString().isNotEmpty) {
-        _TesseractOcrServiceBase._log.info('OCR', 'tesseract 命令行路径: ${result.stdout.toString().trim()}');
-        return true;
-      }
-      _TesseractOcrServiceBase._log.warning('OCR', 'tesseract 未安装或不在 PATH 中 (Windows)');
+      // Windows 只支持 FFI 方式，不支持 CLI
+      _TesseractOcrServiceBase._log.warning('OCR', 'Tesseract FFI 未加载 (Windows)');
       return false;
     } catch (e) {
-      _TesseractOcrServiceBase._log.error('OCR', '检查 tesseract 失败 (Windows): $e');
+      _TesseractOcrServiceBase._log.error('OCR', '检查 Tesseract FFI 失败 (Windows): $e');
       return false;
     }
   }
