@@ -3,97 +3,170 @@ import 'dart:io' show Directory, File, exit, Platform;
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as path;
 
-typedef WinTessBaseAPICreateC = Pointer<Void> Function();
-typedef WinTessBaseAPICreateDart = Pointer<Void> Function();
+// ============================================================================
+// Tesseract C API typedefs (from capi.h)
+// ============================================================================
+typedef TessBaseAPICreateC = Pointer<Void> Function();
+typedef TessBaseAPICreateDart = Pointer<Void> Function();
 
-typedef WinTessBaseAPIDeleteC = Void Function(Pointer<Void>);
-typedef WinTessBaseAPIDeleteDart = void Function(Pointer<Void>);
+typedef TessBaseAPIDeleteC = Void Function(Pointer<Void>);
+typedef TessBaseAPIDeleteDart = void Function(Pointer<Void>);
 
-typedef WinTessBaseAPIInit3C = Int32 Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
-typedef WinTessBaseAPIInit3Dart = int Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
+typedef TessBaseAPIInit3C = Int32 Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
+typedef TessBaseAPIInit3Dart = int Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
 
-typedef WinTessBaseAPIEndC = Void Function(Pointer<Void>);
-typedef WinTessBaseAPIEndDart = void Function(Pointer<Void>);
+typedef TessBaseAPIEndC = Void Function(Pointer<Void>);
+typedef TessBaseAPIEndDart = void Function(Pointer<Void>);
 
-typedef WinTessBaseAPISetImageFileC = Int32 Function(Pointer<Void>, Pointer<Utf8>);
-typedef WinTessBaseAPISetImageFileDart = int Function(Pointer<Void>, Pointer<Utf8>);
+// TessBaseAPISetImage2 - 设置 Pix 结构体图像
+typedef TessBaseAPISetImage2C = Void Function(Pointer<Void>, Pointer<Void>);
+typedef TessBaseAPISetImage2Dart = void Function(Pointer<Void>, Pointer<Void>);
 
-typedef WinTessBaseAPIGetUTF8TextC = Pointer<Utf8> Function(Pointer<Void>);
-typedef WinTessBaseAPIGetUTF8TextDart = Pointer<Utf8> Function(Pointer<Void>);
+typedef TessBaseAPIGetUTF8TextC = Pointer<Utf8> Function(Pointer<Void>);
+typedef TessBaseAPIGetUTF8TextDart = Pointer<Utf8> Function(Pointer<Void>);
 
-typedef WinTessBaseAPIDeleteTextC = Void Function(Pointer<Utf8>);
-typedef WinTessBaseAPIDeleteTextDart = void Function(Pointer<Utf8>);
+typedef TessBaseAPIDeleteTextC = Void Function(Pointer<Utf8>);
+typedef TessBaseAPIDeleteTextDart = void Function(Pointer<Utf8>);
 
-typedef WinTessVersionC = Pointer<Utf8> Function();
-typedef WinTessVersionDart = Pointer<Utf8> Function();
+typedef TessVersionC = Pointer<Utf8> Function();
+typedef TessVersionDart = Pointer<Utf8> Function();
 
-typedef WinTessBaseAPISetVariableC = Int32 Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
-typedef WinTessBaseAPISetVariableDart = int Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
+typedef TessBaseAPISetVariableC = Int32 Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
+typedef TessBaseAPISetVariableDart = int Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
 
-// Windows DLL search path API (Unicode version)
+// ============================================================================
+// Leptonica API typedefs (for pixRead)
+// ============================================================================
+// Pix* pixRead(const char *filename);
+typedef PixReadC = Pointer<Void> Function(Pointer<Utf8>);
+typedef PixReadDart = Pointer<Void> Function(Pointer<Utf8>);
+
+// void pixDestroy(Pix** pix);
+typedef PixDestroyC = Void Function(Pointer<Pointer<Void>>);
+typedef PixDestroyDart = void Function(Pointer<Pointer<Void>>);
+
+// ============================================================================
+// Windows DLL 搜索路径 API
+// ============================================================================
 typedef SetDllDirectoryC = Int32 Function(Pointer<Utf16>);
 typedef SetDllDirectoryDart = int Function(Pointer<Utf16>);
 
+// ============================================================================
+// Windows OCR Bindings
+// ============================================================================
 class WinTessOcrBindings {
-  DynamicLibrary? _dylib;
+  DynamicLibrary? _tesseractLib;
+  DynamicLibrary? _leptonicaLib;
 
-  late WinTessBaseAPICreateDart tessCreate;
-  late WinTessBaseAPIDeleteDart tessDelete;
-  late WinTessBaseAPIInit3Dart tessInit;
-  late WinTessBaseAPIEndDart tessEnd;
-  late WinTessBaseAPISetImageFileDart tessSetImageFile;
-  late WinTessBaseAPIGetUTF8TextDart tessGetUtf8Text;
-  late WinTessBaseAPIDeleteTextDart tessDeleteText;
-  late WinTessVersionDart tessVersion;
-  late WinTessBaseAPISetVariableDart tessSetVariable;
+  TessBaseAPICreateDart? tessCreate;
+  TessBaseAPIDeleteDart? tessDelete;
+  TessBaseAPIInit3Dart? tessInit;
+  TessBaseAPIEndDart? tessEnd;
+  TessBaseAPISetImage2Dart? tessSetImage2;
+  TessBaseAPIGetUTF8TextDart? tessGetUtf8Text;
+  TessBaseAPIDeleteTextDart? tessDeleteText;
+  TessVersionDart? tessVersion;
+  TessBaseAPISetVariableDart? tessSetVariable;
+
+  // Leptonica
+  PixReadDart? pixRead;
+  PixDestroyDart? pixDestroy;
 
   bool _isLoaded = false;
   bool get isLoaded => _isLoaded;
 
   WinTessOcrBindings(String dllDir) {
-    // Windows: 设置 DLL 搜索路径（影响依赖 DLL 加载）
+    // Windows: 设置 DLL 搜索路径
     if (Platform.isWindows) {
       _setDllSearchPath(dllDir);
     }
 
-    // 先尝试直接用文件名（从 PATH 或当前目录加载）
-    final pathCandidates = ['tesseract55.dll', 'libtesseract-5.dll'];
-    for (final name in pathCandidates) {
-      try {
-        _dylib = DynamicLibrary.open(name);
-        _isLoaded = true;
-        _bindFunctions();
-        print('WinTessOcrBindings: loaded from PATH: $name');
-        return;
-      } catch (e) {
-        print('  Failed to load $name from PATH: $e');
-      }
+    // 1. 加载 tesseract DLL
+    if (!_loadTesseractDll(dllDir)) {
+      return;
     }
 
-    // 再尝试完整路径
-    final fullCandidates = [
+    // 2. 加载 leptonica DLL
+    if (!_loadLeptonicaDll(dllDir)) {
+      print('WinTessOcrBindings: failed to load leptonica DLL');
+      return;
+    }
+
+    _isLoaded = true;
+  }
+
+  bool _loadTesseractDll(String dllDir) {
+    final candidates = [
       path.join(dllDir, 'tesseract55.dll'),
       path.join(dllDir, 'libtesseract-5.dll'),
     ];
 
-    for (final name in fullCandidates) {
+    for (final dllPath in candidates) {
       try {
-        _dylib = DynamicLibrary.open(name);
-        _isLoaded = true;
-        _bindFunctions();
-        print('WinTessOcrBindings: loaded $name');
-        return;
+        _tesseractLib = DynamicLibrary.open(dllPath);
+        print('WinTessOcrBindings: loaded tesseract from $dllPath');
+
+        // 绑定 Tesseract 函数
+        tessCreate = _tesseractLib!
+            .lookupFunction<TessBaseAPICreateC, TessBaseAPICreateDart>('TessBaseAPICreate');
+        tessDelete = _tesseractLib!
+            .lookupFunction<TessBaseAPIDeleteC, TessBaseAPIDeleteDart>('TessBaseAPIDelete');
+        tessInit = _tesseractLib!
+            .lookupFunction<TessBaseAPIInit3C, TessBaseAPIInit3Dart>('TessBaseAPIInit3');
+        tessEnd = _tesseractLib!
+            .lookupFunction<TessBaseAPIEndC, TessBaseAPIEndDart>('TessBaseAPIEnd');
+        tessSetImage2 = _tesseractLib!
+            .lookupFunction<TessBaseAPISetImage2C, TessBaseAPISetImage2Dart>('TessBaseAPISetImage2');
+        tessGetUtf8Text = _tesseractLib!
+            .lookupFunction<TessBaseAPIGetUTF8TextC, TessBaseAPIGetUTF8TextDart>('TessBaseAPIGetUTF8Text');
+        tessDeleteText = _tesseractLib!
+            .lookupFunction<TessBaseAPIDeleteTextC, TessBaseAPIDeleteTextDart>('TessDeleteText');
+        tessVersion = _tesseractLib!
+            .lookupFunction<TessVersionC, TessVersionDart>('TessVersion');
+        tessSetVariable = _tesseractLib!
+            .lookupFunction<TessBaseAPISetVariableC, TessBaseAPISetVariableDart>('TessBaseAPISetVariable');
+
+        print('WinTessOcrBindings: all tesseract functions bound');
+        return true;
       } catch (e) {
-        print('  Failed to load $name: $e');
+        print('  Failed to load tesseract from $dllPath: $e');
       }
     }
-    print('WinTessOcrBindings: failed to load any candidate DLL');
+    print('WinTessOcrBindings: failed to load tesseract DLL');
+    return false;
+  }
+
+  bool _loadLeptonicaDll(String dllDir) {
+    final candidates = [
+      path.join(dllDir, 'leptonica-1.87.0.dll'),
+      path.join(dllDir, 'libleptonica-5.dll'),
+    ];
+
+    for (final dllPath in candidates) {
+      try {
+        _leptonicaLib = DynamicLibrary.open(dllPath);
+        print('WinTessOcrBindings: loaded leptonica from $dllPath');
+
+        pixRead = _leptonicaLib!
+            .lookupFunction<PixReadC, PixReadDart>('pixRead');
+        pixDestroy = _leptonicaLib!
+            .lookupFunction<PixDestroyC, PixDestroyDart>('pixDestroy');
+
+        print('WinTessOcrBindings: leptonica functions bound');
+        return true;
+      } catch (e) {
+        print('  Failed to load leptonica from $dllPath: $e');
+      }
+    }
+    print('WinTessOcrBindings: failed to load leptonica DLL');
+    return false;
   }
 
   void _setDllSearchPath(String dllDir) {
     try {
       final kernel32 = DynamicLibrary.open('kernel32.dll');
-      final setDllDirectory = kernel32.lookupFunction<SetDllDirectoryC, SetDllDirectoryDart>('SetDllDirectoryW');
+      final setDllDirectory =
+          kernel32.lookupFunction<SetDllDirectoryC, SetDllDirectoryDart>('SetDllDirectoryW');
       final dirPtr = dllDir.toNativeUtf16();
       final result = setDllDirectory(dirPtr);
       malloc.free(dirPtr);
@@ -107,69 +180,79 @@ class WinTessOcrBindings {
     }
   }
 
-  void _bindFunctions() {
-    if (_dylib == null) return;
-
-    tessCreate = _dylib!.lookupFunction<WinTessBaseAPICreateC, WinTessBaseAPICreateDart>('TessBaseAPICreate');
-    tessDelete = _dylib!.lookupFunction<WinTessBaseAPIDeleteC, WinTessBaseAPIDeleteDart>('TessBaseAPIDelete');
-    tessInit = _dylib!.lookupFunction<WinTessBaseAPIInit3C, WinTessBaseAPIInit3Dart>('TessBaseAPIInit3');
-    tessEnd = _dylib!.lookupFunction<WinTessBaseAPIEndC, WinTessBaseAPIEndDart>('TessBaseAPIEnd');
-    tessSetImageFile = _dylib!.lookupFunction<WinTessBaseAPISetImageFileC, WinTessBaseAPISetImageFileDart>('TessBaseAPISetImageFile');
-    tessGetUtf8Text = _dylib!.lookupFunction<WinTessBaseAPIGetUTF8TextC, WinTessBaseAPIGetUTF8TextDart>('TessBaseAPIGetUTF8Text');
-    tessDeleteText = _dylib!.lookupFunction<WinTessBaseAPIDeleteTextC, WinTessBaseAPIDeleteTextDart>('TessBaseAPIDeleteText');
-    tessVersion = _dylib!.lookupFunction<WinTessVersionC, WinTessVersionDart>('TessVersion');
-    tessSetVariable = _dylib!.lookupFunction<WinTessBaseAPISetVariableC, WinTessBaseAPISetVariableDart>('TessBaseAPISetVariable');
+  String? getVersion() {
+    if (!_isLoaded || tessVersion == null) return null;
+    final resultPtr = tessVersion!();
+    if (resultPtr == nullptr) return null;
+    return resultPtr.toDartString();
   }
 
-  Pointer<Void> create() => tessCreate();
+  Pointer<Void>? create() => tessCreate?.call();
 
-  void destroy(Pointer<Void> handle) => tessDelete(handle);
+  void destroy(Pointer<Void> handle) => tessDelete?.call(handle);
 
   int init(Pointer<Void> handle, String datapath, String language) {
+    if (tessInit == null) return -1;
     final datapathPtr = datapath.toNativeUtf8();
     final langPtr = language.toNativeUtf8();
-    final result = tessInit(handle, datapathPtr, langPtr);
+    final result = tessInit!(handle, datapathPtr, langPtr);
     malloc.free(datapathPtr);
     malloc.free(langPtr);
     return result;
   }
 
-  void end(Pointer<Void> handle) => tessEnd(handle);
+  void end(Pointer<Void> handle) => tessEnd?.call(handle);
 
-  int setImageFile(Pointer<Void> handle, String filename) {
-    final filenamePtr = filename.toNativeUtf8();
-    final result = tessSetImageFile(handle, filenamePtr);
-    malloc.free(filenamePtr);
-    return result;
-  }
+  /// 使用 pixRead 读取图像并设置
+  int setImage(Pointer<Void> handle, String imagePath) {
+    if (pixRead == null || tessSetImage2 == null) return -1;
 
-  String? getUtf8Text(Pointer<Void> handle) {
-    final resultPtr = tessGetUtf8Text(handle);
-    if (resultPtr == nullptr) return null;
-    final result = resultPtr.toDartString();
-    tessDeleteText(resultPtr);
-    return result;
-  }
+    final imagePathPtr = imagePath.toNativeUtf8();
+    final pix = pixRead!(imagePathPtr);
+    malloc.free(imagePathPtr);
 
-  String? getVersion() {
-    final resultPtr = tessVersion();
-    if (resultPtr == nullptr) return null;
-    return resultPtr.toDartString();
+    if (pix == nullptr) {
+      print('WinTessOcrBindings: pixRead failed for $imagePath');
+      return -1;
+    }
+
+    tessSetImage2!(handle, pix);
+
+    // 释放 Pix 内存
+    final pixPtr = calloc<Pointer<Void>>();
+    pixPtr.value = pix;
+    pixDestroy!(pixPtr);
+    calloc.free(pixPtr);
+
+    return 0;
   }
 
   int setVariable(Pointer<Void> handle, String name, String value) {
+    if (tessSetVariable == null) return 0;
     final namePtr = name.toNativeUtf8();
     final valuePtr = value.toNativeUtf8();
-    final result = tessSetVariable(handle, namePtr, valuePtr);
+    final result = tessSetVariable!(handle, namePtr, valuePtr);
     malloc.free(namePtr);
     malloc.free(valuePtr);
     return result;
   }
+
+  String? getUtf8Text(Pointer<Void> handle) {
+    if (tessGetUtf8Text == null || tessDeleteText == null) return null;
+    final resultPtr = tessGetUtf8Text!(handle);
+    if (resultPtr == nullptr) return null;
+    final result = resultPtr.toDartString();
+    tessDeleteText!(resultPtr);
+    return result;
+  }
 }
 
-void main(List<String> args) async {
+// ============================================================================
+// 主测试程序
+// ============================================================================
+void main(List<String> args) {
   if (args.length < 2) {
-    print('Usage: dart run test_win_ocr.dart <bundle_dir> <test_image> [expected_text]');
+    print('用法: dart run test_win_ocr.dart <bundle_dir> <test_image> [expected_text]');
     exit(1);
   }
 
@@ -207,89 +290,81 @@ void main(List<String> args) async {
   print('chi_sim.traineddata: ${chiSimFile.existsSync() ? "✓" : "✗"}');
   print('eng.traineddata: ${engFile.existsSync() ? "✓" : "✗"}');
 
-  print('');
-  print('=== 加载 FFI 库 ===');
+  // 列出所有 DLL
+  print('\n=== DLL 文件 ===');
+  final dlls = Directory(dllDir).listSync().where((f) => f.path.endsWith('.dll')).toList();
+  for (final dll in dlls) {
+    print('  ${path.basename(dll.path)}');
+  }
+
+  // 加载 FFI 库
+  print('\n=== 加载 FFI 库 ===');
   final bindings = WinTessOcrBindings(dllDir);
 
   if (!bindings.isLoaded) {
-    print('✗ 无法加载 tesseract DLL');
+    print('✗ FFI 库加载失败');
     exit(1);
   }
 
   print('✓ FFI 库加载成功');
-  final version = bindings.getVersion();
-  print('Tesseract 版本: ${version ?? "unknown"}');
+  print('Tesseract 版本: ${bindings.getVersion()}');
 
-  Pointer<Void>? handle;
-  try {
-    print('');
-    print('=== OCR 识别测试 ===');
-
-    handle = bindings.create();
-    if (handle == nullptr) {
-      print('✗ 创建 Tesseract handle 失败');
-      exit(1);
-    }
-    print('✓ Tesseract handle 创建成功');
-
-    print('初始化 Tesseract (chi_sim+eng)...');
-    var initResult = bindings.init(handle, tessdataPath, 'chi_sim+eng');
-
-    if (initResult != 0) {
-      print('chi_sim+eng 初始化失败，尝试 eng...');
-      initResult = bindings.init(handle, tessdataPath, 'eng');
-      if (initResult != 0) {
-        print('✗ Tesseract 初始化失败: $initResult');
-        exit(1);
-      }
-      print('✓ Tesseract 初始化成功 (eng)');
-    } else {
-      print('✓ Tesseract 初始化成功 (chi_sim+eng)');
-    }
-
-    // 设置 PSM=3 (全自动页面分割) 和 OEM=1 (LSTM+传统混合)
-    bindings.setVariable(handle, 'tessedit_pageseg_mode', '3');
-    bindings.setVariable(handle, 'tessedit_ocr_engine_mode', '1');
-    print('设置 PSM=3, OEM=1');
-
-    print('设置图片: $testImage');
-    final setImageResult = bindings.setImageFile(handle, testImage);
-    if (setImageResult != 0) {
-      print('✗ 设置图片失败: $setImageResult');
-      exit(1);
-    }
-    print('✓ 图片设置成功');
-
-    final text = bindings.getUtf8Text(handle);
-    if (text == null || text.isEmpty) {
-      print('✗ OCR 识别结果为空');
-      exit(1);
-    }
-
-    print('✓ OCR 识别成功');
-    print('识别结果 (前200字符): ${text.length > 200 ? '${text.substring(0, 200)}...' : text}');
-
-    if (expectedText.isNotEmpty) {
-      if (text.contains(expectedText)) {
-        print('✓ 识别结果包含期望文本: $expectedText');
-      } else {
-        print('⚠ 识别结果不包含期望文本: $expectedText');
-        print('  实际结果: $text');
-      }
-    }
-
-    print('');
-    print('=== 测试完成: 成功 ===');
-    exit(0);
-
-  } catch (e) {
-    print('✗ 测试异常: $e');
+  // 创建 OCR 实例
+  print('\n=== OCR 识别 ===');
+  final handle = bindings.create();
+  if (handle == nullptr) {
+    print('✗ 无法创建 OCR 实例');
     exit(1);
+  }
 
-  } finally {
-    if (handle != null && handle != nullptr) {
-      bindings.end(handle);
-      bindings.destroy(handle);
+  // 初始化
+  final initResult = bindings.init(handle, tessdataPath, 'eng+chi_sim');
+  if (initResult != 0) {
+    print('✗ OCR 初始化失败: $initResult');
+    bindings.destroy(handle);
+    exit(1);
+  }
+  print('✓ OCR 初始化成功');
+
+  // 设置 PSM=3 (自动分页)
+  bindings.setVariable(handle, 'tessedit_pageseg_mode', '3');
+  // 设置 OEM=1 (神经网络 LSTM)
+  bindings.setVariable(handle, 'tessedit_ocr_engine_mode', '1');
+
+  // 读取图像并识别
+  final setImageResult = bindings.setImage(handle, testImage);
+  if (setImageResult != 0) {
+    print('✗ 无法设置图像');
+    bindings.end(handle);
+    bindings.destroy(handle);
+    exit(1);
+  }
+  print('✓ 图像设置成功');
+
+  // 获取识别结果
+  final text = bindings.getUtf8Text(handle);
+  if (text == null) {
+    print('✗ OCR 识别失败');
+    bindings.end(handle);
+    bindings.destroy(handle);
+    exit(1);
+  }
+
+  print('\n=== 识别结果 ===');
+  print(text.trim());
+
+  // 验证结果（如果提供了期望文本）
+  if (expectedText.isNotEmpty) {
+    if (text.contains(expectedText)) {
+      print('\n✓ 验证通过: 包含期望文本 "$expectedText"');
+    } else {
+      print('\n✗ 验证失败: 未找到 "$expectedText"');
     }
   }
+
+  // 清理
+  bindings.end(handle);
+  bindings.destroy(handle);
+
+  print('\n=== 测试完成 ===');
 }
