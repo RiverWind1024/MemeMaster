@@ -146,6 +146,24 @@ class TessOcrBindings {
   }
 
   void _loadLinux() {
+    // 优先使用绝对路径：从 bundle/lib/ 加载（匹配 CMAKE_INSTALL_RPATH=$ORIGIN/lib）
+    final bundleLib = path.join(
+      path.dirname(Platform.resolvedExecutable),
+      'lib',
+      'libtesseract_ocr.so',
+    );
+    try {
+      _dylib = DynamicLibrary.open(bundleLib);
+      _isLinux = true;
+      _isLoaded = true;
+      _bindLinuxFunctions();
+      _getLog().info('OCR', 'Linux FFI loaded: $bundleLib');
+      return;
+    } catch (e) {
+      _getLog().info('OCR', 'Failed to load from bundle path: $e');
+    }
+
+    // 回退到名称搜索（适用于开发环境等非 bundle 场景）
     final candidates = [
       'libtesseract_ocr.so',
       'libtesseract_ocr.so.1',

@@ -194,8 +194,8 @@ if(NOT TESSERACT_SYSTEM)
             COMMAND cmake -S ${LEPTONICA_DIR} -B ${CMAKE_CURRENT_BINARY_DIR}/leptonica_build
                 -DCMAKE_BUILD_TYPE=Release
                 -DCMAKE_INSTALL_PREFIX=${LEPTONICA_INSTALL_DIR}
-                -DBUILD_SHARED_LIBS=ON
-                -DBUILD_STATIC_LIBS=OFF
+                -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+                -DBUILD_SHARED_LIBS=OFF
                 -DBUILD_PROGRAMS=OFF
                 -DBUILD_TESTS=OFF
                 -DBUILD_DOCS=OFF
@@ -204,7 +204,7 @@ if(NOT TESSERACT_SYSTEM)
                 -DLEPTONICA_USING_PNG=ON
                 -DLEPTONICA_USING_JPEG=ON
                 -DLEPTONICA_USING_TIFF=ON
-                -DLEPTONICA_USING_GIF=ON
+                -DLEPTONICA_USING_GIF=OFF
                 -DLEPTONICA_USING_WEBP=ON
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
             RESULT_VARIABLE RESULT
@@ -253,9 +253,9 @@ if(NOT TESSERACT_SYSTEM)
                 COMMAND cmake -S ${TESSERACT_DIR} -B ${CMAKE_CURRENT_BINARY_DIR}/tesseract_build
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_PREFIX=${LEPTONICA_INSTALL_DIR}
+                    -DCMAKE_POSITION_INDEPENDENT_CODE=ON
                     -DLeptonica_DIR=${Leptonica_DIR}
-                    -DBUILD_SHARED_LIBS=ON
-                    -DBUILD_STATIC_LIBS=OFF
+                    -DBUILD_SHARED_LIBS=OFF
                     -DBUILD_PROGRAMS=OFF
                     -DBUILD_TRAINING_TOOLS=OFF
                     -DBUILD_DOCS=OFF
@@ -295,14 +295,34 @@ if(NOT TESSERACT_SYSTEM)
         # 构建 tesseract_ocr 封装库
         if(NOT RESULT AND BUNDLED_TESSERACT)
             message(STATUS "=== Building tesseract_ocr wrapper ===")
+
+            # 寻找系统静态库（leptonica 的传递依赖）
+            # 全部静态链接到 tesseract_ocr.so，避免运行时 libjpeg ABI 冲突
+            set(_SAVED_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+            set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+            find_library(JPEG_STATIC_LIB NAMES jpeg)
+            find_library(PNG_STATIC_LIB NAMES png16)
+            find_library(TIFF_STATIC_LIB NAMES tiff)
+            find_library(WEBP_STATIC_LIB NAMES webp)
+            find_library(WEBPMUX_STATIC_LIB NAMES webpmux)
+            find_library(ZLIB_STATIC_LIB NAMES z)
+            set(CMAKE_FIND_LIBRARY_SUFFIXES ${_SAVED_SUFFIXES})
+
             add_library(tesseract_ocr SHARED tesseract_ocr.cpp)
             target_include_directories(tesseract_ocr PRIVATE
                 ${LEPTONICA_INSTALL_DIR}/include
                 ${TESSERACT_DIR}/include
             )
             target_link_libraries(tesseract_ocr PRIVATE
-                "${LEPTONICA_INSTALL_DIR}/lib/libleptonica.so"
-                "${LEPTONICA_INSTALL_DIR}/lib/libtesseract.so"
+                "${LEPTONICA_INSTALL_DIR}/lib/libleptonica.a"
+                "${LEPTONICA_INSTALL_DIR}/lib/libtesseract.a"
+                ${JPEG_STATIC_LIB}
+                ${PNG_STATIC_LIB}
+                ${TIFF_STATIC_LIB}
+                ${WEBP_STATIC_LIB}
+                ${WEBPMUX_STATIC_LIB}
+                ${ZLIB_STATIC_LIB}
+                pthread dl m
             )
             set_target_properties(tesseract_ocr PROPERTIES
                 BUILD_RPATH "$ORIGIN"
@@ -310,14 +330,9 @@ if(NOT TESSERACT_SYSTEM)
             )
             set(TESSERACT_OCR_TARGET tesseract_ocr)
 
-            # 安装 tesseract_ocr 和依赖库
+            # 安装 tesseract_ocr（依赖已静态链接，无需额外安装）
             install(TARGETS tesseract_ocr LIBRARY DESTINATION lib COMPONENT runtime)
-            install(FILES
-                "${LEPTONICA_INSTALL_DIR}/lib/libleptonica.so"
-                "${LEPTONICA_INSTALL_DIR}/lib/libtesseract.so"
-                DESTINATION lib COMPONENT runtime
-            )
-            message(STATUS "=== tesseract_ocr wrapper built and installed ===")
+            message(STATUS "=== tesseract_ocr wrapper built and installed (statically linked) ===")
         else()
             message(WARNING "Tesseract OCR build failed, will use CLI fallback")
             set(TESSERACT_OCR_TARGET "")
