@@ -201,15 +201,18 @@ jobs:
           done
 
           echo "=== 收集 leptonica/libtesseract 的所有系统依赖 ==="
-          for lib in build/linux-llm/local/lib/libleptonica.so* build/linux-llm/local/lib/libtesseract.so*; do
+          LIBS_TO_CHECK="build/linux-llm/local/lib/libleptonica.so.6.0.0 build/linux-llm/local/lib/libtesseract.so.5.5.3"
+          for lib in $LIBS_TO_CHECK; do
             [ -f "$lib" ] || continue
-            ldd "$lib" 2>/dev/null | awk '{print $3}' | grep -E '^/' | while read deplib; do
-              [ -f "$deplib" ] || continue
+            echo "检查依赖: $lib"
+            ldd "$lib" 2>/dev/null | grep -E '^\s+.*=>' | awk '{print $3}' | while read deplib; do
+              [ -z "$deplib" ] && continue
+              [ ! -f "$deplib" ] && continue
               depname=$(basename "$deplib")
               [ -f "$depname" ] && continue
               case "$depname" in
-                ld-linux-x86-64.so.*|libc.so.*|libm.so.*|librt.so.*|libpthread.so.*|libdl.so.*|libgcc_s.so.*|libstdc++.so.*|linux-vdso.so.*) echo "  skip: $depname" ;;
-                *) cp "$deplib" . && echo "✓ Copied: $depname" ;;
+                ld-linux-x86-64.so.*|libc.so.*|libm.so.*|librt.so.*|libpthread.so.*|libdl.so.*|libgcc_s.so.*|libstdc++.so.*|libgomp.so.*|linux-vdso.so.*|libvulkan.so.*|libglvnd.so.*) echo "  跳过系统库: $depname" ;;
+                *) cp "$deplib" . && echo "  ✓ 已复制: $depname" ;;
               esac
             done
           done
