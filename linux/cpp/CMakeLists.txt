@@ -182,143 +182,17 @@ target_link_options(meme_llm PRIVATE -Wl,-soname,libmeme_llm.so.1)
 # ===== Tesseract OCR =====
 if(NOT TESSERACT_SYSTEM)
     if(EXISTS "${LEPTONICA_DIR}/CMakeLists.txt" AND EXISTS "${TESSERACT_DIR}/CMakeLists.txt")
-        message(STATUS "Building Tesseract OCR from source (fully static bundling)")
+        message(STATUS "Building Tesseract OCR from source (using system libraries)")
 
-        # 使用本地安装前缀（类似 macOS 的处理方式）
+        # 使用本地安装前缀
         set(LOCAL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/local")
         set(LEPTONICA_INSTALL_DIR "${LOCAL_PREFIX}")
-        set(DEPS_PREFIX "${LOCAL_PREFIX}/deps")
 
         # =========================================================
-        # 阶段 1：从源码构建所有依赖库（-fPIC 静态编译）
-        # 这样二进制自带所有依赖，不依赖系统库，跨发行版兼容
+        # 阶段 1：从源码构建 Leptonica（链接系统 .so 库）
+        # Ubuntu 22.04 自带完整的 libjpeg-turbo, libtiff, libpng, zlib
         # =========================================================
-        message(STATUS "=== Building bundled dependencies (libjpeg, zlib, libpng, libtiff, giflib) ===")
-
-        set(_DEPS_STATUS 0)
-
-        macro(BUILD_DEPS_LIB NAME URL DIR)
-            # tarball 顶层目录是 ${DIR}，解压到 deps_src 后就是 deps_src/${DIR}/
-            set(_src_dir "${CMAKE_CURRENT_BINARY_DIR}/deps_src/${DIR}")
-            set(_build_dir "${CMAKE_CURRENT_BINARY_DIR}/deps_build/${DIR}")
-            set(_inst_dir "${DEPS_PREFIX}")
-            set(_tarball "${CMAKE_CURRENT_BINARY_DIR}/${DIR}.tar.gz")
-
-            if(NOT EXISTS "${_inst_dir}/lib/lib${NAME}.a")
-                message(STATUS "  Fetching ${NAME}...")
-                file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/deps_src")
-                file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/deps_build")
-                # 用 curl download（-L 跟随重定向，--fail 非零退出）
-                execute_process(
-                    COMMAND curl -L --fail --retry 3 --retry-delay 2
-                        -o "${_tarball}"
-                        "${URL}"
-                    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-                    RESULT_VARIABLE _rv
-                    TIMEOUT 120
-                )
-                message(STATUS "  ${NAME} curl result: ${_rv}")
-                if(_rv EQUAL 0 AND EXISTS "${_tarball}")
-                    message(STATUS "  ${NAME} tarball downloaded")
-                    # cmake -E tar 解压到 deps_src（顶层目录保留为 ${DIR}）
-                    execute_process(
-                        COMMAND /usr/bin/cmake -E tar xzf "${_tarball}"
-                        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/deps_src"
-                        RESULT_VARIABLE _rv
-                    )
-                    message(STATUS "  ${NAME} extract result: ${_rv}")
-                else()
-                    message(WARNING "  ${NAME} download failed")
-                    set(_rv 1)
-                endif()
-                if(_rv EQUAL 0 AND EXISTS "${_src_dir}/CMakeLists.txt")
-                    message(STATUS "  ${NAME} configuring (src=${_src_dir})...")
-                    file(MAKE_DIRECTORY "${_build_dir}")
-                    execute_process(
-                        COMMAND /usr/bin/cmake -S ${_src_dir} -B ${_build_dir}
-                            -DCMAKE_BUILD_TYPE=Release
-                            -DCMAKE_INSTALL_PREFIX=${_inst_dir}
-                            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-                            -DBUILD_SHARED_LIBS=ON
-                            -DBUILD_STATIC_LIBS=ON
-                        WORKING_DIRECTORY ${_build_dir}
-                        RESULT_VARIABLE _rv
-                    )
-                    message(STATUS "  ${NAME} configure result: ${_rv}")
-                else()
-                    message(WARNING "  ${NAME} source not found at ${_src_dir}, skipping")
-                    set(_rv 1)
-                endif()
-                if(_rv EQUAL 0)
-                    execute_process(
-                        COMMAND /usr/bin/cmake --build "${_build_dir}" --config Release -j4
-                        WORKING_DIRECTORY "${_build_dir}"
-                        RESULT_VARIABLE _rv
-                    )
-                    message(STATUS "  ${NAME} build result: ${_rv}")
-                endif()
-                if(_rv EQUAL 0)
-                    execute_process(
-                        COMMAND /usr/bin/cmake --install "${_build_dir}" --config Release
-                        WORKING_DIRECTORY "${_build_dir}"
-                        RESULT_VARIABLE _rv
-                    )
-                    message(STATUS "  ${NAME} install result: ${_rv}")
-                endif()
-                if(_rv)
-                    message(WARNING "  ${NAME} build failed (${_rv}), OCR may not work")
-                else()
-                    message(STATUS "  ${NAME} built successfully")
-                endif()
-            else()
-                message(STATUS "  ${NAME} already built, skipping")
-            endif()
-            if(_rv)
-                set(_DEPS_STATUS ${_rv})
-            endif()
-        endmacro()
-
-        # libjpeg-turbo（codeload URL 直接指向 tar.gz，无重定向）
-        BUILD_DEPS_LIB(jpeg-turbo
-            "https://codeload.github.com/libjpeg-turbo/libjpeg-turbo/tar.gz/2.1.5.1"
-            "libjpeg-turbo-2.1.5.1")
-
-        # zlib
-        BUILD_DEPS_LIB(z
-            "https://zlib.net/zlib-1.3.1.tar.gz"
-            "zlib-1.3.1")
-
-        # libpng
-        BUILD_DEPS_LIB(png
-            "https://codeload.github.com/pnggroup/libpng/tar.gz/v1.6.47"
-            "libpng-1.6.47")
-
-        # libtiff
-        BUILD_DEPS_LIB(tiff
-            "https://codeload.github.com/libsdl-org/libtiff/tar.gz/v4.7.0"
-            "libtiff-4.7.0")
-
-        # giflib 不构建（GIF 不是 OCR 必需格式，禁掉避免 SourceForge 下载问题）
-        message(STATUS "  Skipping giflib (GIF not needed for OCR)")
-
-        # 改为共享库后，libjpeg-turbo 安装 libturbojpeg.so（libjpeg.so 是 symlink 到它）
-        # libpng 安装 libpng16.so（libpng.so 是 symlink）。find_library 可以直接找到。
-
-        # 清理临时压缩包
-        file(REMOVE "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo-2.1.5.1.tar.gz"
-                    "${CMAKE_CURRENT_BINARY_DIR}/zlib-1.3.1.tar.gz"
-                    "${CMAKE_CURRENT_BINARY_DIR}/libpng-1.6.47.tar.gz"
-                    "${CMAKE_CURRENT_BINARY_DIR}/libtiff-4.7.0.tar.gz"
-                    2>/dev/null)
-
-        # =========================================================
-        # 阶段 2：构建 Leptonica（使用我们构建的依赖库）
-        # =========================================================
-        message(STATUS "=== Building Leptonica ===")
-
-        # 设置依赖搜索路径（指向我们构建的版本）
-        set(CMAKE_PREFIX_PATH "${DEPS_PREFIX};${CMAKE_PREFIX_PATH}")
-        link_directories("${DEPS_PREFIX}/lib")
+        message(STATUS "=== Building Leptonica (using system libraries) ===")
 
         execute_process(
             COMMAND cmake -S ${LEPTONICA_DIR} -B ${CMAKE_CURRENT_BINARY_DIR}/leptonica_build
@@ -333,20 +207,11 @@ if(NOT TESSERACT_SYSTEM)
                 -DENABLE_WEBP=OFF
                 -DENABLE_OPENJPEG=OFF
                 -DENABLE_TIFF=OFF
-                # 传库目录让 Leptonica 的 find_library 找到共享库
-                -DJPEG_LIBRARY_DIR="${DEPS_PREFIX}/lib"
-                -DPNG_LIBRARY_DIR="${DEPS_PREFIX}/lib"
-                -DTIFF_LIBRARY_DIR="${DEPS_PREFIX}/lib"
-                -DZLIB_LIBRARY_DIR="${DEPS_PREFIX}/lib"
-                -DJPEG_INCLUDE_DIR="${DEPS_PREFIX}/include"
-                -DPNG_INCLUDE_DIR="${DEPS_PREFIX}/include"
-                -DZLIB_INCLUDE_DIR="${DEPS_PREFIX}/include"
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
             RESULT_VARIABLE RESULT
         )
         if(RESULT)
             message(WARNING "Leptonica configure failed")
-            set(TESSERACT_OCR_LIBS "")
             set(BUNDLED_TESSERACT OFF)
         endif()
 
@@ -357,7 +222,6 @@ if(NOT TESSERACT_SYSTEM)
             )
             if(RESULT)
                 message(WARNING "Leptonica build failed")
-                set(TESSERACT_OCR_LIBS "")
                 set(BUNDLED_TESSERACT OFF)
             endif()
         endif()
@@ -369,7 +233,6 @@ if(NOT TESSERACT_SYSTEM)
             )
             if(RESULT)
                 message(WARNING "Leptonica install failed")
-                set(TESSERACT_OCR_LIBS "")
                 set(BUNDLED_TESSERACT OFF)
             else()
                 set(BUNDLED_TESSERACT ON)
@@ -378,29 +241,20 @@ if(NOT TESSERACT_SYSTEM)
 
         # 设置 Leptonica cmake config 路径
         set(Leptonica_DIR "${LEPTONICA_INSTALL_DIR}/lib/cmake/leptonica")
-        set(CMAKE_PREFIX_PATH "${LEPTONICA_INSTALL_DIR};${CMAKE_PREFIX_PATH}")
         message(STATUS "Leptonica installed to ${LEPTONICA_INSTALL_DIR}")
 
         # =========================================================
-        # 阶段 3：构建并安装 Tesseract
+        # 阶段 2：构建并安装 Tesseract（使用系统库）
         # =========================================================
-        if(NOT RESULT)
+        if(NOT RESULT AND BUNDLED_TESSERACT)
             message(STATUS "=== Building Tesseract ===")
-            # 通过环境变量设置 CMAKE_LIBRARY_PATH，让 Tesseract 的 find_library
-            # 找到我们构建的库（而非系统库）。
-            # 不传 XXX_LIBRARY=full/path，避免 target_link_libraries 生成 -l/full/path（错误）。
             execute_process(
-                COMMAND TIFF_LIBRARY_DIR="${DEPS_PREFIX}/lib"
-                       JPEG_LIBRARY_DIR="${DEPS_PREFIX}/lib"
-                       PNG_LIBRARY_DIR="${DEPS_PREFIX}/lib"
-                       ZLIB_LIBRARY_DIR="${DEPS_PREFIX}/lib"
-                       /usr/bin/cmake -S ${TESSERACT_DIR} -B ${CMAKE_CURRENT_BINARY_DIR}/tesseract_build
+                COMMAND cmake -S ${TESSERACT_DIR} -B ${CMAKE_CURRENT_BINARY_DIR}/tesseract_build
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_PREFIX=${LEPTONICA_INSTALL_DIR}
                     -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-                    -DCMAKE_LIBRARY_PATH="${DEPS_PREFIX}/lib"
                     -DLeptonica_DIR=${Leptonica_DIR}
-                    -DBUILD_SHARED_LIBS=ON
+                    -DBUILD_SHARED_LIBS=OFF
                     -DBUILD_PROGRAMS=OFF
                     -DBUILD_TRAINING_TOOLS=OFF
                     -DBUILD_DOCS=OFF
@@ -415,7 +269,7 @@ if(NOT TESSERACT_SYSTEM)
             endif()
         endif()
 
-        if(NOT RESULT)
+        if(NOT RESULT AND BUNDLED_TESSERACT)
             execute_process(
                 COMMAND cmake --build ${CMAKE_CURRENT_BINARY_DIR}/tesseract_build --config Release -j4
                 RESULT_VARIABLE RESULT
@@ -426,7 +280,7 @@ if(NOT TESSERACT_SYSTEM)
             endif()
         endif()
 
-        if(NOT RESULT)
+        if(NOT RESULT AND BUNDLED_TESSERACT)
             execute_process(
                 COMMAND cmake --install ${CMAKE_CURRENT_BINARY_DIR}/tesseract_build --config Release
                 RESULT_VARIABLE RESULT
@@ -438,45 +292,42 @@ if(NOT TESSERACT_SYSTEM)
         endif()
 
         # =========================================================
-        # 阶段 4：构建 tesseract_ocr 封装库（链接我们构建的所有静态库）
+        # 阶段 3：构建 tesseract_ocr 封装库
+        # Leptonica 构建为共享库，libtesseract.a 静态链接到 wrapper
         # =========================================================
         if(NOT RESULT AND BUNDLED_TESSERACT)
             message(STATUS "=== Building tesseract_ocr wrapper ===")
 
-            # 用 find_library 找到每个库的完整路径，CMake 会正确处理 -L/-l 参数
-            find_library(JPEG_LIBRARY NAMES jpeg turbojpeg PATHS "${DEPS_PREFIX}/lib" NO_DEFAULT_PATH)
-            find_library(PNG_LIBRARY NAMES png PATHS "${DEPS_PREFIX}/lib" NO_DEFAULT_PATH)
-            find_library(TIFF_LIBRARY NAMES tiff PATHS "${DEPS_PREFIX}/lib" NO_DEFAULT_PATH)
-            find_library(ZLIB_LIBRARY NAMES z PATHS "${DEPS_PREFIX}/lib" NO_DEFAULT_PATH)
+            # 找到 Leptonica 共享库（来自我们构建的 Leptonica）
+            find_library(LEPTONICA_LIB NAMES leptonica PATHS "${LEPTONICA_INSTALL_DIR}/lib" NO_DEFAULT_PATH)
 
-            if(NOT JPEG_LIBRARY OR NOT PNG_LIBRARY OR NOT TIFF_LIBRARY OR NOT ZLIB_LIBRARY)
-                message(WARNING "Some deps libraries not found: JPEG=${JPEG_LIBRARY} PNG=${PNG_LIBRARY} TIFF=${TIFF_LIBRARY} ZLIB=${ZLIB_LIBRARY}")
+            if(NOT LEPTONICA_LIB)
+                message(WARNING "Leptonica shared library not found at ${LEPTONICA_INSTALL_DIR}/lib")
+                set(BUNDLED_TESSERACT OFF)
             endif()
 
-            add_library(tesseract_ocr SHARED tesseract_ocr.cpp)
-            target_include_directories(tesseract_ocr PRIVATE
-                ${DEPS_PREFIX}/include
-                ${LEPTONICA_INSTALL_DIR}/include
-                ${TESSERACT_DIR}/include
-            )
-            target_link_libraries(tesseract_ocr PRIVATE
-                "${LEPTONICA_INSTALL_DIR}/lib/libleptonica.so"
-                "${LEPTONICA_INSTALL_DIR}/lib/libtesseract.so"
-                ${JPEG_LIBRARY}
-                ${PNG_LIBRARY}
-                ${TIFF_LIBRARY}
-                ${ZLIB_LIBRARY}
-                pthread dl m
-            )
-            set_target_properties(tesseract_ocr PROPERTIES
-                BUILD_RPATH "$ORIGIN"
-                INSTALL_RPATH "$ORIGIN"
-            )
-            set(TESSERACT_OCR_TARGET tesseract_ocr)
-
-            # 安装 tesseract_ocr
-            install(TARGETS tesseract_ocr LIBRARY DESTINATION lib COMPONENT runtime)
-            message(STATUS "=== tesseract_ocr wrapper built (fully static, self-contained) ===")
+            if(BUNDLED_TESSERACT)
+                add_library(tesseract_ocr SHARED tesseract_ocr.cpp)
+                target_include_directories(tesseract_ocr PRIVATE
+                    ${LEPTONICA_INSTALL_DIR}/include
+                    ${TESSERACT_DIR}/include
+                )
+                target_link_libraries(tesseract_ocr PRIVATE
+                    "${LEPTONICA_INSTALL_DIR}/lib/libtesseract.a"
+                    "${LEPTONICA_LIB}"
+                    pthread dl m
+                )
+                set_target_properties(tesseract_ocr PROPERTIES
+                    BUILD_RPATH "$ORIGIN"
+                    INSTALL_RPATH "$ORIGIN"
+                )
+                set(TESSERACT_OCR_TARGET tesseract_ocr)
+                install(TARGETS tesseract_ocr LIBRARY DESTINATION lib COMPONENT runtime)
+                message(STATUS "=== tesseract_ocr wrapper built (Leptonica .so, Tesseract static) ===")
+            else()
+                message(WARNING "Tesseract OCR build failed, will use CLI fallback")
+                set(TESSERACT_OCR_TARGET "")
+            endif()
         else()
             message(WARNING "Tesseract OCR build failed, will use CLI fallback")
             set(TESSERACT_OCR_TARGET "")
