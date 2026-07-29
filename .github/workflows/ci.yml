@@ -200,14 +200,17 @@ jobs:
             fi
           done
 
-          echo "=== 检查并复制 leptonica/libtesseract 依赖 ==="
-          for libname in libjpeg.so.8 libpng16.so.16 libtiff.so.6 libwebpmux.so.3 libwebp.so.7; do
-            for syspath in /usr/lib/x86_64-linux-gnu /usr/lib; do
-              if [ -f "$syspath/$libname" ] && [ ! -f "$libname" ]; then
-                cp "$syspath/$libname" .
-                echo "✓ Copied: $libname"
-                break
-              fi
+          echo "=== 收集 leptonica/libtesseract 的所有系统依赖 ==="
+          for lib in build/linux-llm/local/lib/libleptonica.so* build/linux-llm/local/lib/libtesseract.so*; do
+            [ -f "$lib" ] || continue
+            ldd "$lib" 2>/dev/null | awk '{print $3}' | grep -E '^/' | while read deplib; do
+              [ -f "$deplib" ] || continue
+              depname=$(basename "$deplib")
+              [ -f "$depname" ] && continue
+              case "$depname" in
+                ld-linux-x86-64.so.*|libc.so.*|libm.so.*|librt.so.*|libpthread.so.*|libdl.so.*|libgcc_s.so.*|libstdc++.so.*|linux-vdso.so.*) echo "  skip: $depname" ;;
+                *) cp "$deplib" . && echo "✓ Copied: $depname" ;;
+              esac
             done
           done
 
