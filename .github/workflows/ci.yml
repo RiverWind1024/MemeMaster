@@ -214,6 +214,8 @@ jobs:
 
           echo "=== Bundled libraries ==="
           ls -lh build/linux/x64/release/bundle/lib/*.so* 2>/dev/null || echo "(no .so* files copied)"
+          readelf -d "$BUNDLE_LIB/libtesseract_ocr.so" 2>/dev/null | grep -E "(RPATH|RUNPATH|NEEDED)" || echo "readelf failed"
+          ldd "$BUNDLE_LIB/libtesseract_ocr.so" 2>/dev/null || echo "ldd failed"
 
 
 
