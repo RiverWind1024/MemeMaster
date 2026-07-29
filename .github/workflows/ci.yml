@@ -200,19 +200,20 @@ jobs:
             fi
           done
 
+          # 注意：已在 line 184 cd 到 bundle/lib，需要使用绝对路径引用构建产物
           echo "=== 收集 leptonica/libtesseract 的所有系统依赖 ==="
-          LIBS_TO_CHECK="build/linux-llm/local/lib/libleptonica.so.6.0.0 build/linux-llm/local/lib/libtesseract.so.5.5.3"
+          LIBS_TO_CHECK="$GITHUB_WORKSPACE/build/linux-llm/local/lib/libleptonica.so.6.0.0 $GITHUB_WORKSPACE/build/linux-llm/local/lib/libtesseract.so.5.5.3"
           for lib in $LIBS_TO_CHECK; do
-            [ -f "$lib" ] || continue
-            echo "检查依赖: $lib"
+            [ -f "$lib" ] || { echo "  ! 文件不存在: $lib"; continue; }
+            echo "  检查: $lib"
             ldd "$lib" 2>/dev/null | grep -E '^\s+.*=>' | awk '{print $3}' | while read deplib; do
               [ -z "$deplib" ] && continue
               [ ! -f "$deplib" ] && continue
               depname=$(basename "$deplib")
               [ -f "$depname" ] && continue
               case "$depname" in
-                ld-linux-x86-64.so.*|libc.so.*|libm.so.*|librt.so.*|libpthread.so.*|libdl.so.*|libgcc_s.so.*|libstdc++.so.*|libgomp.so.*|linux-vdso.so.*|libvulkan.so.*|libglvnd.so.*) echo "  跳过系统库: $depname" ;;
-                *) cp "$deplib" . && echo "  ✓ 已复制: $depname" ;;
+                ld-linux-x86-64.so.*|libc.so.*|libm.so.*|librt.so.*|libpthread.so.*|libdl.so.*|libgcc_s.so.*|libstdc++.so.*|libgomp.so.*|linux-vdso.so.*|libvulkan.so.*|libglvnd.so.*) echo "    跳过系统库: $depname" ;;
+                *) cp "$deplib" . && echo "  ✓ 已复制: $depname ($deplib)" ;;
               esac
             done
           done
