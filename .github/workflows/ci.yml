@@ -200,14 +200,6 @@ jobs:
             fi
           done
 
-          # 用 DT_RPATH（而非 DT_RUNPATH）使传递依赖能通过 $ORIGIN/lib 找到
-          # DT_RUNPATH 不传播到传递依赖（libleptonica → libjpeg），但 DT_RPATH 会
-          echo "=== 设置 RPATH 到 meme_master ==="
-          if [ -f "../meme_master" ]; then
-            patchelf --force-rpath --set-rpath '$ORIGIN/lib' "../meme_master"
-            echo "  ✓ patchelf RPATH=\$ORIGIN/lib -> meme_master"
-          fi
-
           # 注意：已在 line 184 cd 到 bundle/lib，需要使用绝对路径引用构建产物
           echo "=== 收集 leptonica/libtesseract 的所有系统依赖 ==="
           LIBS_TO_CHECK="$GITHUB_WORKSPACE/build/linux-llm/local/lib/libleptonica.so.6.0.0 $GITHUB_WORKSPACE/build/linux-llm/local/lib/libtesseract.so.5.5.3"
@@ -228,6 +220,8 @@ jobs:
 
           echo "=== Bundled libraries ==="
           ls -lh *.so* 2>/dev/null || echo "(no .so* files copied)"
+
+
 
       - name: Test OCR functionality (real FFI test)
         run: |

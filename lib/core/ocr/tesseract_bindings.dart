@@ -145,7 +145,32 @@ class TessOcrBindings {
     }
   }
 
+  /// libleptonica.so.6.0.0 的传递依赖（libjpeg.so.8 等）在 bundle/lib/ 下，
+  /// 但 meme_master 的 DT_RUNPATH 不会传播到传递依赖的解析。
+  /// 这里先显式加载它们，dlopen 会复用已加载的库，避免找不到。
+  static const List<String> _transitiveDeps = [
+    'libjpeg.so.8',
+    'libpng16.so.16',
+    'libtiff.so.6',
+    'libwebp.so.7',
+    'libwebpmux.so.3',
+    'libz.so.1',
+  ];
+
+  void _preloadTransitiveDeps() {
+    for (final name in _transitiveDeps) {
+      try {
+        DynamicLibrary.open(name);
+      } catch (_) {
+        // 系统可能已有这些库，忽略加载失败
+      }
+    }
+  }
+
   void _loadLinux() {
+    // 先加载传递依赖，防止它们在解析 DT_NEEDED 链时因 DT_RUNPATH 不传播而找不到
+    _preloadTransitiveDeps();
+
     final candidates = [
       'libtesseract_ocr.so',
       'libtesseract_ocr.so.1',
