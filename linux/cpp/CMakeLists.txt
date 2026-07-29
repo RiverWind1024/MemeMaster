@@ -182,14 +182,182 @@ target_link_options(meme_llm PRIVATE -Wl,-soname,libmeme_llm.so.1)
 # ===== Tesseract OCR =====
 if(NOT TESSERACT_SYSTEM)
     if(EXISTS "${LEPTONICA_DIR}/CMakeLists.txt" AND EXISTS "${TESSERACT_DIR}/CMakeLists.txt")
-        message(STATUS "Building Tesseract OCR from source")
+        message(STATUS "Building Tesseract OCR from source (fully static bundling)")
 
         # 使用本地安装前缀（类似 macOS 的处理方式）
         set(LOCAL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/local")
         set(LEPTONICA_INSTALL_DIR "${LOCAL_PREFIX}")
+        set(DEPS_PREFIX "${LOCAL_PREFIX}/deps")
 
-        # 构建并安装 Leptonica
+        # =========================================================
+        # 阶段 1：从源码构建所有依赖库（-fPIC 静态编译）
+        # 这样二进制自带所有依赖，不依赖系统库，跨发行版兼容
+        # =========================================================
+        message(STATUS "=== Building bundled dependencies (libjpeg, zlib, libpng, libtiff, giflib) ===")
+
+        set(_DEPS_STATUS 0)
+
+        macro(BUILD_DEPS_LIB NAME URL DIR)
+            set(_src_dir "${CMAKE_CURRENT_BINARY_DIR}/deps_src/${DIR}")
+            set(_build_dir "${CMAKE_CURRENT_BINARY_DIR}/deps_build/${DIR}")
+            set(_inst_dir "${DEPS_PREFIX}")
+
+            if(NOT EXISTS "${_inst_dir}/lib/lib${NAME}.a")
+                message(STATUS "  Fetching ${NAME}...")
+                file(MAKE_DIRECTORY "${_src_dir}")
+                execute_process(
+                    COMMAND curl -L -o "${CMAKE_CURRENT_BINARY_DIR}/${DIR}.tar.gz" "${URL}"
+                    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+                    RESULT_VARIABLE _rv
+                    TIMEOUT 60
+                )
+                if(_rv EQUAL 0)
+                    execute_process(
+                        COMMAND tar xzf "${DIR}.tar.gz" -C "${CMAKE_CURRENT_BINARY_DIR}/deps_src" --strip-components=1
+                        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+                        RESULT_VARIABLE _rv
+                    )
+                endif()
+                if(_rv EQUAL 0 AND EXISTS "${_src_dir}/CMakeLists.txt")
+                    execute_process(
+                        COMMAND cmake -S "${_src_dir}" -B "${_build_dir}"
+                            -DCMAKE_BUILD_TYPE=Release
+                            -DCMAKE_INSTALL_PREFIX="${_inst_dir}"
+                            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+                            -DBUILD_SHARED_LIBS=OFF
+                            -DBUILD_STATIC_LIBS=ON
+                        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+                        RESULT_VARIABLE _rv
+                    )
+                endif()
+                if(_rv EQUAL 0)
+                    execute_process(
+                        COMMAND cmake --build "${_build_dir}" --config Release -j4
+                        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+                        RESULT_VARIABLE _rv
+                    )
+                endif()
+                if(_rv EQUAL 0)
+                    execute_process(
+                        COMMAND cmake --install "${_build_dir}" --config Release
+                        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+                        RESULT_VARIABLE _rv
+                    )
+                endif()
+                if(_rv)
+                    message(WARNING "  ${NAME} build failed, OCR may not work")
+                else()
+                    message(STATUS "  ${NAME} built successfully")
+                endif()
+            else()
+                message(STATUS "  ${NAME} already built, skipping")
+            endif()
+            if(_rv)
+                set(_DEPS_STATUS ${_rv})
+            endif()
+        endmacro()
+
+        # libjpeg-turbo（取代 Ubuntu libjpeg.so.8 ABI 问题）
+        BUILD_DEPS_LIB(jpeg-turbo
+            "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/2.1.5.1.tar.gz"
+            "libjpeg-turbo-2.1.5.1")
+
+        # zlib
+        BUILD_DEPS_LIB(z
+            "https://zlib.net/zlib-1.3.1.tar.gz"
+            "zlib-1.3.1")
+
+        # libpng（用 libjpeg-turbo 兼容的版本）
+        BUILD_DEPS_LIB(png
+            "https://github.com/pnggroup/libpng/archive/refs/tags/v1.6.47.tar.gz"
+            "libpng-1.6.47")
+
+        # libtiff
+        BUILD_DEPS_LIB(tiff
+            "https://github.com/libsdl-org/libtiff/archive/refs/tags/v4.7.0.tar.gz"
+            "libtiff-4.7.0")
+
+        # giflib（Leptonica 用 find_package(GIF 5)，需要 cmake config）
+        # giflib 没有 cmake config，用 git clone 方式
+        set(_gif_src "${CMAKE_CURRENT_BINARY_DIR}/deps_src/giflib-5.1.4")
+        set(_gif_build "${CMAKE_CURRENT_BINARY_DIR}/deps_build/giflib-5.1.4")
+        if(NOT EXISTS "${DEPS_PREFIX}/lib/libgif.a")
+            message(STATUS "  Fetching giflib...")
+            file(MAKE_DIRECTORY "${_gif_src}")
+            execute_process(
+                COMMAND curl -L -o "${CMAKE_CURRENT_BINARY_DIR}/giflib-5.1.4.tar.gz" "https://sourceforge.net/projects/giflib/files/giflib-5.1.4.tar.gz/download"
+                WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+                RESULT_VARIABLE _rv
+                TIMEOUT 60
+            )
+            if(_rv EQUAL 0)
+                execute_process(
+                    COMMAND tar xzf "${CMAKE_CURRENT_BINARY_DIR}/giflib-5.1.4.tar.gz" -C "${CMAKE_CURRENT_BINARY_DIR}/deps_src" --strip-components=1
+                    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+                    RESULT_VARIABLE _rv
+                )
+            endif()
+            # giflib 用 autoconf，不用 cmake
+            if(_rv EQUAL 0 AND EXISTS "${_gif_src}/Makefile")
+                execute_process(
+                    COMMAND make CC=gcc CFLAGS="-O2 -fPIC" prefix="${DEPS_PREFIX}" libgif.a
+                    WORKING_DIRECTORY "${_gif_src}"
+                    RESULT_VARIABLE _rv
+                )
+            elseif(_rv EQUAL 0)
+                # giflib 5.1.4+ 用 cmake
+                execute_process(
+                    COMMAND cmake -S "${_gif_src}" -B "${_gif_build}"
+                        -DCMAKE_BUILD_TYPE=Release
+                        -DCMAKE_INSTALL_PREFIX="${DEPS_PREFIX}"
+                        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+                        -DBUILD_SHARED_LIBS=OFF
+                    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+                    RESULT_VARIABLE _rv
+                )
+                if(_rv EQUAL 0)
+                    execute_process(
+                        COMMAND cmake --build "${_gif_build}" --config Release -j4
+                        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+                        RESULT_VARIABLE _rv
+                    )
+                endif()
+                if(_rv EQUAL 0)
+                    execute_process(
+                        COMMAND cmake --install "${_gif_build}" --config Release
+                        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+                        RESULT_VARIABLE _rv
+                    )
+                endif()
+            endif()
+            if(_rv)
+                message(WARNING "  giflib build failed, will disable GIF support")
+            else()
+                message(STATUS "  giflib built successfully")
+            endif()
+            if(_rv)
+                set(_DEPS_STATUS ${_rv})
+            endif()
+        else()
+            message(STATUS "  giflib already built, skipping")
+        endif()
+
+        # 清理临时压缩包
+        file(REMOVE "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo-2.1.5.1.tar.gz"
+                    "${CMAKE_CURRENT_BINARY_DIR}/zlib-1.3.1.tar.gz"
+                    "${CMAKE_CURRENT_BINARY_DIR}/libpng-1.6.47.tar.gz"
+                    "${CMAKE_CURRENT_BINARY_DIR}/libtiff-4.7.0.tar.gz"
+                    "${CMAKE_CURRENT_BINARY_DIR}/giflib-5.1.4.tar.gz"
+                    "${CMAKE_CURRENT_BINARY_DIR}/giflib-5.1.4.tar.gz" 2>/dev/null)
+
+        # =========================================================
+        # 阶段 2：构建 Leptonica（使用我们构建的依赖库）
+        # =========================================================
         message(STATUS "=== Building Leptonica ===")
+
+        # 设置依赖搜索路径（指向我们构建的版本）
+        set(CMAKE_PREFIX_PATH "${DEPS_PREFIX};${CMAKE_PREFIX_PATH}")
+
         execute_process(
             COMMAND cmake -S ${LEPTONICA_DIR} -B ${CMAKE_CURRENT_BINARY_DIR}/leptonica_build
                 -DCMAKE_BUILD_TYPE=Release
@@ -199,9 +367,18 @@ if(NOT TESSERACT_SYSTEM)
                 -DBUILD_PROGRAMS=OFF
                 -DBUILD_TESTS=OFF
                 -DBUILD_DOCS=OFF
-                -DENABLE_GIF=OFF
+                -DENABLE_GIF=ON
                 -DENABLE_WEBP=OFF
                 -DENABLE_OPENJPEG=OFF
+                # 明确指向我们构建的库
+                -DJPEG_LIBRARY="${DEPS_PREFIX}/lib/libjpeg-turbo.a"
+                -DJPEG_INCLUDE_DIR="${DEPS_PREFIX}/include"
+                -DPNG_LIBRARY="${DEPS_PREFIX}/lib/libpng.a"
+                -DPNG_PNG_INCLUDE_DIR="${DEPS_PREFIX}/include"
+                -DTIFF_LIBRARY="${DEPS_PREFIX}/lib/libtiff.a"
+                -DTIFF_INCLUDE_DIR="${DEPS_PREFIX}/include"
+                -DZLIB_LIBRARY="${DEPS_PREFIX}/lib/libz.a"
+                -DZLIB_INCLUDE_DIR="${DEPS_PREFIX}/include"
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
             RESULT_VARIABLE RESULT
         )
@@ -242,19 +419,9 @@ if(NOT TESSERACT_SYSTEM)
         set(CMAKE_PREFIX_PATH "${LEPTONICA_INSTALL_DIR};${CMAKE_PREFIX_PATH}")
         message(STATUS "Leptonica installed to ${LEPTONICA_INSTALL_DIR}")
 
-        # Patch LeptonicaTargets.cmake: 保险 - 确保 Leptonica 导出的 CMake 配置中
-        # 没有残留 WebP:: 引用（尽管已设 -DENABLE_WEBP=OFF）。
-        # Tesseract 的 try_run 测试项目引用 Leptonica config 时会找不到这些目标。
-        set(_lept_targets_file "${LEPTONICA_INSTALL_DIR}/lib/cmake/leptonica/LeptonicaTargets.cmake")
-        if(EXISTS "${_lept_targets_file}")
-            file(READ "${_lept_targets_file}" _lept_targets_content)
-            string(REGEX REPLACE "WebP::[^;]+(;?)" "\\1" _lept_targets_content "${_lept_targets_content}")
-            string(REGEX REPLACE ";+" ";" _lept_targets_content "${_lept_targets_content}")
-            file(WRITE "${_lept_targets_file}" "${_lept_targets_content}")
-            message(STATUS "Patched LeptonicaTargets.cmake: removed all WebP:: references")
-        endif()
-
-        # 构建并安装 Tesseract
+        # =========================================================
+        # 阶段 3：构建并安装 Tesseract
+        # =========================================================
         if(NOT RESULT)
             message(STATUS "=== Building Tesseract ===")
             execute_process(
@@ -300,32 +467,26 @@ if(NOT TESSERACT_SYSTEM)
             endif()
         endif()
 
-        # 构建 tesseract_ocr 封装库
+        # =========================================================
+        # 阶段 4：构建 tesseract_ocr 封装库（链接我们构建的所有静态库）
+        # =========================================================
         if(NOT RESULT AND BUNDLED_TESSERACT)
             message(STATUS "=== Building tesseract_ocr wrapper ===")
 
-            # 查找系统库作为传递依赖（用 .so 而非 .a，因为系统静态库未以 -fPIC 编译）
-            find_library(JPEG_LIB NAMES jpeg)
-            find_library(PNG_LIB NAMES png16)
-            find_library(TIFF_LIB NAMES tiff)
-            find_library(WEBP_LIB NAMES webp)
-            find_library(WEBPMUX_LIB NAMES webpmux)
-            find_library(ZLIB_LIB NAMES z)
-
             add_library(tesseract_ocr SHARED tesseract_ocr.cpp)
             target_include_directories(tesseract_ocr PRIVATE
+                ${DEPS_PREFIX}/include
                 ${LEPTONICA_INSTALL_DIR}/include
                 ${TESSERACT_DIR}/include
             )
             target_link_libraries(tesseract_ocr PRIVATE
                 "${LEPTONICA_INSTALL_DIR}/lib/libtesseract.a"
                 "${LEPTONICA_INSTALL_DIR}/lib/libleptonica.a"
-                ${JPEG_LIB}
-                ${PNG_LIB}
-                ${TIFF_LIB}
-                ${WEBP_LIB}
-                ${WEBPMUX_LIB}
-                ${ZLIB_LIB}
+                "${DEPS_PREFIX}/lib/libjpeg-turbo.a"
+                "${DEPS_PREFIX}/lib/libpng.a"
+                "${DEPS_PREFIX}/lib/libtiff.a"
+                "${DEPS_PREFIX}/lib/libz.a"
+                "${DEPS_PREFIX}/lib/libgif.a"
                 pthread dl m
             )
             set_target_properties(tesseract_ocr PROPERTIES
@@ -336,7 +497,7 @@ if(NOT TESSERACT_SYSTEM)
 
             # 安装 tesseract_ocr
             install(TARGETS tesseract_ocr LIBRARY DESTINATION lib COMPONENT runtime)
-            message(STATUS "=== tesseract_ocr wrapper built (tesseract+leptonica static, deps shared) ===")
+            message(STATUS "=== tesseract_ocr wrapper built (fully static, self-contained) ===")
         else()
             message(WARNING "Tesseract OCR build failed, will use CLI fallback")
             set(TESSERACT_OCR_TARGET "")
