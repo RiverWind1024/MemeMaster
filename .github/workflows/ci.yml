@@ -226,6 +226,12 @@ jobs:
           BUNDLE_DIR="build/linux/x64/release/bundle"
           TEST_IMAGE="docs/assets/meme_example.jpg"
 
+          echo "=== Diagnose libtesseract_ocr.so ==="
+          ls -lh "$BUNDLE_DIR/lib/libtesseract_ocr.so" "$BUNDLE_DIR/lib/libleptonica.so" "$BUNDLE_DIR/lib/libtesseract.so" 2>/dev/null
+          file "$BUNDLE_DIR/lib/libtesseract_ocr.so" "$BUNDLE_DIR/lib/libleptonica.so" 2>/dev/null
+          ldd "$BUNDLE_DIR/lib/libtesseract_ocr.so" 2>/dev/null
+          readelf -d "$BUNDLE_DIR/lib/libtesseract_ocr.so" 2>/dev/null | grep -E "RPATH|RUNPATH|NEEDED"
+
           # 1. 检查必要文件
           echo "--- 检查必要文件 ---"
           TESS_LIB="$BUNDLE_DIR/lib/libtesseract_ocr.so"
