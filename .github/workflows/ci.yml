@@ -231,6 +231,8 @@ jobs:
           file "$BUNDLE_DIR/lib/libtesseract_ocr.so" "$BUNDLE_DIR/lib/libleptonica.so" 2>/dev/null
           ldd "$BUNDLE_DIR/lib/libtesseract_ocr.so" 2>/dev/null
           readelf -d "$BUNDLE_DIR/lib/libtesseract_ocr.so" 2>/dev/null | grep -E "RPATH|RUNPATH|NEEDED"
+          echo "=== ldd with LD_LIBRARY_PATH=$BUNDLE_DIR/lib ==="
+          LD_LIBRARY_PATH="$BUNDLE_DIR/lib" ldd "$BUNDLE_DIR/lib/libtesseract_ocr.so" 2>/dev/null
 
           # 1. 检查必要文件
           echo "--- 检查必要文件 ---"
