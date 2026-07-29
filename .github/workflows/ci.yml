@@ -188,7 +188,7 @@ jobs:
           done
 
           # 复制所有文件到 bundle
-          # 注意：用 -L 解引用符号链接，复制实际目标文件（如 libtesseract.so -> libtesseract.so.5.5）
+          # 注意：用 -L 解引用符号链接，复制实际目标文件（如 libtesseract.so -> libtesseract.so.5.5.3）
           echo "=== Copying OCR libraries to bundle ==="
           for so_file in "${SO_FILES[@]}"; do
             cp -L "$so_file" "$BUNDLE_LIB/"
@@ -197,6 +197,25 @@ jobs:
           for dep_file in "${DEP_SO_FILES[@]}"; do
             cp -L "$dep_file" "$BUNDLE_LIB/"
             echo "✓ Copied dep: $(basename $dep_file)"
+          done
+
+          # cp -L 复制了实际内容但文件名变成了 symlink 名字（如 libtesseract.so）
+          # 而库的 SONAME 是 versioned 的（如 libtesseract.so.5.5），动态链接器按 SONAME 查找
+          # 修复：把文件 rename 为 SONAME，然后创建旧名的 symlink
+          echo "=== Fixing SONAME mismatches ==="
+          for orig_name in libtesseract.so libleptonica.so; do
+            src="$BUNDLE_LIB/$orig_name"
+            [ -f "$src" ] || continue
+            # 读取库的 SONAME（Dynamic Section 的 SONAME 字段）
+            soname=$(readelf -d "$src" 2>/dev/null | grep 'SONAME' | grep -oP '\[K\K[^\]]+')
+            if [ -n "$soname" ] && [ "$soname" != "$orig_name" ]; then
+              soname_path="$BUNDLE_LIB/$soname"
+              if [ ! -f "$soname_path" ]; then
+                mv "$src" "$soname_path"
+                ln -s "$soname" "$src"
+                echo "✓ Fixed SONAME: $orig_name -> $soname (symlink created)"
+              fi
+            fi
           done
 
           # 用 patchelf 修复所有 .so 的 RPATH 为 $ORIGIN（让它们从 bundle 目录找依赖）
