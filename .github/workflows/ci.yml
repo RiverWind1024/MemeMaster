@@ -207,7 +207,8 @@ jobs:
             src="$BUNDLE_LIB/$orig_name"
             [ -f "$src" ] || continue
             # 读取库的 SONAME（Dynamic Section 的 SONAME 字段）
-            soname=$(readelf -d "$src" 2>/dev/null | grep 'SONAME' | grep -oP '\[K\K[^\]]+')
+            # grep 没找到时返回 1，|| true 避免 set -e 导致脚本退出
+            soname=$(readelf -d "$src" 2>/dev/null | grep 'SONAME' | grep -oP '\[\K[^\]]+' || true)
             if [ -n "$soname" ] && [ "$soname" != "$orig_name" ]; then
               soname_path="$BUNDLE_LIB/$soname"
               if [ ! -f "$soname_path" ]; then
