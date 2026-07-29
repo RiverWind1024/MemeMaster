@@ -198,58 +198,49 @@ if(NOT TESSERACT_SYSTEM)
         set(_DEPS_STATUS 0)
 
         macro(BUILD_DEPS_LIB NAME URL DIR)
+            # tarball 顶层目录是 ${DIR}，解压到 deps_src 后就是 deps_src/${DIR}/
             set(_src_dir "${CMAKE_CURRENT_BINARY_DIR}/deps_src/${DIR}")
             set(_build_dir "${CMAKE_CURRENT_BINARY_DIR}/deps_build/${DIR}")
             set(_inst_dir "${DEPS_PREFIX}")
+            set(_tarball "${CMAKE_CURRENT_BINARY_DIR}/${DIR}.tar.gz")
 
             if(NOT EXISTS "${_inst_dir}/lib/lib${NAME}.a")
                 message(STATUS "  Fetching ${NAME}...")
-                file(MAKE_DIRECTORY "${_src_dir}")
-                file(MAKE_DIRECTORY "${_build_dir}")
-                # 先清理可能存在的旧文件
-                file(REMOVE "${CMAKE_CURRENT_BINARY_DIR}/${DIR}.tar.gz")
-                # 用 --fail 和 --silent 配合 -L 跟随重定向
+                file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/deps_src")
+                file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/deps_build")
+                # 用 curl download（-L 跟随重定向，--fail 非零退出）
                 execute_process(
                     COMMAND curl -L --fail --retry 3 --retry-delay 2
-                        -o "${CMAKE_CURRENT_BINARY_DIR}/${DIR}.tar.gz"
+                        -o "${_tarball}"
                         "${URL}"
                     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
                     RESULT_VARIABLE _rv
                     TIMEOUT 120
                 )
                 message(STATUS "  ${NAME} curl result: ${_rv}")
-                if(_rv EQUAL 0)
-                    message(STATUS "  ${NAME} tarball downloaded, size: $ENV{SIZE}")
+                if(_rv EQUAL 0 AND EXISTS "${_tarball}")
+                    message(STATUS "  ${NAME} tarball downloaded")
+                    # cmake -E tar 解压到 deps_src（顶层目录保留为 ${DIR}）
                     execute_process(
-                        COMMAND ls -lh "${CMAKE_CURRENT_BINARY_DIR}/${DIR}.tar.gz"
-                        OUTPUT_VARIABLE _size
-                    )
-                    message(STATUS "  ${NAME} file: ${_size}")
-                    execute_process(
-                        COMMAND tar tzf "${CMAKE_CURRENT_BINARY_DIR}/${DIR}.tar.gz" | head -3
-                        OUTPUT_VARIABLE _tar_list
-                        RESULT_VARIABLE _tv
-                    )
-                    message(STATUS "  ${NAME} tar contents preview: ${_tar_list}")
-                    execute_process(
-                        COMMAND tar xzf "${CMAKE_CURRENT_BINARY_DIR}/${DIR}.tar.gz"
-                            -C "${CMAKE_CURRENT_BINARY_DIR}/deps_src"
-                            --strip-components=1
-                        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+                        COMMAND /usr/bin/cmake -E tar xzf "${_tarball}"
+                        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/deps_src"
                         RESULT_VARIABLE _rv
                     )
                     message(STATUS "  ${NAME} extract result: ${_rv}")
+                else()
+                    message(WARNING "  ${NAME} download failed")
+                    set(_rv 1)
                 endif()
                 if(_rv EQUAL 0 AND EXISTS "${_src_dir}/CMakeLists.txt")
-                    message(STATUS "  ${NAME} configuring...")
+                    message(STATUS "  ${NAME} configuring (src=${_src_dir})...")
+                    file(MAKE_DIRECTORY "${_build_dir}")
                     execute_process(
-                        COMMAND cmake -S "${_src_dir}" -B "${_build_dir}"
+                        COMMAND /usr/bin/cmake -S ${_src_dir} -B ${_build_dir}
                             -DCMAKE_BUILD_TYPE=Release
-                            -DCMAKE_INSTALL_PREFIX="${_inst_dir}"
+                            -DCMAKE_INSTALL_PREFIX=${_inst_dir}
                             -DCMAKE_POSITION_INDEPENDENT_CODE=ON
                             -DBUILD_SHARED_LIBS=OFF
-                            -DBUILD_STATIC_LIBS=ON
-                        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+                        WORKING_DIRECTORY ${_build_dir}
                         RESULT_VARIABLE _rv
                     )
                     message(STATUS "  ${NAME} configure result: ${_rv}")
@@ -259,16 +250,16 @@ if(NOT TESSERACT_SYSTEM)
                 endif()
                 if(_rv EQUAL 0)
                     execute_process(
-                        COMMAND cmake --build "${_build_dir}" --config Release -j4
-                        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+                        COMMAND /usr/bin/cmake --build "${_build_dir}" --config Release -j4
+                        WORKING_DIRECTORY "${_build_dir}"
                         RESULT_VARIABLE _rv
                     )
                     message(STATUS "  ${NAME} build result: ${_rv}")
                 endif()
                 if(_rv EQUAL 0)
                     execute_process(
-                        COMMAND cmake --install "${_build_dir}" --config Release
-                        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+                        COMMAND /usr/bin/cmake --install "${_build_dir}" --config Release
+                        WORKING_DIRECTORY "${_build_dir}"
                         RESULT_VARIABLE _rv
                     )
                     message(STATUS "  ${NAME} install result: ${_rv}")
@@ -293,7 +284,7 @@ if(NOT TESSERACT_SYSTEM)
 
         # zlib
         BUILD_DEPS_LIB(z
-            "https://zlib.net/fossils/zlib-1.3.1.tar.gz"
+            "https://zlib.net/zlib-1.3.1.tar.gz"
             "zlib-1.3.1")
 
         # libpng
@@ -323,6 +314,7 @@ if(NOT TESSERACT_SYSTEM)
 
         # 设置依赖搜索路径（指向我们构建的版本）
         set(CMAKE_PREFIX_PATH "${DEPS_PREFIX};${CMAKE_PREFIX_PATH}")
+        link_directories("${DEPS_PREFIX}/lib")
 
         execute_process(
             COMMAND cmake -S ${LEPTONICA_DIR} -B ${CMAKE_CURRENT_BINARY_DIR}/leptonica_build
@@ -339,12 +331,16 @@ if(NOT TESSERACT_SYSTEM)
                 # 明确指向我们构建的库
                 -DJPEG_LIBRARY="${DEPS_PREFIX}/lib/libjpeg-turbo.a"
                 -DJPEG_INCLUDE_DIR="${DEPS_PREFIX}/include"
+                -DJPEG_LIBRARY_DIR="${DEPS_PREFIX}/lib"
                 -DPNG_LIBRARY="${DEPS_PREFIX}/lib/libpng.a"
                 -DPNG_PNG_INCLUDE_DIR="${DEPS_PREFIX}/include"
+                -DPNG_LIBRARY_DIR="${DEPS_PREFIX}/lib"
                 -DTIFF_LIBRARY="${DEPS_PREFIX}/lib/libtiff.a"
                 -DTIFF_INCLUDE_DIR="${DEPS_PREFIX}/include"
+                -DTIFF_LIBRARY_DIR="${DEPS_PREFIX}/lib"
                 -DZLIB_LIBRARY="${DEPS_PREFIX}/lib/libz.a"
                 -DZLIB_INCLUDE_DIR="${DEPS_PREFIX}/include"
+                -DZLIB_LIBRARY_DIR="${DEPS_PREFIX}/lib"
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
             RESULT_VARIABLE RESULT
         )
@@ -439,6 +435,16 @@ if(NOT TESSERACT_SYSTEM)
         if(NOT RESULT AND BUNDLED_TESSERACT)
             message(STATUS "=== Building tesseract_ocr wrapper ===")
 
+            # 用 find_library 找到每个库的完整路径，CMake 会正确处理 -L/-l 参数
+            find_library(JPEG_LIBRARY NAMES jpeg turbojpeg PATHS "${DEPS_PREFIX}/lib" NO_DEFAULT_PATH)
+            find_library(PNG_LIBRARY NAMES png PATHS "${DEPS_PREFIX}/lib" NO_DEFAULT_PATH)
+            find_library(TIFF_LIBRARY NAMES tiff PATHS "${DEPS_PREFIX}/lib" NO_DEFAULT_PATH)
+            find_library(ZLIB_LIBRARY NAMES z PATHS "${DEPS_PREFIX}/lib" NO_DEFAULT_PATH)
+
+            if(NOT JPEG_LIBRARY OR NOT PNG_LIBRARY OR NOT TIFF_LIBRARY OR NOT ZLIB_LIBRARY)
+                message(WARNING "Some deps libraries not found: JPEG=${JPEG_LIBRARY} PNG=${PNG_LIBRARY} TIFF=${TIFF_LIBRARY} ZLIB=${ZLIB_LIBRARY}")
+            endif()
+
             add_library(tesseract_ocr SHARED tesseract_ocr.cpp)
             target_include_directories(tesseract_ocr PRIVATE
                 ${DEPS_PREFIX}/include
@@ -448,10 +454,10 @@ if(NOT TESSERACT_SYSTEM)
             target_link_libraries(tesseract_ocr PRIVATE
                 "${LEPTONICA_INSTALL_DIR}/lib/libtesseract.a"
                 "${LEPTONICA_INSTALL_DIR}/lib/libleptonica.a"
-                "${DEPS_PREFIX}/lib/libjpeg-turbo.a"
-                "${DEPS_PREFIX}/lib/libpng.a"
-                "${DEPS_PREFIX}/lib/libtiff.a"
-                "${DEPS_PREFIX}/lib/libz.a"
+                ${JPEG_LIBRARY}
+                ${PNG_LIBRARY}
+                ${TIFF_LIBRARY}
+                ${ZLIB_LIBRARY}
                 pthread dl m
             )
             set_target_properties(tesseract_ocr PROPERTIES
