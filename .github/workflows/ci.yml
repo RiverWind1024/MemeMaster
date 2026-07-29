@@ -155,13 +155,13 @@ jobs:
           # 复制 tesseract OCR 库及其所有依赖到 bundle（跨发行版兼容）
           TESS_INSTALL="$GITHUB_WORKSPACE/third_party/linux-llm-install"
           BUNDLE_LIB="build/linux/x64/release/bundle/lib"
+          # CMAKE_INSTALL_PREFIX=build/linux-llm/local, so libs go there
+          LOCAL_PREFIX="build/linux-llm/local"
 
-          # 收集需要复制和处理的 .so 文件
           declare -a SO_FILES=()
           declare -a DEP_SO_FILES=()
 
-          # 找到 libtesseract_ocr.so, libleptonica.so, libtesseract.so
-          for dir in "build/linux-llm" "$TESS_INSTALL/lib"; do
+          for dir in "build/linux-llm" "$LOCAL_PREFIX/lib" "$TESS_INSTALL/lib"; do
             [ -f "$dir/libtesseract_ocr.so" ] && SO_FILES+=("$dir/libtesseract_ocr.so")
             [ -f "$dir/libleptonica.so" ] && SO_FILES+=("$dir/libleptonica.so")
             [ -f "$dir/libtesseract.so" ] && SO_FILES+=("$dir/libtesseract.so")
