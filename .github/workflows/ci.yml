@@ -58,7 +58,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             cmake ninja-build clang libsecret-1-dev libgtk-3-dev \
-            unzip curl xz-utils \
+            unzip curl xz-utils patchelf \
             libvulkan1 libvulkan-dev mesa-vulkan-drivers vulkan-validationlayers \
             glslang-dev glslang-tools spirv-tools glslc \
             libjpeg-dev libpng-dev libtiff-dev libwebp-dev zlib1g-dev
@@ -152,16 +152,63 @@ jobs:
           cp build/linux-llm/libmeme_llm.so build/linux/x64/release/bundle/lib/
           echo "✓ Copied libmeme_llm.so to bundle"
 
-          # 复制 tesseract_ocr（静态链接了 leptonica/tesseract 及所有传递依赖）
+          # 复制 tesseract OCR 库及其所有依赖到 bundle（跨发行版兼容）
           TESS_INSTALL="$GITHUB_WORKSPACE/third_party/linux-llm-install"
+          BUNDLE_LIB="build/linux/x64/release/bundle/lib"
+
+          # 收集需要复制和处理的 .so 文件
+          declare -a SO_FILES=()
+          declare -a DEP_SO_FILES=()
+
+          # 找到 libtesseract_ocr.so, libleptonica.so, libtesseract.so
           for dir in "build/linux-llm" "$TESS_INSTALL/lib"; do
-            if [ -f "$dir/libtesseract_ocr.so" ]; then
-              cp "$dir/libtesseract_ocr.so" build/linux/x64/release/bundle/lib/
-              echo "✓ Copied libtesseract_ocr.so to bundle (statically linked)"
-              break
-            fi
+            [ -f "$dir/libtesseract_ocr.so" ] && SO_FILES+=("$dir/libtesseract_ocr.so")
+            [ -f "$dir/libleptonica.so" ] && SO_FILES+=("$dir/libleptonica.so")
+            [ -f "$dir/libtesseract.so" ] && SO_FILES+=("$dir/libtesseract.so")
           done
-          if [ ! -f "build/linux/x64/release/bundle/lib/libtesseract_ocr.so" ]; then
+
+          # 通过 ldd 找到每个 .so 的 Ubuntu 系统依赖（不在 /usr/lib 和 /lib 的）
+          # 这些是需要一起打包的 Ubuntu 特有库（如 libjpeg.so.8, libtiff.so.5）
+          UBUNTU_LIB_DIRS="/usr/lib/x86_64-linux-gnu /usr/lib64"
+          for so_file in "${SO_FILES[@]}"; do
+            while IFS= read -r dep; do
+              # 解析 ldd 输出格式: libfoo.so.8 => /path/libfoo.so.8 (0x...)
+              dep_path=$(echo "$dep" | awk '{print $3}')
+              if [ -n "$dep_path" ] && [ -f "$dep_path" ]; then
+                # 只复制 Ubuntu 系统目录下的库（不在本地构建目录）
+                is_local=false
+                for local_dir in "$GITHUB_WORKSPACE/build" "$TESS_INSTALL" "$GITHUB_WORKSPACE/third_party"; do
+                  [[ "$dep_path" == "$local_dir"* ]] && is_local=true && break
+                done
+                if [ "$is_local" = false ] && [[ ! " ${DEP_SO_FILES[*]} " =~ " ${dep_path} " ]]; then
+                  DEP_SO_FILES+=("$dep_path")
+                fi
+              fi
+            done < <(ldd "$so_file" 2>/dev/null | grep "=> /")
+          done
+
+          # 复制所有文件到 bundle
+          echo "=== Copying OCR libraries to bundle ==="
+          for so_file in "${SO_FILES[@]}"; do
+            cp "$so_file" "$BUNDLE_LIB/"
+            echo "✓ Copied $(basename $so_file)"
+          done
+          for dep_file in "${DEP_SO_FILES[@]}"; do
+            cp "$dep_file" "$BUNDLE_LIB/"
+            echo "✓ Copied dep: $(basename $dep_file)"
+          done
+
+          # 用 patchelf 修复所有 .so 的 RPATH 为 $ORIGIN（让它们从 bundle 目录找依赖）
+          echo "=== Fixing RPATHs with patchelf ==="
+          for so_file in "$BUNDLE_LIB"/*.so*; do
+            [ -f "$so_file" ] || continue
+            # 记录旧的 NEEDED 库名称
+            patchelf --set-rpath '$ORIGIN' "$so_file" 2>/dev/null && \
+              echo "✓ Fixed RPATH: $(basename $so_file)" || \
+              echo "⚠ patchelf failed: $(basename $so_file)"
+          done
+
+          if [ ! -f "$BUNDLE_LIB/libtesseract_ocr.so" ]; then
             echo "NOTE: libtesseract_ocr.so not found (OCR may use CLI fallback)"
           fi
 

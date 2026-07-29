@@ -254,7 +254,7 @@ if(NOT TESSERACT_SYSTEM)
                     -DCMAKE_INSTALL_PREFIX=${LEPTONICA_INSTALL_DIR}
                     -DCMAKE_POSITION_INDEPENDENT_CODE=ON
                     -DLeptonica_DIR=${Leptonica_DIR}
-                    -DBUILD_SHARED_LIBS=OFF
+                    -DBUILD_SHARED_LIBS=ON
                     -DBUILD_PROGRAMS=OFF
                     -DBUILD_TRAINING_TOOLS=OFF
                     -DBUILD_DOCS=OFF
@@ -293,7 +293,7 @@ if(NOT TESSERACT_SYSTEM)
 
         # =========================================================
         # 阶段 3：构建 tesseract_ocr 封装库
-        # Leptonica 构建为共享库，libtesseract.a 静态链接到 wrapper
+        # Leptonica + Tesseract 都是共享库，wrapper 链接两者
         # =========================================================
         if(NOT RESULT AND BUNDLED_TESSERACT)
             message(STATUS "=== Building tesseract_ocr wrapper ===")
@@ -313,7 +313,7 @@ if(NOT TESSERACT_SYSTEM)
                     ${TESSERACT_DIR}/include
                 )
                 target_link_libraries(tesseract_ocr PRIVATE
-                    "${LEPTONICA_INSTALL_DIR}/lib/libtesseract.a"
+                    "${LEPTONICA_INSTALL_DIR}/lib/libtesseract.so"
                     "${LEPTONICA_LIB}"
                     pthread dl m
                 )
@@ -323,7 +323,13 @@ if(NOT TESSERACT_SYSTEM)
                 )
                 set(TESSERACT_OCR_TARGET tesseract_ocr)
                 install(TARGETS tesseract_ocr LIBRARY DESTINATION lib COMPONENT runtime)
-                message(STATUS "=== tesseract_ocr wrapper built (Leptonica .so, Tesseract static) ===")
+                # Also install libleptonica.so and libtesseract.so for bundling
+                install(FILES
+                    "${LEPTONICA_INSTALL_DIR}/lib/libleptonica.so"
+                    "${LEPTONICA_INSTALL_DIR}/lib/libtesseract.so"
+                    DESTINATION lib COMPONENT runtime
+                )
+                message(STATUS "=== tesseract_ocr wrapper built (Leptonica + Tesseract both shared) ===")
             else()
                 message(WARNING "Tesseract OCR build failed, will use CLI fallback")
                 set(TESSERACT_OCR_TARGET "")
