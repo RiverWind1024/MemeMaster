@@ -300,6 +300,27 @@ if(NOT TESSERACT_SYSTEM)
         # giflib 不构建（GIF 不是 OCR 必需格式，禁掉避免 SourceForge 下载问题）
         message(STATUS "  Skipping giflib (GIF not needed for OCR)")
 
+        # 修复：创建符号链接，让库文件名与 Leptonica/Tesseract 的 find_library 期望一致
+        # libjpeg-turbo 的实际静态库文件名是 libturbojpeg.a / libjpeg.a（不是 libjpeg-turbo.a）
+        # Leptonica find_library(NAMES jpeg turbojpeg) 找到 libjpeg.a（我们的 symlink）
+        execute_process(
+            COMMAND /usr/bin/cmake -E create_symlink libturbojpeg.a libjpeg.a
+            WORKING_DIRECTORY "${DEPS_PREFIX}/lib"
+        )
+        execute_process(
+            COMMAND /usr/bin/cmake -E create_symlink libturbojpeg.so libjpeg.so
+            WORKING_DIRECTORY "${DEPS_PREFIX}/lib"
+        )
+        # libpng: Leptonica 找 libpng，但实际文件是 libpng16.a（soname 版本）
+        execute_process(
+            COMMAND /usr/bin/cmake -E create_symlink libpng16.a libpng.a
+            WORKING_DIRECTORY "${DEPS_PREFIX}/lib"
+        )
+        execute_process(
+            COMMAND /usr/bin/cmake -E create_symlink libpng16.so libpng.so
+            WORKING_DIRECTORY "${DEPS_PREFIX}/lib"
+        )
+
         # 清理临时压缩包
         file(REMOVE "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo-2.1.5.1.tar.gz"
                     "${CMAKE_CURRENT_BINARY_DIR}/zlib-1.3.1.tar.gz"
@@ -328,11 +349,11 @@ if(NOT TESSERACT_SYSTEM)
                 -DENABLE_GIF=OFF
                 -DENABLE_WEBP=OFF
                 -DENABLE_OPENJPEG=OFF
-                # 明确指向我们构建的库
-                -DJPEG_LIBRARY="${DEPS_PREFIX}/lib/libjpeg-turbo.a"
+                # 明确指向我们构建的库（使用实际文件名：libjpeg.a, libpng16.a）
+                -DJPEG_LIBRARY="${DEPS_PREFIX}/lib/libjpeg.a"
                 -DJPEG_INCLUDE_DIR="${DEPS_PREFIX}/include"
                 -DJPEG_LIBRARY_DIR="${DEPS_PREFIX}/lib"
-                -DPNG_LIBRARY="${DEPS_PREFIX}/lib/libpng.a"
+                -DPNG_LIBRARY="${DEPS_PREFIX}/lib/libpng16.a"
                 -DPNG_PNG_INCLUDE_DIR="${DEPS_PREFIX}/include"
                 -DPNG_LIBRARY_DIR="${DEPS_PREFIX}/lib"
                 -DTIFF_LIBRARY="${DEPS_PREFIX}/lib/libtiff.a"
