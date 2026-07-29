@@ -188,13 +188,14 @@ jobs:
           done
 
           # 复制所有文件到 bundle
+          # 注意：用 -L 解引用符号链接，复制实际目标文件（如 libtesseract.so -> libtesseract.so.5.5）
           echo "=== Copying OCR libraries to bundle ==="
           for so_file in "${SO_FILES[@]}"; do
-            cp "$so_file" "$BUNDLE_LIB/"
+            cp -L "$so_file" "$BUNDLE_LIB/"
             echo "✓ Copied $(basename $so_file)"
           done
           for dep_file in "${DEP_SO_FILES[@]}"; do
-            cp "$dep_file" "$BUNDLE_LIB/"
+            cp -L "$dep_file" "$BUNDLE_LIB/"
             echo "✓ Copied dep: $(basename $dep_file)"
           done
 
