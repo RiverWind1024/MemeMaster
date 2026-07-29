@@ -190,13 +190,13 @@ jobs:
           for lib in libleptonica.so.6.0.0 libtesseract.so.5.5.3; do
             if [ -f "$lib" ] && [ ! -L "$lib" ]; then
               # 从文件名提取 soname: libleptonica.so.6.0.0 -> libleptonica.so.6
-              soname=$(echo "$lib" | sed -E 's/(.*\.so\.[0-9]+)\.[0-9]+$/\1/')
+              soname=$(echo "$lib" | sed -E 's/\.[0-9]+\.[0-9]+$//')
               if [ ! -e "$soname" ]; then
                 ln -s "$lib" "$soname"
                 echo "✓ Created symlink $soname -> $lib"
               fi
               # 同时创建 .so 链接
-              soname_base=$(echo "$lib" | sed -E 's/(.*\.so)\.[0-9]+.*$/\1/')
+              soname_base=$(echo "$lib" | sed -E 's/\.[0-9]+(\.[0-9]+)*$//')
               if [ ! -e "$soname_base" ]; then
                 ln -s "$lib" "$soname_base"
                 echo "✓ Created symlink $soname_base -> $lib"
