@@ -205,20 +205,43 @@ if(NOT TESSERACT_SYSTEM)
             if(NOT EXISTS "${_inst_dir}/lib/lib${NAME}.a")
                 message(STATUS "  Fetching ${NAME}...")
                 file(MAKE_DIRECTORY "${_src_dir}")
+                file(MAKE_DIRECTORY "${_build_dir}")
+                # 先清理可能存在的旧文件
+                file(REMOVE "${CMAKE_CURRENT_BINARY_DIR}/${DIR}.tar.gz")
+                # 用 --fail 和 --silent 配合 -L 跟随重定向
                 execute_process(
-                    COMMAND curl -L -o "${CMAKE_CURRENT_BINARY_DIR}/${DIR}.tar.gz" "${URL}"
+                    COMMAND curl -L --fail --retry 3 --retry-delay 2
+                        -o "${CMAKE_CURRENT_BINARY_DIR}/${DIR}.tar.gz"
+                        "${URL}"
                     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
                     RESULT_VARIABLE _rv
-                    TIMEOUT 60
+                    TIMEOUT 120
                 )
+                message(STATUS "  ${NAME} curl result: ${_rv}")
                 if(_rv EQUAL 0)
+                    message(STATUS "  ${NAME} tarball downloaded, size: $ENV{SIZE}")
                     execute_process(
-                        COMMAND tar xzf "${DIR}.tar.gz" -C "${CMAKE_CURRENT_BINARY_DIR}/deps_src" --strip-components=1
+                        COMMAND ls -lh "${CMAKE_CURRENT_BINARY_DIR}/${DIR}.tar.gz"
+                        OUTPUT_VARIABLE _size
+                    )
+                    message(STATUS "  ${NAME} file: ${_size}")
+                    execute_process(
+                        COMMAND tar tzf "${CMAKE_CURRENT_BINARY_DIR}/${DIR}.tar.gz" | head -3
+                        OUTPUT_VARIABLE _tar_list
+                        RESULT_VARIABLE _tv
+                    )
+                    message(STATUS "  ${NAME} tar contents preview: ${_tar_list}")
+                    execute_process(
+                        COMMAND tar xzf "${CMAKE_CURRENT_BINARY_DIR}/${DIR}.tar.gz"
+                            -C "${CMAKE_CURRENT_BINARY_DIR}/deps_src"
+                            --strip-components=1
                         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
                         RESULT_VARIABLE _rv
                     )
+                    message(STATUS "  ${NAME} extract result: ${_rv}")
                 endif()
                 if(_rv EQUAL 0 AND EXISTS "${_src_dir}/CMakeLists.txt")
+                    message(STATUS "  ${NAME} configuring...")
                     execute_process(
                         COMMAND cmake -S "${_src_dir}" -B "${_build_dir}"
                             -DCMAKE_BUILD_TYPE=Release
@@ -229,6 +252,10 @@ if(NOT TESSERACT_SYSTEM)
                         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
                         RESULT_VARIABLE _rv
                     )
+                    message(STATUS "  ${NAME} configure result: ${_rv}")
+                else()
+                    message(WARNING "  ${NAME} source not found at ${_src_dir}, skipping")
+                    set(_rv 1)
                 endif()
                 if(_rv EQUAL 0)
                     execute_process(
@@ -236,6 +263,7 @@ if(NOT TESSERACT_SYSTEM)
                         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
                         RESULT_VARIABLE _rv
                     )
+                    message(STATUS "  ${NAME} build result: ${_rv}")
                 endif()
                 if(_rv EQUAL 0)
                     execute_process(
@@ -243,9 +271,10 @@ if(NOT TESSERACT_SYSTEM)
                         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
                         RESULT_VARIABLE _rv
                     )
+                    message(STATUS "  ${NAME} install result: ${_rv}")
                 endif()
                 if(_rv)
-                    message(WARNING "  ${NAME} build failed, OCR may not work")
+                    message(WARNING "  ${NAME} build failed (${_rv}), OCR may not work")
                 else()
                     message(STATUS "  ${NAME} built successfully")
                 endif()
@@ -257,98 +286,35 @@ if(NOT TESSERACT_SYSTEM)
             endif()
         endmacro()
 
-        # libjpeg-turbo（取代 Ubuntu libjpeg.so.8 ABI 问题）
+        # libjpeg-turbo（codeload URL 直接指向 tar.gz，无重定向）
         BUILD_DEPS_LIB(jpeg-turbo
-            "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/2.1.5.1.tar.gz"
+            "https://codeload.github.com/libjpeg-turbo/libjpeg-turbo/tar.gz/2.1.5.1"
             "libjpeg-turbo-2.1.5.1")
 
         # zlib
         BUILD_DEPS_LIB(z
-            "https://zlib.net/zlib-1.3.1.tar.gz"
+            "https://zlib.net/fossils/zlib-1.3.1.tar.gz"
             "zlib-1.3.1")
 
-        # libpng（用 libjpeg-turbo 兼容的版本）
+        # libpng
         BUILD_DEPS_LIB(png
-            "https://github.com/pnggroup/libpng/archive/refs/tags/v1.6.47.tar.gz"
+            "https://codeload.github.com/pnggroup/libpng/tar.gz/v1.6.47"
             "libpng-1.6.47")
 
         # libtiff
         BUILD_DEPS_LIB(tiff
-            "https://github.com/libsdl-org/libtiff/archive/refs/tags/v4.7.0.tar.gz"
+            "https://codeload.github.com/libsdl-org/libtiff/tar.gz/v4.7.0"
             "libtiff-4.7.0")
 
-        # giflib（Leptonica 用 find_package(GIF 5)，需要 cmake config）
-        # giflib 没有 cmake config，用 git clone 方式
-        set(_gif_src "${CMAKE_CURRENT_BINARY_DIR}/deps_src/giflib-5.1.4")
-        set(_gif_build "${CMAKE_CURRENT_BINARY_DIR}/deps_build/giflib-5.1.4")
-        if(NOT EXISTS "${DEPS_PREFIX}/lib/libgif.a")
-            message(STATUS "  Fetching giflib...")
-            file(MAKE_DIRECTORY "${_gif_src}")
-            execute_process(
-                COMMAND curl -L -o "${CMAKE_CURRENT_BINARY_DIR}/giflib-5.1.4.tar.gz" "https://sourceforge.net/projects/giflib/files/giflib-5.1.4.tar.gz/download"
-                WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-                RESULT_VARIABLE _rv
-                TIMEOUT 60
-            )
-            if(_rv EQUAL 0)
-                execute_process(
-                    COMMAND tar xzf "${CMAKE_CURRENT_BINARY_DIR}/giflib-5.1.4.tar.gz" -C "${CMAKE_CURRENT_BINARY_DIR}/deps_src" --strip-components=1
-                    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-                    RESULT_VARIABLE _rv
-                )
-            endif()
-            # giflib 用 autoconf，不用 cmake
-            if(_rv EQUAL 0 AND EXISTS "${_gif_src}/Makefile")
-                execute_process(
-                    COMMAND make CC=gcc CFLAGS="-O2 -fPIC" prefix="${DEPS_PREFIX}" libgif.a
-                    WORKING_DIRECTORY "${_gif_src}"
-                    RESULT_VARIABLE _rv
-                )
-            elseif(_rv EQUAL 0)
-                # giflib 5.1.4+ 用 cmake
-                execute_process(
-                    COMMAND cmake -S "${_gif_src}" -B "${_gif_build}"
-                        -DCMAKE_BUILD_TYPE=Release
-                        -DCMAKE_INSTALL_PREFIX="${DEPS_PREFIX}"
-                        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-                        -DBUILD_SHARED_LIBS=OFF
-                    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-                    RESULT_VARIABLE _rv
-                )
-                if(_rv EQUAL 0)
-                    execute_process(
-                        COMMAND cmake --build "${_gif_build}" --config Release -j4
-                        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-                        RESULT_VARIABLE _rv
-                    )
-                endif()
-                if(_rv EQUAL 0)
-                    execute_process(
-                        COMMAND cmake --install "${_gif_build}" --config Release
-                        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-                        RESULT_VARIABLE _rv
-                    )
-                endif()
-            endif()
-            if(_rv)
-                message(WARNING "  giflib build failed, will disable GIF support")
-            else()
-                message(STATUS "  giflib built successfully")
-            endif()
-            if(_rv)
-                set(_DEPS_STATUS ${_rv})
-            endif()
-        else()
-            message(STATUS "  giflib already built, skipping")
-        endif()
+        # giflib 不构建（GIF 不是 OCR 必需格式，禁掉避免 SourceForge 下载问题）
+        message(STATUS "  Skipping giflib (GIF not needed for OCR)")
 
         # 清理临时压缩包
         file(REMOVE "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo-2.1.5.1.tar.gz"
                     "${CMAKE_CURRENT_BINARY_DIR}/zlib-1.3.1.tar.gz"
                     "${CMAKE_CURRENT_BINARY_DIR}/libpng-1.6.47.tar.gz"
                     "${CMAKE_CURRENT_BINARY_DIR}/libtiff-4.7.0.tar.gz"
-                    "${CMAKE_CURRENT_BINARY_DIR}/giflib-5.1.4.tar.gz"
-                    "${CMAKE_CURRENT_BINARY_DIR}/giflib-5.1.4.tar.gz" 2>/dev/null)
+                    2>/dev/null)
 
         # =========================================================
         # 阶段 2：构建 Leptonica（使用我们构建的依赖库）
@@ -367,7 +333,7 @@ if(NOT TESSERACT_SYSTEM)
                 -DBUILD_PROGRAMS=OFF
                 -DBUILD_TESTS=OFF
                 -DBUILD_DOCS=OFF
-                -DENABLE_GIF=ON
+                -DENABLE_GIF=OFF
                 -DENABLE_WEBP=OFF
                 -DENABLE_OPENJPEG=OFF
                 # 明确指向我们构建的库
@@ -486,7 +452,6 @@ if(NOT TESSERACT_SYSTEM)
                 "${DEPS_PREFIX}/lib/libpng.a"
                 "${DEPS_PREFIX}/lib/libtiff.a"
                 "${DEPS_PREFIX}/lib/libz.a"
-                "${DEPS_PREFIX}/lib/libgif.a"
                 pthread dl m
             )
             set_target_properties(tesseract_ocr PROPERTIES
