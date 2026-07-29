@@ -199,13 +199,9 @@ if(NOT TESSERACT_SYSTEM)
                 -DBUILD_PROGRAMS=OFF
                 -DBUILD_TESTS=OFF
                 -DBUILD_DOCS=OFF
-                -DLEPTONICA_BUILD_PROGRAMS=OFF
-                -DLEPTONICA_BUILD_TESTS=OFF
-                -DLEPTONICA_USING_PNG=ON
-                -DLEPTONICA_USING_JPEG=ON
-                -DLEPTONICA_USING_TIFF=ON
-                -DLEPTONICA_USING_GIF=OFF
-                -DLEPTONICA_USING_WEBP=OFF
+                -DENABLE_GIF=OFF
+                -DENABLE_WEBP=OFF
+                -DENABLE_OPENJPEG=OFF
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
             RESULT_VARIABLE RESULT
         )
@@ -246,8 +242,8 @@ if(NOT TESSERACT_SYSTEM)
         set(CMAKE_PREFIX_PATH "${LEPTONICA_INSTALL_DIR};${CMAKE_PREFIX_PATH}")
         message(STATUS "Leptonica installed to ${LEPTONICA_INSTALL_DIR}")
 
-        # Patch LeptonicaTargets.cmake: Leptonica 的 CMake 导出配置中会残留
-        # WebP::webp / WebP::libwebpmux 引用即使 -DLEPTONICA_USING_WEBP=OFF。
+        # Patch LeptonicaTargets.cmake: 保险 - 确保 Leptonica 导出的 CMake 配置中
+        # 没有残留 WebP:: 引用（尽管已设 -DENABLE_WEBP=OFF）。
         # Tesseract 的 try_run 测试项目引用 Leptonica config 时会找不到这些目标。
         set(_lept_targets_file "${LEPTONICA_INSTALL_DIR}/lib/cmake/leptonica/LeptonicaTargets.cmake")
         if(EXISTS "${_lept_targets_file}")
