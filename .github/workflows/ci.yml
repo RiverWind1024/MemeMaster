@@ -218,6 +218,17 @@ jobs:
             done
           done
 
+          # 为 CMake 构建的库设置 RUNPATH=$ORIGIN，使其能在 bundle/lib/ 下找到依赖
+          echo "=== 设置 RUNPATH ==="
+          for lib in libleptonica.so.6.0.0 libtesseract.so.5.5.3; do
+            if [ -f "$lib" ] && ! readelf -d "$lib" 2>/dev/null | grep -q RUNPATH; then
+              patchelf --set-rpath '$ORIGIN' "$lib"
+              echo "  ✓ patchelf RUNPATH=\$ORIGIN -> $lib"
+            elif [ -f "$lib" ]; then
+              echo "  - 已有 RUNPATH, 跳过: $lib"
+            fi
+          done
+
           echo "=== Bundled libraries ==="
           ls -lh *.so* 2>/dev/null || echo "(no .so* files copied)"
 
