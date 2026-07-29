@@ -219,7 +219,7 @@ jobs:
           done
 
           echo "=== Bundled libraries ==="
-          ls -lh build/linux/x64/release/bundle/lib/*.so 2>/dev/null || echo "No .so files"
+          ls -lh *.so* 2>/dev/null || echo "(no .so* files copied)"
 
       - name: Test OCR functionality (real FFI test)
         run: |
