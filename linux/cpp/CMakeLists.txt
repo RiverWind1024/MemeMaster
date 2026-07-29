@@ -239,7 +239,8 @@ if(NOT TESSERACT_SYSTEM)
                             -DCMAKE_BUILD_TYPE=Release
                             -DCMAKE_INSTALL_PREFIX=${_inst_dir}
                             -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-                            -DBUILD_SHARED_LIBS=OFF
+                            -DBUILD_SHARED_LIBS=ON
+                            -DBUILD_STATIC_LIBS=ON
                         WORKING_DIRECTORY ${_build_dir}
                         RESULT_VARIABLE _rv
                     )
@@ -300,26 +301,8 @@ if(NOT TESSERACT_SYSTEM)
         # giflib 不构建（GIF 不是 OCR 必需格式，禁掉避免 SourceForge 下载问题）
         message(STATUS "  Skipping giflib (GIF not needed for OCR)")
 
-        # 修复：创建符号链接，让库文件名与 Leptonica/Tesseract 的 find_library 期望一致
-        # libjpeg-turbo 的实际静态库文件名是 libturbojpeg.a / libjpeg.a（不是 libjpeg-turbo.a）
-        # Leptonica find_library(NAMES jpeg turbojpeg) 找到 libjpeg.a（我们的 symlink）
-        execute_process(
-            COMMAND /usr/bin/cmake -E create_symlink libturbojpeg.a libjpeg.a
-            WORKING_DIRECTORY "${DEPS_PREFIX}/lib"
-        )
-        execute_process(
-            COMMAND /usr/bin/cmake -E create_symlink libturbojpeg.so libjpeg.so
-            WORKING_DIRECTORY "${DEPS_PREFIX}/lib"
-        )
-        # libpng: Leptonica 找 libpng，但实际文件是 libpng16.a（soname 版本）
-        execute_process(
-            COMMAND /usr/bin/cmake -E create_symlink libpng16.a libpng.a
-            WORKING_DIRECTORY "${DEPS_PREFIX}/lib"
-        )
-        execute_process(
-            COMMAND /usr/bin/cmake -E create_symlink libpng16.so libpng.so
-            WORKING_DIRECTORY "${DEPS_PREFIX}/lib"
-        )
+        # 改为共享库后，libjpeg-turbo 安装 libturbojpeg.so（libjpeg.so 是 symlink 到它）
+        # libpng 安装 libpng16.so（libpng.so 是 symlink）。find_library 可以直接找到。
 
         # 清理临时压缩包
         file(REMOVE "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo-2.1.5.1.tar.gz"
@@ -342,26 +325,22 @@ if(NOT TESSERACT_SYSTEM)
                 -DCMAKE_BUILD_TYPE=Release
                 -DCMAKE_INSTALL_PREFIX=${LEPTONICA_INSTALL_DIR}
                 -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-                -DBUILD_SHARED_LIBS=OFF
+                -DBUILD_SHARED_LIBS=ON
                 -DBUILD_PROGRAMS=OFF
                 -DBUILD_TESTS=OFF
                 -DBUILD_DOCS=OFF
                 -DENABLE_GIF=OFF
                 -DENABLE_WEBP=OFF
                 -DENABLE_OPENJPEG=OFF
-                # 明确指向我们构建的库（使用实际文件名：libjpeg.a, libpng16.a）
-                -DJPEG_LIBRARY="${DEPS_PREFIX}/lib/libjpeg.a"
-                -DJPEG_INCLUDE_DIR="${DEPS_PREFIX}/include"
+                -DENABLE_TIFF=OFF
+                # 传库目录让 Leptonica 的 find_library 找到共享库
                 -DJPEG_LIBRARY_DIR="${DEPS_PREFIX}/lib"
-                -DPNG_LIBRARY="${DEPS_PREFIX}/lib/libpng16.a"
-                -DPNG_PNG_INCLUDE_DIR="${DEPS_PREFIX}/include"
                 -DPNG_LIBRARY_DIR="${DEPS_PREFIX}/lib"
-                -DTIFF_LIBRARY="${DEPS_PREFIX}/lib/libtiff.a"
-                -DTIFF_INCLUDE_DIR="${DEPS_PREFIX}/include"
                 -DTIFF_LIBRARY_DIR="${DEPS_PREFIX}/lib"
-                -DZLIB_LIBRARY="${DEPS_PREFIX}/lib/libz.a"
-                -DZLIB_INCLUDE_DIR="${DEPS_PREFIX}/include"
                 -DZLIB_LIBRARY_DIR="${DEPS_PREFIX}/lib"
+                -DJPEG_INCLUDE_DIR="${DEPS_PREFIX}/include"
+                -DPNG_INCLUDE_DIR="${DEPS_PREFIX}/include"
+                -DZLIB_INCLUDE_DIR="${DEPS_PREFIX}/include"
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
             RESULT_VARIABLE RESULT
         )
@@ -407,13 +386,21 @@ if(NOT TESSERACT_SYSTEM)
         # =========================================================
         if(NOT RESULT)
             message(STATUS "=== Building Tesseract ===")
+            # 通过环境变量设置 CMAKE_LIBRARY_PATH，让 Tesseract 的 find_library
+            # 找到我们构建的库（而非系统库）。
+            # 不传 XXX_LIBRARY=full/path，避免 target_link_libraries 生成 -l/full/path（错误）。
             execute_process(
-                COMMAND cmake -S ${TESSERACT_DIR} -B ${CMAKE_CURRENT_BINARY_DIR}/tesseract_build
+                COMMAND TIFF_LIBRARY_DIR="${DEPS_PREFIX}/lib"
+                       JPEG_LIBRARY_DIR="${DEPS_PREFIX}/lib"
+                       PNG_LIBRARY_DIR="${DEPS_PREFIX}/lib"
+                       ZLIB_LIBRARY_DIR="${DEPS_PREFIX}/lib"
+                       /usr/bin/cmake -S ${TESSERACT_DIR} -B ${CMAKE_CURRENT_BINARY_DIR}/tesseract_build
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_PREFIX=${LEPTONICA_INSTALL_DIR}
                     -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+                    -DCMAKE_LIBRARY_PATH="${DEPS_PREFIX}/lib"
                     -DLeptonica_DIR=${Leptonica_DIR}
-                    -DBUILD_SHARED_LIBS=OFF
+                    -DBUILD_SHARED_LIBS=ON
                     -DBUILD_PROGRAMS=OFF
                     -DBUILD_TRAINING_TOOLS=OFF
                     -DBUILD_DOCS=OFF
@@ -473,8 +460,8 @@ if(NOT TESSERACT_SYSTEM)
                 ${TESSERACT_DIR}/include
             )
             target_link_libraries(tesseract_ocr PRIVATE
-                "${LEPTONICA_INSTALL_DIR}/lib/libtesseract.a"
-                "${LEPTONICA_INSTALL_DIR}/lib/libleptonica.a"
+                "${LEPTONICA_INSTALL_DIR}/lib/libleptonica.so"
+                "${LEPTONICA_INSTALL_DIR}/lib/libtesseract.so"
                 ${JPEG_LIBRARY}
                 ${PNG_LIBRARY}
                 ${TIFF_LIBRARY}
