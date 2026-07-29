@@ -246,6 +246,17 @@ if(NOT TESSERACT_SYSTEM)
         set(CMAKE_PREFIX_PATH "${LEPTONICA_INSTALL_DIR};${CMAKE_PREFIX_PATH}")
         message(STATUS "Leptonica installed to ${LEPTONICA_INSTALL_DIR}")
 
+        # Patch LeptonicaTargets.cmake: Leptonica 的 CMake 导出配置中引用
+        # WebP::webp 即使 -DLEPTONICA_USING_WEBP=OFF 也会残留。
+        # Tesseract 的 try_run 测试项目引用 Leptonica config 时会找不到此目标。
+        set(_lept_targets_file "${LEPTONICA_INSTALL_DIR}/lib/cmake/leptonica/LeptonicaTargets.cmake")
+        if(EXISTS "${_lept_targets_file}")
+            file(READ "${_lept_targets_file}" _lept_targets_content)
+            string(REPLACE "WebP::webp" "" _lept_targets_content "${_lept_targets_content}")
+            file(WRITE "${_lept_targets_file}" "${_lept_targets_content}")
+            message(STATUS "Patched LeptonicaTargets.cmake: removed WebP::webp reference")
+        endif()
+
         # 构建并安装 Tesseract
         if(NOT RESULT)
             message(STATUS "=== Building Tesseract ===")
