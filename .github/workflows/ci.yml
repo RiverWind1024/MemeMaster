@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  flutter-version: '3.44.8'
+  flutter-version: '3.44.0'
   java-version: '17'
 
 jobs:
@@ -29,7 +29,7 @@ jobs:
 
       - name: Setup Flutter
         run: |
-          FLUTTER_VERSION=3.44.8
+          FLUTTER_VERSION=3.44.0
           if [ ! -d "$HOME/flutter" ]; then
             curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
           fi
@@ -58,14 +58,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             cmake ninja-build clang libsecret-1-dev libgtk-3-dev \
-            unzip curl xz-utils patchelf \
+            unzip curl xz-utils \
             libvulkan1 libvulkan-dev mesa-vulkan-drivers vulkan-validationlayers \
-            glslang-dev glslang-tools spirv-tools glslc \
-            libjpeg-dev libpng-dev libtiff-dev libwebp-dev zlib1g-dev
+            glslang-dev glslang-tools spirv-tools glslc
 
       - name: Setup Flutter
         run: |
-          FLUTTER_VERSION=3.44.8
+          FLUTTER_VERSION=3.44.0
           if [ ! -d "$HOME/flutter" ]; then
             curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
           fi
@@ -147,108 +146,90 @@ jobs:
       - name: Bundle native library
         run: |
           mkdir -p build/linux/x64/release/bundle/lib
-
-          # 复制 meme_llm.so
           cp build/linux-llm/libmeme_llm.so build/linux/x64/release/bundle/lib/
           echo "✓ Copied libmeme_llm.so to bundle"
 
-          # 复制 tesseract OCR 库及其所有依赖到 bundle（跨发行版兼容）
+          # tesseract 安装目录
           TESS_INSTALL="$GITHUB_WORKSPACE/third_party/linux-llm-install"
-          BUNDLE_LIB="build/linux/x64/release/bundle/lib"
-          # CMAKE_INSTALL_PREFIX=build/linux-llm/local, so libs go there
-          LOCAL_PREFIX="build/linux-llm/local"
 
-          declare -a SO_FILES=()
-          declare -a DEP_SO_FILES=()
-
-          for dir in "build/linux-llm" "$LOCAL_PREFIX/lib" "$TESS_INSTALL/lib"; do
-            [ -f "$dir/libtesseract_ocr.so" ] && SO_FILES+=("$dir/libtesseract_ocr.so")
-            [ -f "$dir/libleptonica.so" ] && SO_FILES+=("$dir/libleptonica.so")
-            [ -f "$dir/libtesseract.so" ] && SO_FILES+=("$dir/libtesseract.so")
+          # 复制 tesseract_ocr 封装库（如果存在）
+          for dir in "build/linux-llm" "$TESS_INSTALL/lib"; do
+            if [ -f "$dir/libtesseract_ocr.so" ]; then
+              cp "$dir/libtesseract_ocr.so" build/linux/x64/release/bundle/lib/
+              echo "✓ Copied libtesseract_ocr.so to bundle"
+              break
+            fi
           done
+          if [ ! -f "build/linux/x64/release/bundle/lib/libtesseract_ocr.so" ]; then
+            echo "NOTE: libtesseract_ocr.so not found (OCR may use CLI fallback)"
+          fi
 
-          # 通过 ldd 找到每个 .so 的 Ubuntu 系统依赖（不在 /usr/lib 和 /lib 的）
-          # 这些是需要一起打包的 Ubuntu 特有库（如 libjpeg.so.8, libtiff.so.5）
-          # 注意：排除 glibc / libstdc++ / libgcc_s 等系统基础库，它们应该用目标系统的版本
-          UBUNTU_LIB_DIRS="/usr/lib/x86_64-linux-gnu /usr/lib64"
-          for so_file in "${SO_FILES[@]}"; do
-            while IFS= read -r dep; do
-              # 解析 ldd 输出格式: libfoo.so.8 => /path/libfoo.so.8 (0x...)
-              dep_path=$(echo "$dep" | awk '{print $3}')
-              if [ -n "$dep_path" ] && [ -f "$dep_path" ]; then
-                # 只复制 Ubuntu 系统目录下的库（不在本地构建目录）
-                is_local=false
-                for local_dir in "$GITHUB_WORKSPACE/build" "$TESS_INSTALL" "$GITHUB_WORKSPACE/third_party"; do
-                  [[ "$dep_path" == "$local_dir"* ]] && is_local=true && break
-                done
-                if [ "$is_local" = true ]; then
-                  continue
-                fi
-                # 排除 glibc / libstdc++ / libgcc_s 等系统基础库，使用目标系统的版本
-                # 这些库的 SONAME 在不同发行版间可能不兼容，打包反而会导致冲突
-                dep_name=$(basename "$dep_path")
-                case "$dep_name" in
-                  libc.so.6|libstdc++.so.6|libgcc_s.so.1|libm.so.6|libpthread.so.0|libdl.so.2|librt.so.1|libcrypt.so.1|libutil.so.1|libnsl.so.1|libresolv.so.2|ld-linux-x86-64.so.2) continue ;;
-                esac
-                if [[ ! " ${DEP_SO_FILES[*]} " =~ " ${dep_path} " ]]; then
-                  DEP_SO_FILES+=("$dep_path")
-                fi
+          # 复制 tesseract 和 leptonica 库（匹配实际构建的版本）
+          # 构建产物可能是: libleptonica.so.6.0.0, libleptonica.so.6, libtesseract.so.5.5.3, libtesseract.so.5.5 等
+          # 注意: CMake install 可能把库放到 local/lib 子目录
+          for dir in "build/linux-llm/local/lib" "build/linux-llm" "$TESS_INSTALL/lib"; do
+            # 复制 libleptonica (版本 6)
+            for lib in "$dir"/libleptonica.so*; do
+              if [ -f "$lib" ] && [ ! -L "$lib" ]; then
+                cp "$lib" build/linux/x64/release/bundle/lib/
+                echo "✓ Copied $(basename $lib) to bundle"
               fi
-            done < <(ldd "$so_file" 2>/dev/null | grep "=> /")
+            done
+            # 复制 libtesseract (版本 5.x)
+            for lib in "$dir"/libtesseract.so*; do
+              if [ -f "$lib" ] && [ ! -L "$lib" ]; then
+                cp "$lib" build/linux/x64/release/bundle/lib/
+                echo "✓ Copied $(basename $lib) to bundle"
+              fi
+            done
           done
 
-          # 复制所有文件到 bundle
-          # 注意：用 -L 解引用符号链接，复制实际目标文件（如 libtesseract.so -> libtesseract.so.5.5.3）
-          echo "=== Copying OCR libraries to bundle ==="
-          for so_file in "${SO_FILES[@]}"; do
-            cp -L "$so_file" "$BUNDLE_LIB/"
-            echo "✓ Copied $(basename $so_file)"
+          # 创建必要的符号链接（soname 格式：libXXX.so.X.Y.Z -> libXXX.so.X）
+          cd build/linux/x64/release/bundle/lib/
+          for lib in libleptonica.so.6.0.0 libtesseract.so.5.5.3; do
+            if [ -f "$lib" ]; then
+              # 从文件名提取 soname: libleptonica.so.6.0.0 -> libleptonica.so.6
+              soname=$(echo "$lib" | sed -E 's/(.*\.so\.[0-9]+)\.[0-9]+$/\1/')
+              if [ ! -L "$soname" ]; then
+                ln -s "$lib" "$soname"
+                echo "✓ Created symlink $soname -> $lib"
+              fi
+            fi
           done
-          for dep_file in "${DEP_SO_FILES[@]}"; do
-            cp -L "$dep_file" "$BUNDLE_LIB/"
-            echo "✓ Copied dep: $(basename $dep_file)"
-          done
-
-          # cp -L 复制了实际内容但文件名变成了 symlink 名字（如 libtesseract.so）
-          # 而库的 SONAME 是 versioned 的（如 libtesseract.so.5.5），动态链接器按 SONAME 查找
-          # 修复：把文件 rename 为 SONAME，然后创建旧名的 symlink
-          echo "=== Fixing SONAME mismatches ==="
-          for orig_name in libtesseract.so libleptonica.so; do
-            src="$BUNDLE_LIB/$orig_name"
-            [ -f "$src" ] || continue
-            # 读取库的 SONAME（Dynamic Section 的 SONAME 字段）
-            # grep 没找到时返回 1，|| true 避免 set -e 导致脚本退出
-            soname=$(readelf -d "$src" 2>/dev/null | grep 'SONAME' | grep -oP '\[\K[^\]]+' || true)
-            if [ -n "$soname" ] && [ "$soname" != "$orig_name" ]; then
-              soname_path="$BUNDLE_LIB/$soname"
-              if [ ! -f "$soname_path" ]; then
-                mv "$src" "$soname_path"
-                ln -s "$soname" "$src"
-                echo "✓ Fixed SONAME: $orig_name -> $soname (symlink created)"
+          # 同时创建 .so 符号链接（可选但有用）
+          for lib in libleptonica.so.6 libleptonica.so.6.0.0 libtesseract.so.5.5 libtesseract.so.5.5.3; do
+            if [ -f "$lib" ] && [ ! -L "$lib" ]; then
+              soname=$(echo "$lib" | sed -E 's/(.*\.so)\.[0-9]+.*$/\1/')
+              if [ ! -L "$soname" ]; then
+                ln -s "$lib" "$soname"
+                echo "✓ Created symlink $soname -> $lib"
               fi
             fi
           done
 
-          # 用 patchelf 修复所有 .so 的 RPATH 为 $ORIGIN（让它们从 bundle 目录找依赖）
-          echo "=== Fixing RPATHs with patchelf ==="
-          for so_file in "$BUNDLE_LIB"/*.so*; do
-            [ -f "$so_file" ] || continue
-            # 记录旧的 NEEDED 库名称
-            patchelf --set-rpath '$ORIGIN' "$so_file" 2>/dev/null && \
-              echo "✓ Fixed RPATH: $(basename $so_file)" || \
-              echo "⚠ patchelf failed: $(basename $so_file)"
+          # 找出 leptonica 依赖的系统库并复制到 bundle
+          echo "=== 检查 leptonica 依赖的系统库 ==="
+          for lib in libleptonica.so.6.0.0 libtesseract.so.5.5.3; do
+            if [ -f "$lib" ]; then
+              # 找出此库依赖的共享库
+              deps=$(ldd "$lib" 2>/dev/null | awk '{print $3}' | grep -E '^\/' | grep -v "^/lib.*/" | head -20)
+              for dep in $deps; do
+                if [ -f "$dep" ]; then
+                  depname=$(basename "$dep")
+                  # 只复制第三方库（跳过 glibc, gcc 等系统库）
+                  if [[ ! "$depname" =~ ^(ld-linux|librt|libpthread|libdl|libm|libc|libgcc_s|libstdc\+\+|linux-vdso) ]]; then
+                    if [ ! -f "$depname" ]; then
+                      cp "$dep" .
+                      echo "✓ Copied dependency: $depname"
+                    fi
+                  fi
+                fi
+              done
+            fi
           done
 
-          if [ ! -f "$BUNDLE_LIB/libtesseract_ocr.so" ]; then
-            echo "NOTE: libtesseract_ocr.so not found (OCR may use CLI fallback)"
-          fi
-
           echo "=== Bundled libraries ==="
-          ls -lh build/linux/x64/release/bundle/lib/*.so* 2>/dev/null || echo "(no .so* files copied)"
-          readelf -d "$BUNDLE_LIB/libtesseract_ocr.so" 2>/dev/null | grep -E "(RPATH|RUNPATH|NEEDED)" || echo "readelf failed"
-          ldd "$BUNDLE_LIB/libtesseract_ocr.so" 2>/dev/null || echo "ldd failed"
-
-
+          ls -lh build/linux/x64/release/bundle/lib/*.so 2>/dev/null || echo "No .so files"
 
       - name: Test OCR functionality (real FFI test)
         run: |
@@ -256,14 +237,6 @@ jobs:
 
           BUNDLE_DIR="build/linux/x64/release/bundle"
           TEST_IMAGE="docs/assets/meme_example.jpg"
-
-          echo "=== Diagnose libtesseract_ocr.so ==="
-          ls -lh "$BUNDLE_DIR/lib/libtesseract_ocr.so" "$BUNDLE_DIR/lib/libleptonica.so" "$BUNDLE_DIR/lib/libtesseract.so" 2>/dev/null
-          file "$BUNDLE_DIR/lib/libtesseract_ocr.so" "$BUNDLE_DIR/lib/libleptonica.so" 2>/dev/null
-          ldd "$BUNDLE_DIR/lib/libtesseract_ocr.so" 2>/dev/null
-          readelf -d "$BUNDLE_DIR/lib/libtesseract_ocr.so" 2>/dev/null | grep -E "RPATH|RUNPATH|NEEDED"
-          echo "=== ldd with LD_LIBRARY_PATH=$BUNDLE_DIR/lib ==="
-          LD_LIBRARY_PATH="$BUNDLE_DIR/lib" ldd "$BUNDLE_DIR/lib/libtesseract_ocr.so" 2>/dev/null
 
           # 1. 检查必要文件
           echo "--- 检查必要文件 ---"
@@ -387,7 +360,7 @@ jobs:
 
       - name: Setup Flutter
         run: |
-          FLUTTER_VERSION=3.44.8
+          FLUTTER_VERSION=3.44.0
           if [ ! -d "$HOME/flutter" ]; then
             curl -sSL "https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_${FLUTTER_VERSION}-stable.zip" -o /tmp/flutter.zip
             unzip -q /tmp/flutter.zip -d $HOME
@@ -488,7 +461,7 @@ jobs:
           sudo apt-get install -y cmake ninja-build unzip curl xz-utils
       - name: Setup Flutter
         run: |
-          FLUTTER_VERSION=3.44.8
+          FLUTTER_VERSION=3.44.0
           if [ ! -d "$HOME/flutter" ]; then
             curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
           fi
