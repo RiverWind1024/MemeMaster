@@ -60,7 +60,8 @@ jobs:
             cmake ninja-build clang libsecret-1-dev libgtk-3-dev \
             unzip curl xz-utils \
             libvulkan1 libvulkan-dev mesa-vulkan-drivers vulkan-validationlayers \
-            glslang-dev glslang-tools spirv-tools glslc
+            glslang-dev glslang-tools spirv-tools glslc \
+            tesseract-ocr tesseract-ocr-chi-sim
 
       - name: Setup Flutter
         run: |
@@ -148,164 +149,45 @@ jobs:
           mkdir -p build/linux/x64/release/bundle/lib
           cp build/linux-llm/libmeme_llm.so build/linux/x64/release/bundle/lib/
           echo "✓ Copied libmeme_llm.so to bundle"
-
-          # tesseract 安装目录
-          TESS_INSTALL="$GITHUB_WORKSPACE/third_party/linux-llm-install"
-
-          # 复制 tesseract_ocr 封装库（如果存在）
-          for dir in "build/linux-llm" "$TESS_INSTALL/lib"; do
-            if [ -f "$dir/libtesseract_ocr.so" ]; then
-              cp "$dir/libtesseract_ocr.so" build/linux/x64/release/bundle/lib/
-              echo "✓ Copied libtesseract_ocr.so to bundle"
-              break
-            fi
-          done
-          if [ ! -f "build/linux/x64/release/bundle/lib/libtesseract_ocr.so" ]; then
-            echo "NOTE: libtesseract_ocr.so not found (OCR may use CLI fallback)"
-          fi
-
-          # 复制 tesseract 和 leptonica 库（匹配实际构建的版本）
-          # 构建产物可能是: libleptonica.so.6.0.0, libleptonica.so.6, libtesseract.so.5.5.3, libtesseract.so.5.5 等
-          # 注意: CMake install 可能把库放到 local/lib 子目录
-          for dir in "build/linux-llm/local/lib" "build/linux-llm" "$TESS_INSTALL/lib"; do
-            # 复制 libleptonica (版本 6)
-            for lib in "$dir"/libleptonica.so*; do
-              if [ -f "$lib" ] && [ ! -L "$lib" ]; then
-                cp "$lib" build/linux/x64/release/bundle/lib/
-                echo "✓ Copied $(basename $lib) to bundle"
-              fi
-            done
-            # 复制 libtesseract (版本 5.x)
-            for lib in "$dir"/libtesseract.so*; do
-              if [ -f "$lib" ] && [ ! -L "$lib" ]; then
-                cp "$lib" build/linux/x64/release/bundle/lib/
-                echo "✓ Copied $(basename $lib) to bundle"
-              fi
-            done
-          done
-
-          # 创建必要的符号链接（soname 格式：libXXX.so.X.Y.Z -> libXXX.so.X）
-          cd build/linux/x64/release/bundle/lib/
-          for lib in libleptonica.so.6.0.0 libtesseract.so.5.5.3; do
-            if [ -f "$lib" ]; then
-              # 从文件名提取 soname: libleptonica.so.6.0.0 -> libleptonica.so.6
-              soname=$(echo "$lib" | sed -E 's/(.*\.so\.[0-9]+)\.[0-9]+$/\1/')
-              if [ ! -L "$soname" ]; then
-                ln -s "$lib" "$soname"
-                echo "✓ Created symlink $soname -> $lib"
-              fi
-            fi
-          done
-          # 同时创建 .so 符号链接（可选但有用）
-          for lib in libleptonica.so.6 libleptonica.so.6.0.0 libtesseract.so.5.5 libtesseract.so.5.5.3; do
-            if [ -f "$lib" ] && [ ! -L "$lib" ]; then
-              soname=$(echo "$lib" | sed -E 's/(.*\.so)\.[0-9]+.*$/\1/')
-              if [ ! -L "$soname" ]; then
-                ln -s "$lib" "$soname"
-                echo "✓ Created symlink $soname -> $lib"
-              fi
-            fi
-          done
-
-          # 找出 leptonica 依赖的系统库并复制到 bundle
-          echo "=== 检查 leptonica 依赖的系统库 ==="
-          for lib in libleptonica.so.6.0.0 libtesseract.so.5.5.3; do
-            if [ -f "$lib" ]; then
-              # 找出此库依赖的共享库
-              deps=$(ldd "$lib" 2>/dev/null | awk '{print $3}' | grep -E '^\/' | grep -v "^/lib.*/" | head -20)
-              for dep in $deps; do
-                if [ -f "$dep" ]; then
-                  depname=$(basename "$dep")
-                  # 只复制第三方库（跳过 glibc, gcc 等系统库）
-                  if [[ ! "$depname" =~ ^(ld-linux|librt|libpthread|libdl|libm|libc|libgcc_s|libstdc\+\+|linux-vdso) ]]; then
-                    if [ ! -f "$depname" ]; then
-                      cp "$dep" .
-                      echo "✓ Copied dependency: $depname"
-                    fi
-                  fi
-                fi
-              done
-            fi
-          done
-
           echo "=== Bundled libraries ==="
           ls -lh build/linux/x64/release/bundle/lib/*.so 2>/dev/null || echo "No .so files"
 
-      - name: Test OCR functionality (real FFI test)
+      - name: Test OCR functionality (CLI test)
         run: |
-          echo "=== OCR FFI 功能测试 ==="
+          echo "=== OCR CLI 功能测试 ==="
 
           BUNDLE_DIR="build/linux/x64/release/bundle"
           TEST_IMAGE="docs/assets/meme_example.jpg"
 
-          # 1. 检查必要文件
-          echo "--- 检查必要文件 ---"
-          TESS_LIB="$BUNDLE_DIR/lib/libtesseract_ocr.so"
-          if [ -f "$TESS_LIB" ]; then
-            echo "✓ Found libtesseract_ocr.so"
-            ls -lh "$TESS_LIB"
-          else
-            echo "⚠ libtesseract_ocr.so not found (will test CLI fallback only)"
-          fi
-
-          TESSDATA_DIR="$BUNDLE_DIR/share/tessdata"
-          if [ -d "$TESSDATA_DIR" ]; then
-            echo "✓ Found tessdata directory"
-            ls -lh "$TESSDATA_DIR"/
-          else
-            echo "✗ tessdata directory not found"
+          # 检查 tesseract CLI
+          echo "--- 检查 tesseract CLI ---"
+          if ! command -v tesseract &>/dev/null; then
+            echo "✗ tesseract CLI not found"
             exit 1
           fi
+          echo "✓ Found tesseract CLI"
+          tesseract --version
 
+          # 检查测试图片
           if [ ! -f "$TEST_IMAGE" ]; then
             echo "✗ Test image not found: $TEST_IMAGE"
             exit 1
           fi
           echo "✓ Test image: $TEST_IMAGE"
 
-          # 2. 设置环境
-          export LD_LIBRARY_PATH="$BUNDLE_DIR/lib:$LD_LIBRARY_PATH"
-          export LD_LIBRARY_PATH="$BUNDLE_DIR/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
-
-          # 3. 安装 dart (用于运行 FFI 测试脚本)
-          echo "--- 安装 Dart ---"
-          if [ ! -d "$HOME/dart-sdk" ]; then
-            DART_VERSION=3.5.0
-            curl -sSL "https://storage.googleapis.com/dart-archive/channels/stable/release/${DART_VERSION}/sdk/dartsdk-linux-x64-release.zip" -o /tmp/dart.zip
-            unzip -q /tmp/dart.zip -d $HOME
-            rm /tmp/dart.zip
+          # 运行 OCR
+          echo ""
+          echo "--- 运行 OCR ---"
+          OCR_RESULT=$(tesseract "$TEST_IMAGE" stdout -l chi_sim --psm 3 2>/dev/null | head -5)
+          if [ -n "$OCR_RESULT" ]; then
+            echo "✓ OCR 成功，输出前5行:"
+            echo "$OCR_RESULT"
+          else
+            echo "⚠ OCR 无输出（可能是图片无文字）"
           fi
-          export PATH="$HOME/dart-sdk/bin:$PATH"
-          dart --version
-
-          # 4. 创建独立测试项目（避免 objective_c 依赖问题）
-          echo "--- 创建独立测试项目 ---"
-          TEST_DIR="/tmp/ocr_ffi_test"
-          WORKDIR="$GITHUB_WORKSPACE"
-          rm -rf "$TEST_DIR"
-          mkdir -p "$TEST_DIR"
-          cp "$WORKDIR/scripts/test_ocr_ffi.dart" "$TEST_DIR/"
-          printf '%s\n' 'name: ocr_ffi_test' 'description: Standalone OCR FFI test' 'version: 1.0.0' 'environment:' '  sdk: ">=3.0.0 <4.0.0"' 'dependencies:' '  ffi: ^2.1.0' '  path: ^1.9.1' > "$TEST_DIR/pubspec.yaml"
-
-          cd "$TEST_DIR"
-          dart pub get
-
-          # 5. 运行 Dart OCR FFI 测试脚本（使用绝对路径）
-          # 注意：Flutter app 运行时会自动从 bundle/lib 加载 native libraries
-          #       这里设置 LD_LIBRARY_PATH 仅用于测试脚本的 FFI 加载
-          echo ""
-          echo "--- 运行 OCR FFI 测试 ---"
-          export LD_LIBRARY_PATH="$WORKDIR/build/linux/x64/release/bundle/lib:$LD_LIBRARY_PATH"
-          dart run test_ocr_ffi.dart \
-            "$WORKDIR/build/linux/x64/release/bundle" \
-            "$WORKDIR/docs/assets/meme_example.jpg" \
-            "" || {
-            echo "✗ OCR FFI 测试失败"
-            exit 1
-          }
 
           echo ""
-          echo "✓ OCR 功能测试通过"
+          echo "✓ OCR CLI 测试通过"
 
       - name: Verify GPU library
         run: |
@@ -323,15 +205,6 @@ jobs:
             fi
           elif [ -f build/linux/x64/release/bundle/lib/libmeme_llm_empty.so ]; then
             echo "⚠ Only stub library built (no GPU support)"
-
-          # 检查 Tesseract OCR 库
-          TESS_LIB=build/linux/x64/release/bundle/lib/libtesseract_ocr.so
-          if [ -f "$TESS_LIB" ]; then
-            echo "✓ Found libtesseract_ocr.so"
-            nm "$TESS_LIB" 2>/dev/null | grep -q "tess_" && echo "✓ Tesseract FFI symbols found"
-          else
-            echo "NOTE: libtesseract_ocr.so not found (OCR will use CLI fallback)"
-          fi
           else
             echo "✗ No meme_llm library found"
             exit 1

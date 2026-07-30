@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'core/llm/local_service.dart';
-import 'core/ocr/ocr_service.dart';
 import 'features/gallery/gallery_provider.dart';
 
 void main() async {
@@ -44,13 +43,6 @@ void main() async {
   ]);
 
   debugPrint('[Startup] runApp: ${DateTime.now().difference(t0).inMilliseconds}ms');
-
-  // Linux/macOS: 检测 Tesseract OCR 依赖（延迟检测，避免阻塞启动）
-  if (Platform.isLinux) {
-    OcrService.linuxCheckAndNotify();
-  } else if (Platform.isMacOS) {
-    OcrService.macOSCheckAndNotify();
-  }
 
   runApp(MemeManagerApp(prefs: prefs, storageDir: modelsDir.path));
 }

@@ -1,5 +1,5 @@
 import 'dart:ffi';
-import 'dart:io' show Platform, Directory;
+import 'dart:io' show Platform;
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as path;
 
@@ -7,34 +7,6 @@ import '../../services/log_service.dart';
 
 LogService? _logInstance;
 LogService _getLog() => _logInstance ??= LogService.instance;
-
-// ============= Linux 封装 API 类型 =============
-typedef LinuxTessCreateC = Pointer<Void> Function();
-typedef LinuxTessCreateDart = Pointer<Void> Function();
-
-typedef LinuxTessDestroyC = Void Function(Pointer<Void>);
-typedef LinuxTessDestroyDart = void Function(Pointer<Void>);
-
-typedef LinuxTessInitC = Int32 Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
-typedef LinuxTessInitDart = int Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
-
-typedef LinuxTessEndC = Void Function(Pointer<Void>);
-typedef LinuxTessEndDart = void Function(Pointer<Void>);
-
-typedef LinuxTessSetImageFileC = Int32 Function(Pointer<Void>, Pointer<Utf8>);
-typedef LinuxTessSetImageFileDart = int Function(Pointer<Void>, Pointer<Utf8>);
-
-typedef LinuxTessGetUtf8TextC = Pointer<Utf8> Function(Pointer<Void>);
-typedef LinuxTessGetUtf8TextDart = Pointer<Utf8> Function(Pointer<Void>);
-
-typedef LinuxTessFreeTextC = Void Function(Pointer<Utf8>);
-typedef LinuxTessFreeTextDart = void Function(Pointer<Utf8>);
-
-typedef LinuxTessVersionC = Pointer<Utf8> Function();
-typedef LinuxTessVersionDart = Pointer<Utf8> Function();
-
-typedef LinuxTessSetVariableC = Int32 Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
-typedef LinuxTessSetVariableDart = int Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>);
 
 // ============= Windows 原生 API 类型 =============
 typedef WinTessBaseAPICreateC = Pointer<Void> Function();
@@ -81,18 +53,6 @@ typedef PixDestroyDart = void Function(Pointer<Pointer<Void>>);
 class TessOcrBindings {
   DynamicLibrary? _dylib;
   DynamicLibrary? _leptonicaLib;
-  bool _isLinux = false;
-
-  // Linux 封装 API
-  LinuxTessCreateDart? _linuxCreate;
-  LinuxTessDestroyDart? _linuxDestroy;
-  LinuxTessInitDart? _linuxInit;
-  LinuxTessEndDart? _linuxEnd;
-  LinuxTessSetImageFileDart? _linuxSetImageFile;
-  LinuxTessGetUtf8TextDart? _linuxGetUtf8Text;
-  LinuxTessFreeTextDart? _linuxFreeText;
-  LinuxTessVersionDart? _linuxVersion;
-  LinuxTessSetVariableDart? _linuxSetVariable;
 
   // Windows 原生 API
   WinTessBaseAPICreateDart? _winCreate;
@@ -121,13 +81,7 @@ class TessOcrBindings {
   static String getTessdataPath() {
     try {
       final exeDir = path.dirname(Platform.resolvedExecutable);
-      if (Platform.isLinux) {
-        final resourcesPath = path.join(exeDir, 'share', 'tessdata');
-        if (Directory(resourcesPath).existsSync()) {
-          return resourcesPath;
-        }
-        return path.join(exeDir, 'tessdata');
-      } else if (Platform.isWindows) {
+      if (Platform.isWindows) {
         return path.join(exeDir, 'tessdata');
       }
     } catch (e) {
@@ -138,62 +92,9 @@ class TessOcrBindings {
 
   TessOcrBindings() {
     _instance = this;
-    if (Platform.isLinux) {
-      _loadLinux();
-    } else if (Platform.isWindows) {
+    if (Platform.isWindows) {
       _loadWindows();
     }
-  }
-
-  void _loadLinux() {
-    // 优先使用绝对路径：从 bundle/lib/ 加载（匹配 CMAKE_INSTALL_RPATH=$ORIGIN/lib）
-    final bundleLib = path.join(
-      path.dirname(Platform.resolvedExecutable),
-      'lib',
-      'libtesseract_ocr.so',
-    );
-    try {
-      _dylib = DynamicLibrary.open(bundleLib);
-      _isLinux = true;
-      _isLoaded = true;
-      _bindLinuxFunctions();
-      _getLog().info('OCR', 'Linux FFI loaded: $bundleLib');
-      return;
-    } catch (e) {
-      _getLog().info('OCR', 'Failed to load from bundle path: $e');
-    }
-
-    // 回退到名称搜索（适用于开发环境等非 bundle 场景）
-    final candidates = [
-      'libtesseract_ocr.so',
-      'libtesseract_ocr.so.1',
-    ];
-
-    for (final name in candidates) {
-      try {
-        _dylib = DynamicLibrary.open(name);
-        _isLinux = true;
-        _isLoaded = true;
-        _bindLinuxFunctions();
-        _getLog().info('OCR', 'Linux FFI loaded: $name');
-        return;
-      } catch (e) {
-        _getLog().info('OCR', 'Failed to load $name: $e');
-      }
-    }
-    _isLoaded = false;
-  }
-
-  void _bindLinuxFunctions() {
-    _linuxCreate = _dylib!.lookupFunction<LinuxTessCreateC, LinuxTessCreateDart>('tess_create');
-    _linuxDestroy = _dylib!.lookupFunction<LinuxTessDestroyC, LinuxTessDestroyDart>('tess_destroy');
-    _linuxInit = _dylib!.lookupFunction<LinuxTessInitC, LinuxTessInitDart>('tess_init');
-    _linuxEnd = _dylib!.lookupFunction<LinuxTessEndC, LinuxTessEndDart>('tess_end');
-    _linuxSetImageFile = _dylib!.lookupFunction<LinuxTessSetImageFileC, LinuxTessSetImageFileDart>('tess_set_image_file');
-    _linuxGetUtf8Text = _dylib!.lookupFunction<LinuxTessGetUtf8TextC, LinuxTessGetUtf8TextDart>('tess_get_utf8_text');
-    _linuxFreeText = _dylib!.lookupFunction<LinuxTessFreeTextC, LinuxTessFreeTextDart>('tess_free_text');
-    _linuxVersion = _dylib!.lookupFunction<LinuxTessVersionC, LinuxTessVersionDart>('tess_version');
-    _linuxSetVariable = _dylib!.lookupFunction<LinuxTessSetVariableC, LinuxTessSetVariableDart>('tess_set_variable');
   }
 
   void _loadWindows() {
@@ -207,7 +108,6 @@ class TessOcrBindings {
     for (final name in tesseractCandidates) {
       try {
         _dylib = DynamicLibrary.open(name);
-        _isLinux = false;
         _isLoaded = true;
         _bindWindowsFunctions();
         _getLog().info('OCR', 'Windows Tesseract FFI loaded: $name');
@@ -261,112 +161,66 @@ class TessOcrBindings {
   }
 
   Pointer<Void> create() {
-    if (_isLinux) {
-      return _linuxCreate!();
-    } else {
-      return _winCreate!();
-    }
+    return _winCreate!();
   }
 
   int init(Pointer<Void> handle, String datapath, String language) {
     final datapathPtr = datapath.toNativeUtf8();
     final langPtr = language.toNativeUtf8();
-    int result;
-    if (_isLinux) {
-      result = _linuxInit!(handle, datapathPtr, langPtr);
-    } else {
-      result = _winInit!(handle, datapathPtr, langPtr);
-    }
+    final result = _winInit!(handle, datapathPtr, langPtr);
     malloc.free(datapathPtr);
     malloc.free(langPtr);
     return result;
   }
 
   int setImageFile(Pointer<Void> handle, String filename) {
-    if (_isLinux) {
-      final filenamePtr = filename.toNativeUtf8();
-      final result = _linuxSetImageFile!(handle, filenamePtr);
-      malloc.free(filenamePtr);
-      return result;
-    } else {
-      // Windows: 使用 pixRead 读取图像，再用 TessBaseAPISetImage2 设置
-      if (_pixRead == null || _winSetImage2 == null) {
-        _getLog().error('OCR', 'Leptonica not loaded, cannot set image');
-        return -1;
-      }
-      final filenamePtr = filename.toNativeUtf8();
-      final pix = _pixRead!(filenamePtr);
-      malloc.free(filenamePtr);
-      if (pix == nullptr) {
-        _getLog().error('OCR', 'pixRead failed for: $filename');
-        return -1;
-      }
-      _winSetImage2!(handle, pix);
-      // 释放 Pix 内存
-      final pixPtr = calloc<Pointer<Void>>();
-      pixPtr.value = pix;
-      _pixDestroy!(pixPtr);
-      calloc.free(pixPtr);
-      return 0;
+    // Windows: 使用 pixRead 读取图像，再用 TessBaseAPISetImage2 设置
+    if (_pixRead == null || _winSetImage2 == null) {
+      _getLog().error('OCR', 'Leptonica not loaded, cannot set image');
+      return -1;
     }
+    final filenamePtr = filename.toNativeUtf8();
+    final pix = _pixRead!(filenamePtr);
+    malloc.free(filenamePtr);
+    if (pix == nullptr) {
+      _getLog().error('OCR', 'pixRead failed for: $filename');
+      return -1;
+    }
+    _winSetImage2!(handle, pix);
+    // 释放 Pix 内存
+    final pixPtr = calloc<Pointer<Void>>();
+    pixPtr.value = pix;
+    _pixDestroy!(pixPtr);
+    calloc.free(pixPtr);
+    return 0;
   }
 
   String? getUtf8Text(Pointer<Void> handle) {
-    Pointer<Utf8> resultPtr;
-    if (_isLinux) {
-      resultPtr = _linuxGetUtf8Text!(handle);
-    } else {
-      resultPtr = _winGetUtf8Text!(handle);
-    }
+    final resultPtr = _winGetUtf8Text!(handle);
     if (resultPtr == nullptr) return null;
     final result = resultPtr.toDartString();
-    if (_isLinux) {
-      _linuxFreeText!(resultPtr);
-    } else {
-      _winDeleteText!(resultPtr);
-    }
+    _winDeleteText!(resultPtr);
     return result;
   }
 
   void end(Pointer<Void> handle) {
-    if (_isLinux) {
-      _linuxEnd!(handle);
-    } else {
-      _winEnd!(handle);
-    }
+    _winEnd!(handle);
   }
 
   void destroy(Pointer<Void> handle) {
-    if (_isLinux) {
-      _linuxDestroy!(handle);
-    } else {
-      _winDelete!(handle);
-    }
+    _winDelete!(handle);
   }
 
   String? getVersion() {
-    if (_isLinux) {
-      final ptr = _linuxVersion!();
-      if (ptr == nullptr) return null;
-      final result = ptr.toDartString();
-      _linuxFreeText!(ptr);
-      return result;
-    } else {
-      final ptr = _winVersion!();
-      if (ptr == nullptr) return null;
-      return ptr.toDartString();
-    }
+    final ptr = _winVersion!();
+    if (ptr == nullptr) return null;
+    return ptr.toDartString();
   }
 
   int setVariable(Pointer<Void> handle, String name, String value) {
     final namePtr = name.toNativeUtf8();
     final valuePtr = value.toNativeUtf8();
-    int result;
-    if (_isLinux) {
-      result = _linuxSetVariable!(handle, namePtr, valuePtr);
-    } else {
-      result = _winSetVariable!(handle, namePtr, valuePtr);
-    }
+    final result = _winSetVariable!(handle, namePtr, valuePtr);
     malloc.free(namePtr);
     malloc.free(valuePtr);
     return result;
