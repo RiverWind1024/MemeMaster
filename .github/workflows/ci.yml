@@ -169,6 +169,7 @@ jobs:
 
           # 通过 ldd 找到每个 .so 的 Ubuntu 系统依赖（不在 /usr/lib 和 /lib 的）
           # 这些是需要一起打包的 Ubuntu 特有库（如 libjpeg.so.8, libtiff.so.5）
+          # 注意：排除 glibc / libstdc++ / libgcc_s 等系统基础库，它们应该用目标系统的版本
           UBUNTU_LIB_DIRS="/usr/lib/x86_64-linux-gnu /usr/lib64"
           for so_file in "${SO_FILES[@]}"; do
             while IFS= read -r dep; do
@@ -180,7 +181,16 @@ jobs:
                 for local_dir in "$GITHUB_WORKSPACE/build" "$TESS_INSTALL" "$GITHUB_WORKSPACE/third_party"; do
                   [[ "$dep_path" == "$local_dir"* ]] && is_local=true && break
                 done
-                if [ "$is_local" = false ] && [[ ! " ${DEP_SO_FILES[*]} " =~ " ${dep_path} " ]]; then
+                if [ "$is_local" = true ]; then
+                  continue
+                fi
+                # 排除 glibc / libstdc++ / libgcc_s 等系统基础库，使用目标系统的版本
+                # 这些库的 SONAME 在不同发行版间可能不兼容，打包反而会导致冲突
+                dep_name=$(basename "$dep_path")
+                case "$dep_name" in
+                  libc.so.6|libstdc++.so.6|libgcc_s.so.1|libm.so.6|libpthread.so.0|libdl.so.2|librt.so.1|libcrypt.so.1|libutil.so.1|libnsl.so.1|libresolv.so.2|ld-linux-x86-64.so.2) continue ;;
+                esac
+                if [[ ! " ${DEP_SO_FILES[*]} " =~ " ${dep_path} " ]]; then
                   DEP_SO_FILES+=("$dep_path")
                 fi
               fi
