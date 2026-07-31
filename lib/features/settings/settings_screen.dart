@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../core/ocr/linux_ocr_install_dialog.dart';
 import '../../core/ocr/ocr_service.dart';
+import '../../core/ocr/tesseract_bindings.dart';
 import '../../services/config_exporter.dart';
 import '../../services/log_service.dart';
 import '../../services/opencl_diagnostic.dart';
@@ -375,6 +377,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               secondary: const Icon(Icons.text_fields),
             ),
           ),
+          // OCR 状态卡片
+          if (Platform.isLinux)
+            _LinuxOcrStatusCard(
+              onInstall: () => showLinuxOcrInstallDialog(
+                context,
+                onInstalled: () {
+                  ref.read(ocrEnabledProvider.notifier).setEnabled(true);
+                  ref.read(analysisSchedulerProvider).setOcrEnabled(true);
+                },
+              ),
+            ),
           Card(
             child: ListTile(
               leading: const Icon(Icons.auto_awesome),
@@ -816,76 +829,32 @@ Future<void> _onOcrToggle(bool value, WidgetRef ref, BuildContext ctx) async {
     final installed = await OcrService.linuxCheckInstalled();
     log.info('OCR', 'Linux Tesseract 安装状态: $installed');
     if (!installed) {
-      log.warning('OCR', 'Linux Tesseract 未安装，显示安装对话框');
-      // 显示安装对话框
-      final confirmed = await showDialog<bool>(
-        context: ctx,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('需要安装 OCR 组件'),
-          content: const Text(
-            'OCR 功能需要 Tesseract。\n\n是否自动安装？\n安装过程需要管理员权限。',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('安装'),
-            ),
-          ],
-        ),
+      log.warning('OCR', 'Linux Tesseract 未安装，显示安装向导');
+      // 显示新的安装向导（不阻塞 App）
+      showLinuxOcrInstallDialog(
+        ctx,
+        onInstalled: () {
+          log.info('OCR', '安装向导回调：安装成功，启用 OCR');
+          ref.read(ocrEnabledProvider.notifier).setEnabled(true);
+          ref.read(analysisSchedulerProvider).setOcrEnabled(true);
+        },
       );
-
-      if (confirmed != true) {
-        log.info('OCR', '用户取消安装 Tesseract');
-        return; // 用户取消
-      }
-
-      // 执行安装
-      log.info('OCR', '开始自动安装 Tesseract...');
-      final success = await OcrService.linuxTryInstall();
-      log.info('OCR', 'Tesseract 安装结果: $success');
-      if (!success) {
-        log.error('OCR', 'Tesseract 自动安装失败');
-        if (ctx.mounted) {
-          ScaffoldMessenger.of(ctx).showSnackBar(
-            const SnackBar(
-              content: Text('安装失败，请检查网络连接后重试'),
-            ),
-          );
-        }
-        return;
-      }
-    }
-  } else if (Platform.isMacOS) {
-    log.info('OCR', '检查 macOS Tesseract 安装状态...');
-    // macOS: 只检查 Tesseract 是否安装，不提供自动安装
-    final installed = await OcrService.macOSCheckInstalled();
-    log.info('OCR', 'macOS Tesseract 安装状态: $installed');
-    if (!installed) {
-      log.warning('OCR', 'macOS Tesseract 未安装，提示用户手动安装');
-      if (ctx.mounted) {
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          const SnackBar(
-            content: Text('Tesseract 未安装。请运行: brew install tesseract tesseract-lang'),
-            duration: Duration(seconds: 5),
-          ),
-        );
-      }
+      // 不等待安装完成，方法立即返回
       return;
     }
+  } else if (Platform.isMacOS) {
+    log.info('OCR', 'macOS 使用 Apple Vision Framework，始终可用');
+    // macOS: Apple Vision 是系统框架，始终可用，无需检查安装
   } else if (Platform.isWindows) {
-    log.info('OCR', '检查 Windows Tesseract 安装状态...');
-    final installed = await OcrService.windowsCheckInstalled();
-    log.info('OCR', 'Windows Tesseract 安装状态: $installed');
-    if (!installed) {
-      log.warning('OCR', 'Windows Tesseract 未安装，提示用户手动安装');
+    // Windows: 检查 FFI 是否加载（Tesseract DLL 随 app bundle 打包）
+    final ffiLoaded = TessOcrBindings.ffiIsLoaded;
+    log.info('OCR', 'Windows Tesseract FFI 状态: ${ffiLoaded ? "已加载" : "未加载"}');
+    if (!ffiLoaded) {
+      log.error('OCR', 'Windows Tesseract FFI 未加载');
       if (ctx.mounted) {
         ScaffoldMessenger.of(ctx).showSnackBar(
           const SnackBar(
-            content: Text('Tesseract 未安装。请从 https://github.com/UB-Mannheim/tesseract/wiki 下载安装'),
+            content: Text('Tesseract FFI 未加载，请检查 DLL 是否正确打包'),
             duration: Duration(seconds: 5),
           ),
         );
@@ -898,4 +867,108 @@ Future<void> _onOcrToggle(bool value, WidgetRef ref, BuildContext ctx) async {
   log.info('OCR', 'OCR 检查通过，启用 OCR 功能');
   ref.read(ocrEnabledProvider.notifier).setEnabled(true);
   ref.read(analysisSchedulerProvider).setOcrEnabled(true);
+}
+
+/// Linux OCR 状态卡片
+///
+/// 显示 Tesseract 安装状态和版本信息
+class _LinuxOcrStatusCard extends ConsumerStatefulWidget {
+  final VoidCallback onInstall;
+
+  const _LinuxOcrStatusCard({required this.onInstall});
+
+  @override
+  ConsumerState<_LinuxOcrStatusCard> createState() => _LinuxOcrStatusCardState();
+}
+
+class _LinuxOcrStatusCardState extends ConsumerState<_LinuxOcrStatusCard> {
+  bool? _installed;
+  String? _version;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkStatus();
+  }
+
+  Future<void> _checkStatus() async {
+    if (!mounted) return;
+    setState(() => _loading = true);
+
+    try {
+      final installed = await OcrService.linuxCheckInstalled();
+      if (!mounted) return;
+
+      String? version;
+      if (installed) {
+        try {
+          final result = await Process.run('tesseract', ['--version']);
+          if (result.exitCode == 0) {
+            version = result.stdout.toString().split('\n').first;
+          }
+        } catch (_) {}
+      }
+
+      if (mounted) {
+        setState(() {
+          _installed = installed;
+          _version = version;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _installed = false;
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Card(
+        child: ListTile(
+          leading: const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          title: const Text('OCR 状态'),
+          subtitle: const Text('检查中...'),
+        ),
+      );
+    }
+
+    final installed = _installed ?? false;
+    final version = _version;
+
+    return Card(
+      child: ListTile(
+        leading: Icon(
+          installed ? Icons.check_circle : Icons.warning,
+          color: installed ? Colors.green : Colors.orange,
+        ),
+        title: const Text('Tesseract OCR'),
+        subtitle: Text(
+          installed
+              ? (version ?? '已安装')
+              : '未安装 ${version != null ? "($version)" : ""}',
+        ),
+        trailing: installed
+            ? IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: '重新检测',
+                onPressed: _checkStatus,
+              )
+            : FilledButton.tonal(
+                onPressed: widget.onInstall,
+                child: const Text('安装'),
+              ),
+      ),
+    );
+  }
 }

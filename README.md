@@ -6,7 +6,7 @@
 
 - **图片导入** — 自动去重（SHA256 哈希），按日期归档存储
 - **颜色搜索** — HSV 滑块选色，CIE Lab ΔE 色差匹配
-- **OCR 文字识别** — Android: Google ML Kit / Linux/macOS/Windows: Tesseract CLI，支持中英文
+- **OCR 文字识别** — Android: Google ML Kit / macOS: Apple Vision / Linux/Windows: Tesseract CLI，支持中英文
 - **AI 标签与描述** — OpenAI / Ollama / 本地 LLM 驱动，根据 OCR 结果自动生成标签和文字描述
 - **Token 用量追踪** — 记录每次 LLM 调用的 prompt/completion token 数，按日统计，支持查看今日用量和任意时间范围汇总
 - **统计页面** — 用户使用数据总览，包含 GitHub 风格热度图（贡献日历）、日期范围选择器（7/30/365 天）、导入/复制/收藏/Token 用量趋势列表
@@ -71,9 +71,7 @@ nm build/linux/x64/release/bundle/lib/libmeme_llm.so | grep vulkan
 ```bash
 # Xcode Command Line Tools（必须）
 xcode-select --install
-
-# Tesseract OCR（Homebrew）
-brew install tesseract tesseract-lang leptonica
+# macOS OCR 使用 Apple Vision Framework（系统内置，无需额外安装）
 ```
 
 #### 构建
@@ -90,7 +88,7 @@ flutter build macos --release
 # 产物: build/macos/Build/Products/Release/meme_master
 ```
 
-> **注意**: macOS OCR 使用 Tesseract CLI（`google_mlkit_text_recognition` 不可用于 macOS）。
+> **注意**: macOS OCR 使用 Apple Vision Framework（系统内置，无需额外安装 Tesseract）。
 > **GPU 加速**: macOS 使用 Metal GPU 加速（Apple Silicon M1+ 推荐，Intel Mac 需 OpenCL）。
 
 ### Windows 桌面

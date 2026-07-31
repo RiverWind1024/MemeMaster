@@ -56,8 +56,7 @@ sudo dnf install vulkan-loader glslc glslang
 # Xcode Command Line Tools
 xcode-select --install
 
-# Tesseract OCR（Homebrew）
-brew install tesseract tesseract-lang leptonica
+# macOS OCR 使用 Apple Vision Framework（系统内置，无需额外安装）
 ```
 
 ### 4. Android SDK
@@ -377,7 +376,7 @@ LLAMA_CPP_DIR=/path/to/project/third_party/llama.cpp \
 
 **系统依赖**：
 - Xcode Command Line Tools (`xcode-select --install`)
-- Homebrew (`brew install tesseract tesseract-lang`)
+- macOS OCR 使用 Apple Vision Framework（系统内置，无需额外安装）
 
 **Apple Silicon** (M1/M2/M3)：Metal 原生支持，开箱即用。
 

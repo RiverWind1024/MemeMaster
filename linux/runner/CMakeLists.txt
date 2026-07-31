@@ -23,6 +23,11 @@ add_definitions(-DAPPLICATION_ID="${APPLICATION_ID}")
 target_link_libraries(${BINARY_NAME} PRIVATE flutter)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::GTK)
 
+# 强制使用 DT_RPATH（传播型）替代 DT_RUNPATH（不传播）。
+# DT_RPATH 允许 $ORIGIN/lib 的搜索路径传递到传递依赖
+# （如 libleptonica → libjpeg.so.8），解决 FFI 加载问题。
+target_link_options(${BINARY_NAME} PRIVATE "-Wl,--disable-new-dtags")
+
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # ===== 本地 LLM (llama.cpp) =====

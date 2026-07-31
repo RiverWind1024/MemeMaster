@@ -89,8 +89,10 @@ class VisionLlmEnricher {
         return;
       }
 
-      // 3. 保存标签
+      // 3. 保存标签（有新结果时才覆盖旧的 llm 标签）
       if (result.tags.isNotEmpty) {
+        // 先删除旧的 llm 标签
+        await _repo.deleteAutoTags(memeId, sources: ['llm']);
         final tagEntries = result.tags.map((tag) => TagEntry(
               id: '${memeId}_llm_${tag.hashCode}',
               memeId: memeId,

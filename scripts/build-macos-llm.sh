@@ -34,26 +34,42 @@ echo "=== cmake configure (ENABLE_METAL=$ENABLE_METAL_FLAG) ==="
 cmake "$LLM_DIR" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="$BUILD_DIR/install" \
-    -DENABLE_METAL="$ENABLE_METAL_FLAG" 2>&1 | tail -30
+    -DENABLE_METAL="$ENABLE_METAL_FLAG" \
+    -DTESSERACT_DIR="${TESSERACT_DIR:-$PROJECT_DIR/third_party/tesseract}" \
+    -DLEPTONICA_DIR="${LEPTONICA_DIR:-$PROJECT_DIR/third_party/leptonica}" 2>&1
 
 # 构建
 echo "=== cmake build ==="
-cmake --build . --config Release -j"$NPROC" 2>&1 | tail -50
+cmake --build . --config Release -j"$NPROC" 2>&1
+
+# 安装（将 tesseract_ocr 等库安装到 CMAKE_INSTALL_PREFIX）
+echo "=== cmake install ==="
+cmake --install . --config Release 2>&1
 
 # 检查产物
-if [ -f "libmeme_llm.dylib" ]; then
-    SIZE=$(ls -lh libmeme_llm.dylib | awk '{print $5}')
+if [ -f "install/lib/libmeme_llm.dylib" ]; then
+    SIZE=$(ls -lh install/lib/libmeme_llm.dylib | awk '{print $5}')
     echo "=== Build successful ==="
-    echo "  Output: $BUILD_DIR/libmeme_llm.dylib"
+    echo "  Output: $BUILD_DIR/install/lib/libmeme_llm.dylib"
     echo "  Size: $SIZE"
 
     # 检查 Metal 符号
-    if nm libmeme_llm.dylib 2>/dev/null | grep -q ggml_metal; then
+    if nm install/lib/libmeme_llm.dylib 2>/dev/null | grep -q ggml_metal; then
         echo "  Metal GPU: ENABLED (ggml_metal symbols found)"
     else
         echo "  Metal GPU: WARNING - no ggml_metal symbols found"
     fi
+elif [ -f "libmeme_llm.dylib" ]; then
+    SIZE=$(ls -lh libmeme_llm.dylib | awk '{print $5}')
+    echo "=== Build successful (legacy location) ==="
+    echo "  Output: $BUILD_DIR/libmeme_llm.dylib"
+    echo "  Size: $SIZE"
 else
     echo "ERROR: Build failed - libmeme_llm.dylib not found"
+    echo "=== Build directory contents ==="
+    find . -name "*.dylib" -type f 2>/dev/null | head -20
     exit 1
 fi
+
+echo "=== All dylib files in build tree ==="
+find . -name "*.dylib" -type f 2>/dev/null | head -20

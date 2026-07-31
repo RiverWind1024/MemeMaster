@@ -159,7 +159,7 @@ class LocalLlmService implements LlmService {
     required LocalLlmConfig config,
     LogService? log,
   })  : _config = config,
-        _log = log ?? LogService();
+        _log = log ?? LogService.instance;
 
   @override
   bool get isAvailable => _config.modelPath != null;

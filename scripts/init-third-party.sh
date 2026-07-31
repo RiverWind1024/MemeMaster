@@ -225,6 +225,8 @@ DEPS=(
     "OpenCL-ICD-Loader|https://github.com/KhronosGroup/OpenCL-ICD-Loader.git||OpenCL-ICD-Loader"
     "SPIRV-Headers|https://github.com/KhronosGroup/SPIRV-Headers.git||SPIRV-Headers"
     "Vulkan-Headers|https://github.com/KhronosGroup/Vulkan-Headers.git||Vulkan-Headers"
+    "Leptonica|https://github.com/DanBloomberg/leptonica.git||leptonica"
+    "Tesseract|https://github.com/tesseract-ocr/tesseract.git||tesseract"
 )
 
 FAILED=()

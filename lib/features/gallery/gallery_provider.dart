@@ -22,6 +22,7 @@ import '../../core/llm/openai_service.dart';
 import '../../core/llm/vision_enricher.dart';
 import '../../services/parallel_analysis_scheduler.dart';
 import '../../services/file_storage_service.dart';
+import '../../core/ocr/tesseract_bindings.dart';
 import '../../services/log_service.dart';
 import '../../services/s3_config.dart';
 import '../../services/s3_sync_service.dart';
@@ -110,7 +111,8 @@ void initLogFilePath(String path) {
 }
 
 final logServiceProvider = Provider<LogService>((ref) {
-  return LogService(logFilePath: _logFilePath, mllmLogPath: getMllmLogFilePath());
+  LogService.init(logFilePath: _logFilePath, mllmLogPath: getMllmLogFilePath());
+  return LogService.instance;
 });
 
 final importServiceProvider = Provider<ImportService>((ref) {
@@ -788,26 +790,42 @@ final modelManagerProvider = Provider<ModelManager>((ref) {
 class OcrEnabledNotifier extends Notifier<bool> {
   @override
   bool build() {
-    // Linux/macOS: 检查 Tesseract 是否安装，未安装则强制关闭 OCR
-    if (Platform.isLinux || Platform.isMacOS) {
+    // macOS: Apple Vision Framework 始终可用
+    if (Platform.isMacOS) {
+      return _getSavedEnabled() ?? true;
+    }
+
+    // Linux/Windows: 检查 FFI 是否加载成功
+    final ffiLoaded = TessOcrBindings.ffiIsLoaded;
+    debugPrint('[OCR] FFI loaded: $ffiLoaded');
+
+    if (ffiLoaded) {
+      return _getSavedEnabled() ?? true;
+    }
+
+    // Linux: FFI 未加载，尝试 CLI fallback
+    if (Platform.isLinux) {
       try {
-        // 用 tesseract --version 直接检测，比 which 更可靠
         final result = Process.runSync('tesseract', ['--version']);
-        if (result.exitCode != 0) {
-          debugPrint('[OCR] Tesseract check failed: exitCode=${result.exitCode}');
-          return false;
+        if (result.exitCode == 0) {
+          debugPrint('[OCR] CLI Tesseract detected: ${result.stdout.toString().split('\n').first}');
+          return _getSavedEnabled() ?? true;
         }
-        debugPrint('[OCR] Tesseract detected: ${result.stdout.toString().split('\n').first}');
+        debugPrint('[OCR] CLI Tesseract check failed: exitCode=${result.exitCode}');
       } catch (e) {
-        debugPrint('[OCR] Tesseract not found: $e');
-        return false;
+        debugPrint('[OCR] CLI Tesseract not found: $e');
       }
     }
 
+    // FFI 和 CLI 都不可用 → OCR 无法使用
+    return false;
+  }
+
+  bool? _getSavedEnabled() {
     try {
-      return ref.read(sharedPreferencesProvider).getBool('ocr_enabled') ?? true;
+      return ref.read(sharedPreferencesProvider).getBool('ocr_enabled');
     } catch (_) {
-      return false;
+      return null;
     }
   }
 
@@ -1185,17 +1203,21 @@ final analysisProgressProvider = StreamProvider<AnalysisProgress>((ref) async* {
     final ocrDao = ref.read(ocrAnalysisQueueDaoProvider);
     final aiDao = ref.read(aiAnalysisQueueDaoProvider);
     try {
-      final total = await Future.wait([
-        colorDao.getPendingCount(),
-        colorDao.getRunningCount(),
-        ocrDao.getPendingCount(),
-        ocrDao.getRunningCount(),
-        aiDao.getPendingCount(),
-        aiDao.getRunningCount(),
+      // 获取所有待处理和运行中的 memeId（去重统计，而非统计任务数）
+      final results = await Future.wait([
+        colorDao.getPendingMemeIds(),
+        colorDao.getRunningMemeIds(),
+        ocrDao.getPendingMemeIds(),
+        ocrDao.getRunningMemeIds(),
+        aiDao.getPendingMemeIds(),
+        aiDao.getRunningMemeIds(),
       ]);
+      // 按 memeId 去重，统计唯一图片数量
+      final pendingMemeIds = <String>{...results[0], ...results[2], ...results[4]};
+      final runningMemeIds = <String>{...results[1], ...results[3], ...results[5]};
       yield AnalysisProgress(
-        queued: total[0] + total[2] + total[4],
-        running: total[1] + total[3] + total[5],
+        queued: pendingMemeIds.length,
+        running: runningMemeIds.length,
       );
     } catch (_) {
       yield const AnalysisProgress();
