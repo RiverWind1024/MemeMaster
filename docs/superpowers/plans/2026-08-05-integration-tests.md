@@ -46,7 +46,7 @@
 - Modify: `lib/core/database/database.dart:38-40`
 - Modify: `lib/services/file_storage_service.dart:10-19`
 
-- [ ] **Step 1: 编写测试环境 `integration_test/test_env.dart`**（依赖新构造参数，编译会失败）
+- [x] **Step 1: 编写测试环境 `integration_test/test_env.dart`**（依赖新构造参数，编译会失败）
 
 ```dart
 import 'dart:io';
@@ -138,12 +138,12 @@ class TestEnv {
 }
 ```
 
-- [ ] **Step 2: 运行分析确认编译失败**
+- [x] **Step 2: 运行分析确认编译失败**
 
 Run: `flutter analyze`
 Expected: 报错 `lib/core/database/database.dart` 的 `AppDatabase` 没有接受 executor 参数的构造、`FileStorageService` 没有接受 `basePath` 的构造（或 test_env 中的调用行报错）。
 
-- [ ] **Step 3: 修改 `AppDatabase` 支持注入 executor**
+- [x] **Step 3: 修改 `AppDatabase` 支持注入 executor**
 
 `lib/core/database/database.dart:39` 原代码：
 
@@ -157,7 +157,7 @@ Expected: 报错 `lib/core/database/database.dart` 的 `AppDatabase` 没有接�
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 ```
 
-- [ ] **Step 4: 修改 `FileStorageService` 支持注入 basePath**
+- [x] **Step 4: 修改 `FileStorageService` 支持注入 basePath**
 
 `lib/services/file_storage_service.dart:10-12` 原代码：
 
@@ -175,17 +175,17 @@ class FileStorageService {
   FileStorageService({String? basePath}) : _basePath = basePath;
 ```
 
-- [ ] **Step 5: 运行分析确认通过**
+- [x] **Step 5: 运行分析确认通过**
 
 Run: `flutter analyze`
 Expected: 无 error（原有 warning 忽略）。
 
-- [ ] **Step 6: 运行既有单元测试确认无回归**
+- [x] **Step 6: 运行既有单元测试确认无回归**
 
 Run: `flutter test`
 Expected: 全部通过（既有 mock 测试不受构造参数影响）。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add lib/core/database/database.dart lib/services/file_storage_service.dart integration_test/test_env.dart
@@ -200,7 +200,7 @@ git commit -m "feat: 支持集成测试环境注入 executor/basePath，新增�
 - Create: `integration_test/import_flow_test.dart`
 - Test: 同上
 
-- [ ] **Step 1: 编写测试**
+- [x] **Step 1: 编写测试**
 
 ```dart
 import 'package:flutter_test/flutter_test.dart';
@@ -282,14 +282,14 @@ void main() {
 
 注意：需要 `import 'package:path/path.dart' as p;`（上面文件用到 `p.join`）。
 
-- [ ] **Step 2: 运行测试**
+- [x] **Step 2: 运行测试**
 
 Run: `flutter test integration_test/import_flow_test.dart -d linux`
 Expected: 4 个用例全部通过（首次运行需等待 Linux 构建，可能几分钟）。
 
-- [ ] **Step 3: 若失败，按失败信息修正（多为接口签名细节），重跑直至通过**
+- [x] **Step 3: 若失败，按失败信息修正（多为接口签名细节），重跑直至通过**
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add integration_test/import_flow_test.dart
@@ -304,7 +304,7 @@ git commit -m "test: 导入图片服务集成测试"
 - Create: `integration_test/search_test.dart`
 - Test: 同上
 
-- [ ] **Step 1: 编写测试**
+- [x] **Step 1: 编写测试**
 
 ```dart
 import 'package:flutter_test/flutter_test.dart';
@@ -393,14 +393,14 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: 运行测试**
+- [x] **Step 2: 运行测试**
 
 Run: `flutter test integration_test/search_test.dart -d linux`
 Expected: 4 个用例全部通过。
 
-- [ ] **Step 3: 若失败，修正后重跑**
+- [x] **Step 3: 若失败，修正后重跑**
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add integration_test/search_test.dart
@@ -415,7 +415,7 @@ git commit -m "test: 搜索服务集成测试"
 - Create: `integration_test/album_test.dart`
 - Test: 同上
 
-- [ ] **Step 1: 编写测试**
+- [x] **Step 1: 编写测试**
 
 ```dart
 import 'package:flutter_test/flutter_test.dart';
@@ -474,14 +474,14 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: 运行测试**
+- [x] **Step 2: 运行测试**
 
 Run: `flutter test integration_test/album_test.dart -d linux`
 Expected: 3 个用例全部通过。
 
-- [ ] **Step 3: 若失败，修正后重跑**
+- [x] **Step 3: 若失败，修正后重跑**
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add integration_test/album_test.dart
@@ -496,7 +496,7 @@ git commit -m "test: 相册服务集成测试"
 - Create: `integration_test/export_test.dart`
 - Test: 同上
 
-- [ ] **Step 1: 编写测试**
+- [x] **Step 1: 编写测试**
 
 ```dart
 import 'dart:convert';
@@ -544,14 +544,14 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: 运行测试**
+- [x] **Step 2: 运行测试**
 
 Run: `flutter test integration_test/export_test.dart -d linux`
 Expected: 2 个用例全部通过。
 
-- [ ] **Step 3: 若失败，修正后重跑**
+- [x] **Step 3: 若失败，修正后重跑**
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add integration_test/export_test.dart
@@ -566,7 +566,7 @@ git commit -m "test: 导出服务集成测试"
 - Create: `integration_test/analysis_queue_test.dart`
 - Test: 同上
 
-- [ ] **Step 1: 编写测试**
+- [x] **Step 1: 编写测试**
 
 ```dart
 import 'package:flutter_test/flutter_test.dart';
@@ -650,14 +650,14 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: 运行测试**
+- [x] **Step 2: 运行测试**
 
 Run: `flutter test integration_test/analysis_queue_test.dart -d linux`
 Expected: 3 个用例全部通过。
 
-- [ ] **Step 3: 若失败，修正后重跑**
+- [x] **Step 3: 若失败，修正后重跑**
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add integration_test/analysis_queue_test.dart
@@ -670,24 +670,35 @@ git commit -m "test: 分析调度服务集成测试"
 
 **Files:** 无新增
 
-- [ ] **Step 1: 全量跑新集成测试**
+- [x] **Step 1: 全量跑新集成测试**
 
-注意：仓库内已有 `integration_test/ocr_test.dart`（Android-only，依赖 `google_mlkit_text_recognition` 插件且断言 `/sdcard/Download/ocr_test.jpg`），不能在 Linux 目录级全量跑。以下命令显式指定 5 个新测试文件：
+注意：仓库内已有 `integration_test/ocr_test.dart`（Android-only，依赖 `google_mlkit_text_recognition` 插件且断言 `/sdcard/Download/ocr_test.jpg`），不能在 Linux 目录级全量跑。必须显式指定 5 个新测试文件。
 
-Run: `flutter test integration_test/import_flow_test.dart integration_test/search_test.dart integration_test/album_test.dart integration_test/export_test.dart integration_test/analysis_queue_test.dart -d linux`
-Expected: 全部用例通过（共 16 个：导入 4 + 搜索 4 + 相册 3 + 导出 2 + 调度 3）。
+实测结论（2026-08-05）：单条命令多文件连续启动 app 时，仅第一个文件正常执行，后续文件报 `Unable to start the app on the device`（`Error waiting for a debug connection`），属 Linux 桌面集成测试的环境级已知偶发问题，非测试回归。可靠做法是**逐文件运行**：
 
-- [ ] **Step 2: 全量跑单元测试确认无回归**
+```
+flutter test integration_test/import_flow_test.dart -d linux
+flutter test integration_test/search_test.dart -d linux
+flutter test integration_test/album_test.dart -d linux
+flutter test integration_test/export_test.dart -d linux
+flutter test integration_test/analysis_queue_test.dart -d linux
+```
+
+（无 DISPLAY 环境下加 `xvfb-run -a` 前缀。CI 上可尝试单条命令，若遇该问题则同样改为逐文件。）
+
+Expected: 全部用例通过（共 16 个：导入 4 + 搜索 4 + 相册 3 + 导出 2 + 调度 3）。已验证：16/16 全绿。
+
+- [x] **Step 2: 全量跑单元测试确认无回归**
 
 Run: `flutter test`
 Expected: 全部通过。
 
-- [ ] **Step 3: 最终分析**
+- [x] **Step 3: 最终分析**
 
 Run: `flutter analyze`
 Expected: 无 error。
 
-- [ ] **Step 4: 若第 1 步有失败，定位修正后重跑全量，直至全绿**
+- [x] **Step 4: 若第 1 步有失败，定位修正后重跑全量，直至全绿**
 
 ---
 
