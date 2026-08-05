@@ -10,6 +10,8 @@ import 'package:path_provider/path_provider.dart';
 class FileStorageService {
   String? _basePath;
 
+  FileStorageService({String? basePath}) : _basePath = basePath;
+
   /// 获取基础存储路径（懒初始化）
   Future<String> get basePath async {
     if (_basePath != null) return _basePath!;
