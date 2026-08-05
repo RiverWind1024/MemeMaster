@@ -52,4 +52,5 @@
 
 ## 验证方式
 
-`flutter test integration_test -d linux` 全部通过。
+`flutter test integration_test/<测试文件> -d linux` 逐个或批量运行新测试文件全部通过。
+注意：仓库内已有 `integration_test/ocr_test.dart` 为 Android-only（依赖 `google_mlkit_text_recognition` 插件），不能在 Linux 目录级全量跑，需显式指定新文件。
