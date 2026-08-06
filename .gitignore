@@ -64,9 +64,6 @@ session-*.md
 # Sisyphus plans
 .sisyphus/
 
-# Test data
-test/
-
 # llama.cpp 源码（外部依赖，不提交）
 third_party/
 

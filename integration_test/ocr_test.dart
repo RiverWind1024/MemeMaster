@@ -9,11 +9,11 @@ void main() {
 
   test('OCR 识别测试图片中的文字', () async {
     // 图片通过 adb push 传入设备:
-    // adb push test/img/微信图片_20260630204014_145_84.jpg /sdcard/Download/ocr_test.jpg
+    // adb push test/img/test.jpg /sdcard/Download/ocr_test.jpg
     final imagePath = '/sdcard/Download/ocr_test.jpg';
     final file = File(imagePath);
     expect(file.existsSync(), true,
-        reason: '请先执行: adb push test/img/微信图片_20260630204014_145_84.jpg /sdcard/Download/ocr_test.jpg');
+        reason: '请先执行: adb push test/img/test.jpg /sdcard/Download/ocr_test.jpg');
 
     final inputImage = InputImage.fromFile(file);
     final recognizer = TextRecognizer(script: TextRecognitionScript.chinese);
