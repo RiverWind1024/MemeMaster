@@ -117,6 +117,14 @@ void _multimodalChatIsolateEntry(_MultimodalIsolateArgs args) {
 /// 支持纯文本和 vision 多模态模型。
 /// 模型通过 ModelManager 下载后加载。
 class LocalLlmService implements LlmService {
+  /// 当前存活的本地 LLM 服务实例。
+  /// macOS 退出前原生侧通过 app_lifecycle channel 逐个调用 [shutdown]，
+  /// 确保 llama.cpp 的 Metal 资源在进程退出前全部释放。
+  static final List<LocalLlmService> _instances = [];
+
+  /// 存活的本地 LLM 服务实例快照（仅调试/退出清理用）
+  static List<LocalLlmService> get activeInstances => List.unmodifiable(_instances);
+
   final LocalLlmConfig _config;
   final NativeLlmBindings _bindings = NativeLlmBindings();
   final LogService _log;
@@ -159,7 +167,9 @@ class LocalLlmService implements LlmService {
     required LocalLlmConfig config,
     LogService? log,
   })  : _config = config,
-        _log = log ?? LogService.instance;
+        _log = log ?? LogService.instance {
+    _instances.add(this);
+  }
 
   @override
   bool get isAvailable => _config.modelPath != null;
@@ -418,13 +428,27 @@ class LocalLlmService implements LlmService {
     _disposed = true;
     debugPrint('[LocalLlmService] ${DateTime.now().toIso8601String()} dispose() - 标记已释放');
 
-    // Await + Release: 串入操作队列，等待正在执行的 FFI 完成后关闭句柄
-    _runSerialized(() async {
-      if (_handle != null) {
-        debugPrint('[LocalLlmService] ${DateTime.now().toIso8601String()} dispose() - 关闭模型句柄');
-        _bindings.close(_handle!);
-        _handle = null;
-        debugPrint('[LocalLlmService] ${DateTime.now().toIso8601String()} dispose() 完成');
+    // 异步串入队列关闭句柄（fire-and-forget）。
+    // 退出场景（macOS）由原生侧通过 shutdown() await 等待真正完成，避免进程退出时
+    // llama.cpp 的 Metal 资源未释放导致静态析构断言崩溃。
+    shutdown();
+  }
+
+  /// 关闭模型句柄并释放原生资源（幂等，可重复调用）。
+  ///
+  /// 通过序列化队列保证在正在执行的推理完成后再释放，避免 UAF。
+  /// 返回的 Future 在资源完全释放后完成；macOS 退出前原生侧会 await 它。
+  Future<void> shutdown() {
+    return _runSerialized(() async {
+      try {
+        if (_handle != null) {
+          debugPrint('[LocalLlmService] ${DateTime.now().toIso8601String()} shutdown() - 关闭模型句柄');
+          _bindings.close(_handle!);
+          _handle = null;
+          debugPrint('[LocalLlmService] ${DateTime.now().toIso8601String()} shutdown() 完成');
+        }
+      } finally {
+        _instances.remove(this);
       }
     }, force: true);
   }

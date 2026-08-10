@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -42,7 +43,24 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  // macOS 退出前，原生侧请求关闭本地 LLM（释放 llama.cpp 的 Metal 资源后再退出进程，
+  // 否则静态析构时 ggml_metal_rsets_free 断言失败崩溃）
+  const lifecycleChannel = MethodChannel('com.mememaster/app_lifecycle');
+  lifecycleChannel.setMethodCallHandler(_handleAppLifecycle);
+
   debugPrint('[Startup] runApp: ${DateTime.now().difference(t0).inMilliseconds}ms');
 
   runApp(MemeManagerApp(prefs: prefs, storageDir: modelsDir.path));
+}
+
+/// 处理原生侧（macOS AppDelegate）的生命周期回调。
+Future<void> _handleAppLifecycle(MethodCall call) async {
+  if (call.method == 'shutdownLlm') {
+    final futures = LocalLlmService.activeInstances.map((s) => s.shutdown());
+    try {
+      await Future.wait(futures).timeout(const Duration(seconds: 10));
+    } on TimeoutException {
+      // 超时兜底：不阻塞退出
+    }
+  }
 }
