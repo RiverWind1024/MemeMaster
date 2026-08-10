@@ -8,6 +8,23 @@ class AppDelegate: FlutterAppDelegate {
     return true
   }
 
+  override func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    // 退出前先让 Dart 侧释放本地 LLM 的 llama.cpp Metal 资源。
+    // 若不等待，进程直接退出时静态析构会因未释放的 Metal 资源断言崩溃（SIGABRT）。
+    guard let controller = mainFlutterWindow?.contentViewController as? FlutterViewController else {
+      return .terminateNow
+    }
+
+    let channel = FlutterMethodChannel(
+      name: "com.mememaster/app_lifecycle",
+      binaryMessenger: controller.engine.binaryMessenger
+    )
+    channel.invokeMethod("shutdownLlm", arguments: nil) { _ in
+      NSApp.reply(toApplicationShouldTerminate: true)
+    }
+    return .terminateLater
+  }
+
   override func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
     return true
   }
