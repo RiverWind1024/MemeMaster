@@ -602,6 +602,7 @@ extern "C" char* mllm_multimodal_chat(void* handle_ptr,
 
     mtmd_input_text input_text;
     input_text.text = formatted_prompt.c_str();
+    input_text.text_len = formatted_prompt.size();
     input_text.add_special = true;
     input_text.parse_special = true;
 
