@@ -17,10 +17,216 @@ concurrency:
 
 env:
   flutter-version: '3.44.0'
+  java-version: '17'
 
 jobs:
-  # 临时精简：当前是 macOS Metal 推理崩溃的测试/修复任务，
-  # 只保留 macos job 以加速 CI。修复完成后恢复其他平台 job。
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Flutter
+        run: |
+          FLUTTER_VERSION=3.44.0
+          if [ ! -d "$HOME/flutter" ]; then
+            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
+          fi
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
+
+      - name: Extract version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Run unit tests
+        run: flutter test
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build clang libsecret-1-dev libgtk-3-dev \
+            unzip curl xz-utils \
+            libvulkan1 libvulkan-dev mesa-vulkan-drivers vulkan-validationlayers \
+            glslang-dev glslang-tools spirv-tools glslc \
+            tesseract-ocr tesseract-ocr-chi-sim
+
+      - name: Setup Flutter
+        run: |
+          FLUTTER_VERSION=3.44.0
+          if [ ! -d "$HOME/flutter" ]; then
+            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
+          fi
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Init third-party (Vulkan)
+        run: |
+          echo "=== Running init-third-party.sh ==="
+          ./scripts/init-third-party.sh 2>&1 | tee /tmp/init-output.txt
+          INIT_EXIT=${PIPESTATUS[0]}
+          echo ""
+          echo "=== init-third-party.sh exit code: $INIT_EXIT ==="
+          if [ $INIT_EXIT -ne 0 ]; then
+            echo "⚠️ Script exited with error (see above)"
+          fi
+          echo ""
+          echo "=== third_party contents ==="
+          ls -la third_party/ 2>/dev/null || echo "third_party missing"
+        env:
+          LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
+          SPIRV_HEADERS_DIR: ${{ github.workspace }}/third_party/spirv-headers-install
+          TESSERACT_DIR: ${{ github.workspace }}/third_party/tesseract
+          LEPTONICA_DIR: ${{ github.workspace }}/third_party/leptonica
+
+      - name: Pin llama.cpp version
+        run: |
+          # 固定 llama.cpp 到已知可用的版本 (17a05e4)
+          # 原因: llama.cpp master 分支 API 变更移除了 use_mmap，导致编译失败
+          cd third_party/llama.cpp
+          git fetch --unshallow 2>/dev/null || true
+          git checkout 17a05e451fd175d1d82a1ee96b266338f6b07005
+          echo "llama.cpp pinned to: $(git log --oneline -1)"
+
+      - name: Build native library (Vulkan)
+        run: |
+          mkdir -p build/linux-llm
+          cd build/linux-llm
+          cmake ../../linux/cpp \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/third_party/linux-llm-install" \
+            -DLLAMA_CPP_DIR="$GITHUB_WORKSPACE/third_party/llama.cpp" \
+            -DTESSERACT_DIR="$GITHUB_WORKSPACE/third_party/tesseract" \
+            -DLEPTONICA_DIR="$GITHUB_WORKSPACE/third_party/leptonica" \
+            -DSPIRV_HEADERS_DIR="$GITHUB_WORKSPACE/third_party/spirv-headers-install" \
+            -DENABLE_VULKAN=ON
+          cmake --build . -j$(nproc)
+          cmake --install . --config Release
+          echo "=== Build artifacts ==="
+          ls -lh libmeme_llm* 2>/dev/null || echo "No libmeme_llm found"
+          ls -lh libtesseract_ocr* 2>/dev/null || echo "No libtesseract_ocr found"
+
+      - name: Build Linux (Vulkan GPU)
+        run: |
+          rm -rf build/linux
+          flutter build linux --release
+
+      - name: Download and bundle tessdata (Linux)
+        run: |
+          TESSDATA_DIR="build/linux/x64/release/bundle/share/tessdata"
+          mkdir -p "$TESSDATA_DIR"
+
+          # 下载 tessdata 文件（eng + chi_sim）
+          TESSDATA_URL="https://raw.githubusercontent.com/tesseract-ocr/tessdata/main"
+          for lang in eng chi_sim; do
+            if [ ! -f "$TESSDATA_DIR/${lang}.traineddata" ]; then
+              echo "Downloading ${lang}.traineddata..."
+              curl -sSL "${TESSDATA_URL}/${lang}.traineddata" -o "$TESSDATA_DIR/${lang}.traineddata"
+            else
+              echo "${lang}.traineddata already exists"
+            fi
+          done
+
+          echo "=== Tessdata files ==="
+          ls -lh "$TESSDATA_DIR"/*.traineddata 2>/dev/null || echo "No tessdata found"
+
+      - name: Bundle native library
+        run: |
+          mkdir -p build/linux/x64/release/bundle/lib
+          cp build/linux-llm/libmeme_llm.so build/linux/x64/release/bundle/lib/
+          echo "✓ Copied libmeme_llm.so to bundle"
+          echo "=== Bundled libraries ==="
+          ls -lh build/linux/x64/release/bundle/lib/*.so 2>/dev/null || echo "No .so files"
+
+      - name: Test OCR functionality (CLI test)
+        run: |
+          echo "=== OCR CLI 功能测试 ==="
+
+          BUNDLE_DIR="build/linux/x64/release/bundle"
+          TEST_IMAGE="docs/assets/meme_example.jpg"
+
+          # 检查 tesseract CLI
+          echo "--- 检查 tesseract CLI ---"
+          if ! command -v tesseract &>/dev/null; then
+            echo "✗ tesseract CLI not found"
+            exit 1
+          fi
+          echo "✓ Found tesseract CLI"
+          tesseract --version
+
+          # 检查测试图片
+          if [ ! -f "$TEST_IMAGE" ]; then
+            echo "✗ Test image not found: $TEST_IMAGE"
+            exit 1
+          fi
+          echo "✓ Test image: $TEST_IMAGE"
+
+          # 运行 OCR
+          echo ""
+          echo "--- 运行 OCR ---"
+          OCR_RESULT=$(tesseract "$TEST_IMAGE" stdout -l chi_sim --psm 3 2>/dev/null | head -5)
+          if [ -n "$OCR_RESULT" ]; then
+            echo "✓ OCR 成功，输出前5行:"
+            echo "$OCR_RESULT"
+          else
+            echo "⚠ OCR 无输出（可能是图片无文字）"
+          fi
+
+          echo ""
+          echo "✓ OCR CLI 测试通过"
+
+      - name: Verify GPU library
+        run: |
+          LIB=build/linux/x64/release/bundle/lib/libmeme_llm.so
+          if [ -f "$LIB" ]; then
+            SIZE=$(stat -c%s "$LIB" | numfmt --to=iec)
+            echo "libmeme_llm.so size: $SIZE"
+            # 列出所有 ggml_* 后端符号，便于诊断
+            echo "=== ggml backend symbols ==="
+            nm "$LIB" 2>/dev/null | grep -oE "ggml_(vulkan|opencl|cuda|metal|cpu|backend)" | sort -u
+            if nm "$LIB" 2>/dev/null | grep -q ggml_vulkan; then
+              echo "✓ Vulkan backend built"
+            else
+              echo "✗ No Vulkan symbols - stub version built"
+            fi
+          elif [ -f build/linux/x64/release/bundle/lib/libmeme_llm_empty.so ]; then
+            echo "⚠ Only stub library built (no GPU support)"
+          else
+            echo "✗ No meme_llm library found"
+            exit 1
+          fi
+
+      - name: Package Linux artifact
+        run: |
+          cd build/linux/x64/release/bundle
+          zip -r mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip .
+          cd ../../../../..
+          mv build/linux/x64/release/bundle/mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip .
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mememaster-${{ env.VERSION }}-linux-x64-vulkan
+          path: mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip
+          retention-days: 7
+
   macos:
     runs-on: macos-latest
     steps:
@@ -41,11 +247,6 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Extract version
-        run: |
-          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
       - name: Init third-party (clone deps)
         run: |
           echo "=== Running init-third-party.sh ==="
@@ -64,12 +265,8 @@ jobs:
 
       - name: Pin llama.cpp version
         run: |
-          # 固定 llama.cpp 到已知可用的版本 (17a05e4)
-          # 原因: llama.cpp master 分支 API 变更移除了 use_mmap，导致编译失败
           cd third_party/llama.cpp
-          # 优先浅拉取指定 commit（快），失败再拉全量历史
-          git fetch --depth 1 origin 17a05e451fd175d1d82a1ee96b266338f6b07005 2>/dev/null \
-            || git fetch --unshallow 2>/dev/null || true
+          git fetch --unshallow 2>/dev/null || true
           git checkout 17a05e451fd175d1d82a1ee96b266338f6b07005
           echo "llama.cpp pinned to: $(git log --oneline -1)"
 
@@ -78,72 +275,45 @@ jobs:
         env:
           LLAMA_CPP_DIR: ${{ github.workspace }}/third_party/llama.cpp
 
-      - name: Cache Metal test models
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/mememaster-metal-test
-          key: metal-models-qwen3.5-0.8b-v1
-
-      - name: Run Metal inference smoke test
-        run: bash -x ./scripts/test-macos-metal.sh 2>&1
-        timeout-minutes: 45
-
-      - name: Upload Metal smoke test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-metal-smoke-test
-          path: build/macos-metal-results
-          retention-days: 14
-
-      - name: Package Metal smoke bundle
-        run: |
-          mkdir -p dist/metal-smoke
-          cp build/macos-llm/metal_smoke_test dist/metal-smoke/
-          if [ -f build/macos-llm/install/lib/libmeme_llm.dylib ]; then
-            cp build/macos-llm/install/lib/libmeme_llm.dylib dist/metal-smoke/
-          elif [ -f build/macos-llm/libmeme_llm.dylib ]; then
-            cp build/macos-llm/libmeme_llm.dylib dist/metal-smoke/
-          fi
-          cp scripts/test-macos-metal.sh dist/metal-smoke/
-          sed 's/^          //' > dist/metal-smoke/README.txt <<'EOF'
-          MemeMaster macOS Metal 冒烟测试包
-          =================================
-          
-          用途: 在真实 macOS 上复现/定位本地 LLM (Metal) 推理崩溃。
-          
-          用法（在 Mac 上打开终端，进入解压后的目录）:
-          
-            chmod +x test-macos-metal.sh
-            ./test-macos-metal.sh
-          
-          说明:
-            - 脚本会自动从 ModelScope 下载 Qwen3.5-0.8B 模型与 mmproj（约 700MB）
-              （HuggingFace 不可用时自动回退；SKIP_DOWNLOAD=1 可跳过下载）
-            - 依次运行 7 组对照实验（init/infer x CPU/GPU/flash_attn/kv_cache 组合），
-              每组独立进程，崩溃互不影响
-            - 结果写入 build/macos-metal-results/（可用 RESULTS_DIR 覆盖）:
-                每个 case 的完整日志 + 崩溃 backtrace (*.crash)
-                DiagnosticReports/ 收集的系统崩溃报告 (.ips)
-            - 请把整个结果目录压缩后发回给开发者分析
-          
-          常用环境变量:
-            MODEL_DIR=xxx         模型缓存目录（默认 ~/.cache/mememaster-metal-test）
-            HARNESS=/path/to/bin  手动指定 harness 路径
-            RESULTS_DIR=xxx       结果输出目录
-            SKIP_DOWNLOAD=1       跳过模型下载（模型已在 MODEL_DIR 时）
-          
-          需要 macOS（本包为 arm64 架构，适用于 Apple Silicon；Intel Mac 请另行本地构建）。
-          EOF
-          (cd dist && zip -r metal-smoke-bundle.zip metal-smoke >/dev/null)
-          ls -lh dist/metal-smoke-bundle.zip
-
-      - name: Upload Metal smoke bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-metal-smoke-bundle
-          path: dist/metal-smoke-bundle.zip
-          retention-days: 14
+      # ---- Metal 冒烟测试（默认关闭：需下载约 700MB 模型并跑推理，耗时长）----
+      # 需要时取消注释下方步骤，即可在 CI 上复现/定位 Metal 推理问题。
+      # 相关代码: macos/cpp/metal_smoke_test.cpp + scripts/test-macos-metal.sh
+      # - name: Cache Metal test models
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: ~/.cache/mememaster-metal-test
+      #     key: metal-models-qwen3.5-0.8b-v1
+      # - name: Run Metal inference smoke test
+      #   run: bash -x ./scripts/test-macos-metal.sh 2>&1
+      #   timeout-minutes: 45
+      # - name: Upload Metal smoke test results
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: macos-metal-smoke-test
+      #     path: build/macos-metal-results
+      #     retention-days: 14
+      # - name: Package Metal smoke bundle
+      #   run: |
+      #     mkdir -p dist/metal-smoke
+      #     cp build/macos-llm/metal_smoke_test dist/metal-smoke/
+      #     if [ -f build/macos-llm/install/lib/libmeme_llm.dylib ]; then
+      #       cp build/macos-llm/install/lib/libmeme_llm.dylib dist/metal-smoke/
+      #     elif [ -f build/macos-llm/libmeme_llm.dylib ]; then
+      #       cp build/macos-llm/libmeme_llm.dylib dist/metal-smoke/
+      #     fi
+      #     cp scripts/test-macos-metal.sh dist/metal-smoke/
+      #     sed 's/^          //' > dist/metal-smoke/README.txt <<'EOF'
+      # MemeMaster macOS Metal 冒烟测试包（CI 不执行，仅供实机复现崩溃用）
+      # EOF
+      #     (cd dist && zip -r metal-smoke-bundle.zip metal-smoke >/dev/null)
+      #     ls -lh dist/metal-smoke-bundle.zip
+      # - name: Upload Metal smoke bundle
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: macos-metal-smoke-bundle
+      #     path: dist/metal-smoke-bundle.zip
+      #     retention-days: 14
 
       - name: Build macOS
         run: flutter build macos --release
@@ -193,3 +363,526 @@ jobs:
           name: mememaster-${{ env.VERSION }}-macos-arm64-metal
           path: mememaster-${{ env.VERSION }}-macos-arm64-metal.zip
           retention-days: 7
+
+  android-vulkan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build unzip curl xz-utils
+      - name: Setup Flutter
+        run: |
+          FLUTTER_VERSION=3.44.0
+          if [ ! -d "$HOME/flutter" ]; then
+            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
+          fi
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Setup Android SDK and NDK
+        uses: android-actions/setup-android@v3
+
+      # Pre-fetch gradle distribution to avoid timeout during gradlew run
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Init third-party
+        run: ./scripts/init-third-party.sh || echo "⚠️ Network issues - building stub"
+
+      - name: Pin llama.cpp version
+        run: |
+          # 固定 llama.cpp 到已知可用的版本 (17a05e4)
+          # 原因: llama.cpp master 分支 API 变更移除了 use_mmap，导致编译失败
+          cd third_party/llama.cpp
+          git fetch --unshallow 2>/dev/null || true
+          git checkout 17a05e451fd175d1d82a1ee96b266338f6b07005
+          echo "llama.cpp pinned to: $(git log --oneline -1)"
+
+      - name: Debug SPIRV-Headers install
+        run: |
+          echo "=== third_party contents ==="
+          ls -la third_party/
+          echo ""
+          echo "=== spirv-headers-install ==="
+          ls -la third_party/spirv-headers-install/ 2>/dev/null || echo "NOT FOUND"
+          echo ""
+          echo "=== SPIRV-HeadersConfig.cmake ==="
+          find third_party -name "SPIRV-HeadersConfig.cmake" 2>/dev/null
+          find third_party -name "spirv-headers*" -type d 2>/dev/null
+          echo ""
+          echo "=== Manual SPIRV-Headers cmake (if needed) ==="
+          if [ ! -f third_party/spirv-headers-install/share/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake ]; then
+            echo "Running cmake manually to diagnose..."
+            cd third_party/SPIRV-Headers
+            mkdir -p build
+            cd build
+            cmake .. -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/third_party/spirv-headers-install" -DSPIRV_HEADERS_SKIP_EXAMPLES=ON 2>&1 | tail -20
+            echo "--- cmake build ---"
+            cmake --build . --target install 2>&1 | tail -30
+          fi
+
+      - name: Configure Gradle memory
+        run: |
+          mkdir -p android
+          echo "org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=512m" > android/gradle.properties
+           echo "org.gradle.parallel=true" >> android/gradle.properties
+           echo "android.useAndroidX=true" >> android/gradle.properties
+           echo "android.enableJetifier=false" >> android/gradle.properties
+
+      - name: Setup Android signing
+        run: |
+          # 如果有持久化的 keystore（从 secrets），直接使用
+          if [ -n "$ANDROID_KEYSTORE" ]; then
+            echo "Using keystore from secrets..."
+            # GitHub secrets 存储二进制时会 base64 编码
+            printf '%s' "$ANDROID_KEYSTORE" | base64 -d > android/app/release-keystore.jks
+            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=release-keystore.jks\n' "$ANDROID_STORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" > android/key.properties
+          else
+            # 没有 secrets 时生成临时 keystore（仅用于本地开发）
+            echo "Generating temporary keystore for local build..."
+            keytool -genkey -v -keystore android/app/release-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias mememaster -storepass mememaster -keypass mememaster -dname "CN=MemeMaster, OU=Development, O=MemeMaster, L=Shanghai, ST=Shanghai, C=CN"
+            printf 'storePassword=mememaster\nkeyPassword=mememaster\nkeyAlias=mememaster\nstoreFile=release-keystore.jks\n' > android/key.properties
+          fi
+          echo "=== key.properties ==="
+          cat android/key.properties
+          echo ""
+          echo "=== keystore file ==="
+          ls -la android/app/release-keystore.jks
+          echo ""
+          echo "=== pwd ==="
+          pwd
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+
+      - name: Build Android APK
+        run: |
+          flutter build apk --release 2>&1
+          echo "=== Build exit code: $? ==="
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          ANDROID_NDK: ${{ env.ANDROID_NDK }}
+          GRADLE_OPTS: "-Dorg.gradle.caching=false"
+
+      - name: Verify APK size
+        run: |
+          echo "=== Check flutter-apk ==="
+          ls -la build/app/outputs/flutter-apk/ 2>&1 || echo "No flutter-apk dir"
+          echo "=== Final check ==="
+          APK="build/app/outputs/flutter-apk/app-release.apk"
+          if [ -f "$APK" ]; then
+            SIZE=$(stat -c%s "$APK" | numfmt --to=iec)
+            echo "APK: $APK"
+            echo "Size: $SIZE"
+          else
+            echo "⚠ No APK found at $APK"
+            exit 1
+          fi
+
+      - name: Find and copy APK
+        run: |
+          # Flutter builds APK to build/app/outputs/flutter-apk/
+          # 直接复制正确路径，避免 find 选错文件
+          cp build/app/outputs/flutter-apk/app-release.apk ./android.apk
+          ls -la ./android.apk
+
+      - name: Rename Android artifact
+        run: mv android.apk mememaster-${{ env.VERSION }}-android-arm64-vulkan.apk
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mememaster-${{ env.VERSION }}-android-arm64-vulkan
+          path: mememaster-${{ env.VERSION }}-android-arm64-vulkan.apk
+          retention-days: 7
+
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Flutter
+        shell: pwsh
+        run: |
+          $flutterVersion = "${{ env.flutter-version }}"
+          $flutterPath = "$env:USERPROFILE\flutter"
+          if (-not (Test-Path $flutterPath)) {
+            Write-Host "Downloading Flutter $flutterVersion for Windows..."
+            $url = "https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_${flutterVersion}-stable.zip"
+            curl.exe -L $url -o "$env:TEMP\flutter.zip"
+            Expand-Archive -Path "$env:TEMP\flutter.zip" -DestinationPath "$env:USERPROFILE" -Force
+            Remove-Item "$env:TEMP\flutter.zip"
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value "$flutterPath\bin"
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Generate Windows runner files
+        shell: pwsh
+        run: |
+          # Remove incomplete windows directory (except cpp/ which has our native code)
+          Get-ChildItem windows | Where-Object { $_.Name -ne 'cpp' } | Remove-Item -Recurse -Force
+          # Generate fresh Windows runner files in current directory
+          flutter create --platforms=windows .
+
+      - name: Init third-party (Vulkan)
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "third_party\llama.cpp")) {
+            git clone --depth 1 https://github.com/ggml-org/llama.cpp.git third_party\llama.cpp
+          }
+          if (-not (Test-Path "third_party\spirv-headers-install")) {
+            git clone --depth 1 https://github.com/KhronosGroup/SPIRV-Headers.git third_party\SPIRV-Headers
+            mkdir -p third_party\spirv-headers-build
+            cmake -S third_party\SPIRV-Headers -B third_party\spirv-headers-build -DCMAKE_INSTALL_PREFIX="$env:GITHUB_WORKSPACE\third_party\spirv-headers-install" -DSPIRV_HEADERS_SKIP_EXAMPLES=ON -DSPIRV_HEADERS_SKIP_TESTS=ON
+            cmake --build third_party\spirv-headers-build --config Release
+            cmake --install third_party\spirv-headers-build --config Release
+          }
+
+      - name: Pin llama.cpp version
+        shell: pwsh
+        run: |
+          # 固定 llama.cpp 到已知可用的版本 (17a05e4)
+          # 原因: llama.cpp master 分支 API 变更移除了 use_mmap，导致编译失败
+          cd third_party\llama.cpp
+          git fetch --unshallow 2>$null
+          git checkout 17a05e451fd175d1d82a1ee96b266338f6b07005
+          Write-Host "llama.cpp pinned to: $(git log --oneline -1)"
+
+      - name: Download Vulkan SDK
+        shell: pwsh
+        run: |
+          $VULKAN_VERSION = "1.3.296.0"
+          $VULKAN_SDK_DIR = Join-Path $env:GITHUB_WORKSPACE "vulkan-sdk"
+
+          if (Test-Path $VULKAN_SDK_DIR) {
+            Write-Host "Vulkan SDK already exists at $VULKAN_SDK_DIR"
+          } else {
+            Write-Host "Downloading Vulkan SDK $VULKAN_VERSION..."
+            $INSTALLER_URL = "https://sdk.lunarg.com/sdk/download/$VULKAN_VERSION/windows/VulkanSDK-${VULKAN_VERSION}-Installer.exe"
+            $INSTALLER_PATH = Join-Path $env:TEMP "VulkanSDK-Installer.exe"
+
+            try {
+              Invoke-WebRequest -Uri $INSTALLER_URL -OutFile $INSTALLER_PATH -TimeoutSec 600
+              Write-Host "Downloaded Vulkan SDK installer ($([math]::Round((Get-Item $INSTALLER_PATH).Length / 1MB, 1)) MB)"
+
+              # 静默安装
+              Write-Host "Installing Vulkan SDK to $VULKAN_SDK_DIR..."
+              $proc = Start-Process -FilePath $INSTALLER_PATH -ArgumentList "/S" -PassThru -NoNewWindow
+              $proc.WaitForExit()
+              Write-Host "Installer exited with code: $($proc.ExitCode)"
+
+              # 查找安装位置 (安装程序会放到默认位置)
+              $DEFAULT_INSTALL_PATH = "C:\VulkanSDK\$VULKAN_VERSION"
+              if (Test-Path $DEFAULT_INSTALL_PATH) {
+                Write-Host "Vulkan SDK installed to default location: $DEFAULT_INSTALL_PATH"
+                # 复制到工作目录方便引用
+                Copy-Item $DEFAULT_INSTALL_PATH $VULKAN_SDK_DIR -Recurse -Force
+                Write-Host "Copied to $VULKAN_SDK_DIR"
+              }
+
+              # 验证
+              if (Test-Path "$VULKAN_SDK_DIR\Include\vulkan\vulkan.h") {
+                Write-Host "Vulkan SDK ready at $VULKAN_SDK_DIR"
+              } else {
+                Write-Host "WARNING: vulkan.h not found"
+                Write-Host "Vulkan SDK installation may have failed"
+              }
+            } catch {
+              Write-Host "WARNING: Failed to download/install Vulkan SDK: $_"
+            }
+          }
+
+          # 设置环境变量供后续步骤使用
+          if (Test-Path $VULKAN_SDK_DIR) {
+            Write-Host "VULKAN_SDK=$VULKAN_SDK_DIR"
+            Write-Host "##vso[task.setvariable variable=VULKAN_SDK]$VULKAN_SDK_DIR"
+          }
+        id: vulkan
+
+      - name: Download Tesseract DLLs
+        shell: pwsh
+        run: |
+          if (Test-Path "third_party\tesseract-dlls") {
+            Write-Host "Tesseract DLLs already exist, skipping download"
+            exit 0
+          }
+          Write-Host "Downloading Tesseract DLLs..."
+          $ErrorActionPreference = "Continue"
+          powershell -ExecutionPolicy Bypass -File ".\scripts\download-tesseract-dlls.ps1"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "WARNING: Failed to download Tesseract DLLs (exit code $LASTEXITCODE). OCR will use CLI fallback."
+          } else {
+            Write-Host "Tesseract DLLs downloaded successfully"
+          }
+          exit 0
+
+      - name: Build meme_llm.dll (Vulkan)
+        shell: pwsh
+        run: |
+          $VULKAN_SDK_DIR = Join-Path $env:GITHUB_WORKSPACE "vulkan-sdk"
+
+          # 设置 VULKAN_SDK 环境变量
+          if (Test-Path $VULKAN_SDK_DIR) {
+            Write-Host "Setting VULKAN_SDK=$VULKAN_SDK_DIR"
+            $env:VULKAN_SDK = $VULKAN_SDK_DIR
+          } else {
+            Write-Host "VULKAN_SDK not found, building CPU-only"
+          }
+
+          cmake -S windows/cpp -B build/windows-llm -DENABLE_VULKAN=ON -DENABLE_OPENCL=OFF -DENABLE_CUDA=OFF -DLLAMA_CPP_DIR="$env:GITHUB_WORKSPACE\third_party\llama.cpp" -DSPIRV_HEADERS_DIR="$env:GITHUB_WORKSPACE\third_party\spirv-headers-install"
+          cmake --build build/windows-llm --config Release
+
+      - name: Build Windows
+        shell: pwsh
+        run: flutter build windows --release
+
+      - name: Bundle native library
+        shell: pwsh
+        run: |
+          $FLUTTER_DIR = "build\windows\x64\runner\Release"
+          $DLL_SOURCE = "build\windows-llm\Release\meme_llm.dll"
+          if (Test-Path $DLL_SOURCE) {
+            Copy-Item $DLL_SOURCE -Destination $FLUTTER_DIR\ -Force
+            Write-Host "Copied meme_llm.dll to $FLUTTER_DIR"
+          }
+
+          # Copy Tesseract DLLs to bundle
+          $TESS_DLL_DIR = "third_party\tesseract-dlls"
+          if (Test-Path $TESS_DLL_DIR) {
+            Get-ChildItem "$TESS_DLL_DIR\*.dll" | ForEach-Object {
+              Copy-Item $_.FullName -Destination $FLUTTER_DIR\ -Force
+              Write-Host "Copied $($_.Name)"
+            }
+          }
+
+          # Copy tessdata to bundle
+          $TESSDATA_DIR = "$FLUTTER_DIR\tessdata"
+          if (Test-Path "$TESS_DLL_DIR\tesseract\tessdata") {
+            New-Item -ItemType Directory -Force -Path $TESSDATA_DIR | Out-Null
+            Copy-Item "$TESS_DLL_DIR\tesseract\tessdata\*" -Destination $TESSDATA_DIR\ -Force
+            Write-Host "Copied tessdata files"
+            Get-ChildItem $TESSDATA_DIR\*.traineddata | ForEach-Object { Write-Host "  $($_.Name)" }
+          } else {
+            # Download tessdata if not present (use curl.exe which follows redirects)
+            Write-Host "Downloading tessdata..."
+            New-Item -ItemType Directory -Force -Path $TESSDATA_DIR | Out-Null
+            $TESSDATA_URL = "https://raw.githubusercontent.com/tesseract-ocr/tessdata/main"
+            foreach ($lang in @("eng", "chi_sim")) {
+              $filePath = "$TESSDATA_DIR\${lang}.traineddata"
+              if (-not (Test-Path $filePath)) {
+                Write-Host "  Downloading ${lang}.traineddata..."
+                curl.exe -L "$TESSDATA_URL/${lang}.traineddata" -o $filePath --retry 3 --retry-delay 5
+              }
+            }
+          }
+
+          Get-ChildItem "$FLUTTER_DIR\*.dll" | ForEach-Object { Write-Host $_.Name }
+
+      - name: Verify DLL
+        shell: pwsh
+        run: |
+          $DLL = "build\windows\x64\runner\Release\meme_llm.dll"
+          if (Test-Path $DLL) {
+            $size = (Get-Item $DLL).Length / 1MB
+            Write-Host "meme_llm.dll size: $([math]::Round($size, 2)) MB"
+          } else {
+            Write-Host "No meme_llm.dll found - may be using stub"
+          }
+
+      - name: Verify Tesseract DLLs
+        shell: pwsh
+        run: |
+          $FLUTTER_DIR = "build\windows\x64\runner\Release"
+          $TESS_DLLS = Get-ChildItem "$FLUTTER_DIR\tesseract*.dll" -ErrorAction SilentlyContinue
+          $LEPT_DLLS = Get-ChildItem "$FLUTTER_DIR\leptonica*.dll" -ErrorAction SilentlyContinue
+          if ($TESS_DLLS) {
+            Write-Host "Tesseract DLLs found:"
+            $TESS_DLLS | ForEach-Object { Write-Host "  $($_.Name) ($(($_.Length / 1MB).ToString('0.00')) MB)" }
+          } else {
+            Write-Host "No Tesseract DLLs in bundle"
+          }
+          if ($LEPT_DLLS) {
+            Write-Host "Leptonica DLLs found:"
+            $LEPT_DLLS | ForEach-Object { Write-Host "  $($_.Name) ($(($_.Length / 1MB).ToString('0.00')) MB)" }
+          }
+
+      - name: Test OCR functionality (real FFI test)
+        shell: pwsh
+        run: |
+          echo "=== OCR FFI 功能测试 ==="
+
+          $WORKDIR = "$PWD"
+          $FLUTTER_DIR = Join-Path $WORKDIR "build\windows\x64\runner\Release"
+          $TEST_IMAGE = Join-Path $WORKDIR "docs\assets\meme_example.jpg"
+
+          # 检查文件
+          if (-not (Test-Path (Join-Path $FLUTTER_DIR "tesseract55.dll"))) {
+            Write-Host "tesseract55.dll not found in bundle"
+            exit 1
+          }
+          Write-Host "Found tesseract55.dll"
+
+          if (-not (Test-Path (Join-Path $FLUTTER_DIR "tessdata"))) {
+            Write-Host "tessdata directory not found"
+            exit 1
+          }
+          Write-Host "Found tessdata directory"
+
+          $chiSim = Get-ChildItem (Join-Path $FLUTTER_DIR "tessdata\chi_sim.traineddata") -ErrorAction SilentlyContinue
+          $eng = Get-ChildItem (Join-Path $FLUTTER_DIR "tessdata\eng.traineddata") -ErrorAction SilentlyContinue
+          Write-Host "chi_sim.traineddata: $(if ($chiSim) { 'ok' } else { 'missing' })"
+          Write-Host "eng.traineddata: $(if ($eng) { 'ok' } else { 'missing' })"
+
+          if (-not $chiSim -or -not $eng) {
+            Write-Host "Missing traineddata files"
+            exit 1
+          }
+
+          if (-not (Test-Path $TEST_IMAGE)) {
+            Write-Host "Test image not found: $TEST_IMAGE"
+            exit 1
+          }
+          Write-Host "Test image: $TEST_IMAGE"
+
+          # 安装 Dart SDK
+          Write-Host "Installing Dart SDK..."
+          if (-not (Test-Path "$env:USERPROFILE\dart-sdk")) {
+            $DART_VERSION = "3.5.0"
+            $DART_URL = "https://storage.googleapis.com/dart-archive/channels/stable/release/${DART_VERSION}/sdk/dartsdk-windows-x64-release.zip"
+            $DART_ZIP = "$env:TEMP\dart.zip"
+            curl.exe -L -sS $DART_URL -o $DART_ZIP
+            Expand-Archive -Path $DART_ZIP -DestinationPath $env:USERPROFILE -Force
+            Remove-Item $DART_ZIP -Force
+          }
+          $env:PATH = "$env:USERPROFILE\dart-sdk\bin;$env:PATH"
+          dart --version
+
+          # 创建独立测试项目
+          Write-Host "Creating test project..."
+          $TEST_DIR = "$env:TEMP\ocr_win_test"
+          if (Test-Path $TEST_DIR) { Remove-Item $TEST_DIR -Recurse -Force }
+          New-Item -ItemType Directory -Path $TEST_DIR -Force | Out-Null
+          Copy-Item (Join-Path $WORKDIR "scripts\test_win_ocr.dart") "$TEST_DIR\"
+
+          Get-ChildItem "$FLUTTER_DIR\*.dll" -ErrorAction SilentlyContinue | Copy-Item -Destination "$TEST_DIR\" -Force
+          Write-Host "Copying tessdata from $FLUTTER_DIR\tessdata..."
+          if (Test-Path (Join-Path $FLUTTER_DIR "tessdata")) {
+            Copy-Item (Join-Path $FLUTTER_DIR "tessdata") -Destination "$TEST_DIR\" -Recurse -Force
+            Write-Host "Tessdata copied successfully"
+          } else {
+            Write-Host "ERROR: tessdata directory not found at $FLUTTER_DIR\tessdata"
+            Get-ChildItem "$FLUTTER_DIR" -ErrorAction SilentlyContinue | Select-Object Name, Mode
+          }
+
+          $pubspecContent = "name: ocr_win_test`ndescription: Windows OCR FFI test`nversion: 1.0.0`nenvironment:`n  sdk: '>=3.0.0 <4.0.0'`ndependencies:`n  ffi: ^2.1.0`n  path: ^1.9.1`n"
+          Set-Content -Path "$TEST_DIR\pubspec.yaml" -Value $pubspecContent
+
+          Set-Location $TEST_DIR
+          dart pub get
+
+          # 将 DLL 目录添加到 PATH（SetDllDirectory 在 dart run 子进程中不生效）
+          $env:PATH = "$TEST_DIR;$env:PATH"
+          Write-Host "PATH updated with $TEST_DIR"
+          Get-ChildItem "$TEST_DIR\*.dll" | ForEach-Object { Write-Host "  DLL: $($_.Name)" }
+
+          Write-Host "Running OCR FFI test..."
+          dart run test_win_ocr.dart "$TEST_DIR" "$TEST_IMAGE" ""
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "OCR FFI test failed"
+            exit 1
+          }
+
+          Write-Host ""
+          Write-Host "OCR FFI test passed"
+
+      - name: Package Windows artifact
+        shell: pwsh
+        run: |
+          $BUNDLE = "build\windows\x64\runner\Release"
+          $VERSION = "${{ env.VERSION }}"
+          Compress-Archive -Path "$BUNDLE\*" -DestinationPath "mememaster-${VERSION}-windows-x64-vulkan.zip" -Force
+          Get-Item "mememaster-${VERSION}-windows-x64-vulkan.zip"
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mememaster-${{ env.VERSION }}-windows-x64-vulkan
+          path: mememaster-${{ env.VERSION }}-windows-x64-vulkan.zip
+          retention-days: 7
+
+  release:
+    needs: [linux, macos, android-vulkan, windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download Linux Vulkan
+        uses: actions/download-artifact@v4
+        with:
+          name: mememaster-${{ env.VERSION }}-linux-x64-vulkan
+          path: artifacts/linux-vulkan
+
+      - name: Download macOS Metal
+        uses: actions/download-artifact@v4
+        with:
+          name: mememaster-${{ env.VERSION }}-macos-arm64-metal
+          path: artifacts/macos-metal
+
+      - name: Download Android Vulkan
+        uses: actions/download-artifact@v4
+        with:
+          name: mememaster-${{ env.VERSION }}-android-arm64-vulkan
+          path: artifacts/android-vulkan
+
+      - name: Download Windows Vulkan
+        uses: actions/download-artifact@v4
+        with:
+          name: mememaster-${{ env.VERSION }}-windows-x64-vulkan
+          path: artifacts/windows-vulkan
+
+      - name: Debug artifacts structure
+        run: |
+          echo "=== Linux Vulkan bundle ==="
+          find artifacts/linux-vulkan -type f | head -10
+          echo "=== macOS Metal ==="
+          find artifacts/macos-metal -type f | head -10
+          echo "=== Android ==="
+          find artifacts/android* -type f | head -10
+          echo "=== Windows Vulkan ==="
+          find artifacts/windows-vulkan -type f | head -10
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          tag_name: ${{ github.ref_name }}
+          name: MemeMaster v${{ env.VERSION }}
+          body: "Release v${{ env.VERSION }}"
+          files: |
+            artifacts/linux-vulkan/mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip
+            artifacts/macos-metal/mememaster-${{ env.VERSION }}-macos-arm64-metal.zip
+            artifacts/android-vulkan/mememaster-${{ env.VERSION }}-android-arm64-vulkan.apk
+            artifacts/windows-vulkan/mememaster-${{ env.VERSION }}-windows-x64-vulkan.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
