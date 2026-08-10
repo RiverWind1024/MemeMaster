@@ -85,6 +85,13 @@ else()
     target_link_options(meme_llm PRIVATE -Wl,-soname,libmeme_llm.so.1)
 endif()
 
+# ===== Metal 冒烟测试可执行文件（仅 CI 用，验证 Metal 推理）=====
+add_executable(metal_smoke_test metal_smoke_test.cpp)
+target_link_libraries(metal_smoke_test PRIVATE meme_llm)
+if(APPLE)
+    set_target_properties(metal_smoke_test PROPERTIES BUILD_RPATH "@loader_path" INSTALL_RPATH "@loader_path")
+endif()
+
 # ===== 安装规则 =====
 install(TARGETS meme_llm LIBRARY DESTINATION lib COMPONENT runtime)
 install(FILES meme_llm.cpp DESTINATION include COMPONENT headers RENAME meme_llm.h)
