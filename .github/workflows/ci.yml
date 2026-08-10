@@ -96,6 +96,55 @@ jobs:
           path: build/macos-metal-results
           retention-days: 14
 
+      - name: Package Metal smoke bundle
+        run: |
+          mkdir -p dist/metal-smoke
+          cp build/macos-llm/metal_smoke_test dist/metal-smoke/
+          if [ -f build/macos-llm/install/lib/libmeme_llm.dylib ]; then
+            cp build/macos-llm/install/lib/libmeme_llm.dylib dist/metal-smoke/
+          elif [ -f build/macos-llm/libmeme_llm.dylib ]; then
+            cp build/macos-llm/libmeme_llm.dylib dist/metal-smoke/
+          fi
+          cp scripts/test-macos-metal.sh dist/metal-smoke/
+          cat > dist/metal-smoke/README.txt <<'EOF'
+MemeMaster macOS Metal 冒烟测试包
+=================================
+
+用途: 在真实 macOS 上复现/定位本地 LLM (Metal) 推理崩溃。
+
+用法（在 Mac 上打开终端，进入解压后的目录）:
+
+  chmod +x test-macos-metal.sh
+  ./test-macos-metal.sh
+
+说明:
+  - 脚本会自动从 ModelScope 下载 Qwen3.5-0.8B 模型与 mmproj（约 700MB）
+    （HuggingFace 不可用时自动回退；SKIP_DOWNLOAD=1 可跳过下载）
+  - 依次运行 7 组对照实验（init/infer x CPU/GPU/flash_attn/kv_cache 组合），
+    每组独立进程，崩溃互不影响
+  - 结果写入 build/macos-metal-results/（可用 RESULTS_DIR 覆盖）:
+      每个 case 的完整日志 + 崩溃 backtrace (*.crash)
+      DiagnosticReports/ 收集的系统崩溃报告 (.ips)
+  - 请把整个结果目录压缩后发回给开发者分析
+
+常用环境变量:
+  MODEL_DIR=xxx         模型缓存目录（默认 ~/.cache/mememaster-metal-test）
+  HARNESS=/path/to/bin  手动指定 harness 路径
+  RESULTS_DIR=xxx       结果输出目录
+  SKIP_DOWNLOAD=1       跳过模型下载（模型已在 MODEL_DIR 时）
+
+需要 macOS（本包为 arm64 架构，适用于 Apple Silicon；Intel Mac 请另行本地构建）。
+EOF
+          (cd dist && zip -r metal-smoke-bundle.zip metal-smoke >/dev/null)
+          ls -lh dist/metal-smoke-bundle.zip
+
+      - name: Upload Metal smoke bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-metal-smoke-bundle
+          path: dist/metal-smoke-bundle.zip
+          retention-days: 14
+
       - name: Build macOS
         run: flutter build macos --release
 

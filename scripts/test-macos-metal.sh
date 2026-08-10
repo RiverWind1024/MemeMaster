@@ -80,16 +80,23 @@ echo "=== Model files ==="
 ls -lh "$MODEL_PATH" "$MMPROJ_PATH"
 
 # 定位 harness 与 dylib
-HARNESS="${HARNESS:-$PROJECT_DIR/build/macos-llm/metal_smoke_test}"
+# 优先项目内构建产物；若 bundle 方式分发（脚本与 harness 同目录）则用同目录
+if [ -x "$PROJECT_DIR/build/macos-llm/metal_smoke_test" ]; then
+    HARNESS_DEFAULT="$PROJECT_DIR/build/macos-llm/metal_smoke_test"
+else
+    HARNESS_DEFAULT="$SCRIPT_DIR/metal_smoke_test"
+fi
+HARNESS="${HARNESS:-$HARNESS_DEFAULT}"
 if [ ! -x "$HARNESS" ]; then
     echo "✗ harness not found: $HARNESS"
-    echo "  请先运行 scripts/build-macos-llm.sh 构建（含 metal_smoke_test 目标）"
+    echo "  请先运行 scripts/build-macos-llm.sh 构建（含 metal_smoke_test 目标），"
+    echo "  或用 HARNESS=/path/to/metal_smoke_test 指定"
     exit 1
 fi
 HARNESS_DIR="$(cd "$(dirname "$HARNESS")" && pwd)"
-# dylib 可能在 install/lib 下，一并加入 DYLD_LIBRARY_PATH
+# dylib 可能在 harness 同目录、install/lib 或 bundle 的 ../lib 下，全部加入 DYLD_LIBRARY_PATH
 INSTALL_LIB="$PROJECT_DIR/build/macos-llm/install/lib"
-export DYLD_LIBRARY_PATH="$HARNESS_DIR${INSTALL_LIB:+/$INSTALL_LIB}"
+export DYLD_LIBRARY_PATH="$HARNESS_DIR${INSTALL_LIB:+:$INSTALL_LIB}"
 
 echo "=== Harness: $HARNESS ==="
 echo "=== DYLD_LIBRARY_PATH: $DYLD_LIBRARY_PATH ==="
