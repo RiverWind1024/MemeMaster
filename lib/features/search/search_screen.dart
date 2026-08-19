@@ -166,7 +166,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
               ),
               child: AppBar(
-                title: Text(s.search),
                 actions: [
                   if (_hasActiveFilters)
                     TextButton(onPressed: _clearAll, child: Text(s.reset)),
