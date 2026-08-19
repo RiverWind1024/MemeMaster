@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/theme/glass_container.dart';
 import 'features/gallery/gallery_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/settings/settings_screen.dart';
@@ -33,30 +34,36 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     final s = S.of(context);
     return Scaffold(
+      extendBody: true,
       body: IndexedStack(
         index: _currentTab,
         children: _tabs,
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentTab,
-        onDestinationSelected: (i) => setState(() => _currentTab = i),
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.photo_library_outlined),
-            selectedIcon: const Icon(Icons.photo_library),
-            label: s.tabGallery,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.search_outlined),
-            selectedIcon: const Icon(Icons.search),
-            label: s.tabSearch,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.settings_outlined),
-            selectedIcon: const Icon(Icons.settings),
-            label: s.tabSettings,
-          ),
-        ],
+      bottomNavigationBar: GlassContainer(
+        blur: 22,
+        borderRadius: 0,
+        padding: EdgeInsets.zero,
+        child: NavigationBar(
+          selectedIndex: _currentTab,
+          onDestinationSelected: (i) => setState(() => _currentTab = i),
+          destinations: [
+            NavigationDestination(
+              icon: const Icon(Icons.photo_library_outlined),
+              selectedIcon: const Icon(Icons.photo_library),
+              label: s.tabGallery,
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.search_outlined),
+              selectedIcon: const Icon(Icons.search),
+              label: s.tabSearch,
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.settings_outlined),
+              selectedIcon: const Icon(Icons.settings),
+              label: s.tabSettings,
+            ),
+          ],
+        ),
       ),
     );
   }

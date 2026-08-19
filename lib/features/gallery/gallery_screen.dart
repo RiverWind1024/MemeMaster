@@ -434,6 +434,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final allSelected = _selectedIds.length == memes.length && memes.isNotEmpty;
 
     return Container(
+      margin: const EdgeInsets.only(bottom: 68),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -609,7 +610,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
             ref.refresh(albumsProvider);
           },
           child: GridView.builder(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 84),
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 150,
           mainAxisSpacing: 4,
