@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/utils/color_utils.dart';
+import '../../core/theme/glass_container.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/clipboard_service.dart';
 import '../../services/search_service.dart';
@@ -146,77 +148,101 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final s = S.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(s.search),
-        actions: [
-          if (_hasActiveFilters)
-            TextButton(onPressed: _clearAll, child: Text(s.reset)),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: TextField(
-              controller: _queryController,
-              onChanged: _onSearchChanged,
-              decoration: InputDecoration(
-                hintText: s.searchHint,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _queryController.text.isNotEmpty
-                    ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _queryController.clear(); _onSearchChanged(''); })
-                    : null,
-                filled: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+      extendBodyBehindAppBar: true,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(56),
+        child: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : Colors.white.withValues(alpha: 0.7),
+                border: Border(
+                  bottom: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.1),
+                  ),
+                ),
+              ),
+              child: AppBar(
+                title: Text(s.search),
+                actions: [
+                  if (_hasActiveFilters)
+                    TextButton(onPressed: _clearAll, child: Text(s.reset)),
+                ],
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.palette_outlined, size: 18),
-                    const SizedBox(width: 6),
-                    Text(s.filterByColor, style: theme.textTheme.titleSmall),
-                    const Spacer(),
-                    if (_allColors.isNotEmpty)
-                      GestureDetector(
-                        onTap: () { setState(() { _selectedColorValues.clear(); _customColors.clear(); }); _triggerSearch(); },
-                        child: Text(s.clearFilter, style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.primary)),
-                      ),
-                  ],
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.only(top: 56),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: TextField(
+                controller: _queryController,
+                onChanged: _onSearchChanged,
+                decoration: InputDecoration(
+                  hintText: s.searchHint,
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _queryController.text.isNotEmpty
+                      ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _queryController.clear(); _onSearchChanged(''); })
+                      : null,
+                  filled: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 ),
-                const SizedBox(height: 8),
-                ColorPickerPalette(selectedValues: _selectedColorValues.toList(), onToggle: _onColorToggle, onCustom: _openCustomPicker),
-                if (_allColors.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6, runSpacing: 4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      ..._selectedColorValues.map((v) {
-                        final preset = kPresetColors(context).firstWhere((p) => p.value == v, orElse: () => PresetColor(label: '', value: v, rgb: _intToRgb(v)));
-                        return _ColorChip(label: preset.label, color: Color(v), onRemove: () => _removeColor(v));
-                      }),
-                      ..._customColors.asMap().entries.map((e) => _ColorChip(
-                        label: e.value.hex, color: Color.fromARGB(255, e.value.r, e.value.g, e.value.b), onRemove: () => _removeCustomColor(e.key),
-                      )),
+                      const Icon(Icons.palette_outlined, size: 18),
+                      const SizedBox(width: 6),
+                      Text(s.filterByColor, style: theme.textTheme.titleSmall),
+                      const Spacer(),
+                      if (_allColors.isNotEmpty)
+                        GestureDetector(
+                          onTap: () { setState(() { _selectedColorValues.clear(); _customColors.clear(); }); _triggerSearch(); },
+                          child: Text(s.clearFilter, style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.primary)),
+                        ),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  ColorPickerPalette(selectedValues: _selectedColorValues.toList(), onToggle: _onColorToggle, onCustom: _openCustomPicker),
+                  if (_allColors.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6, runSpacing: 4,
+                      children: [
+                        ..._selectedColorValues.map((v) {
+                          final preset = kPresetColors(context).firstWhere((p) => p.value == v, orElse: () => PresetColor(label: '', value: v, rgb: _intToRgb(v)));
+                          return _ColorChip(label: preset.label, color: Color(v), onRemove: () => _removeColor(v));
+                        }),
+                        ..._customColors.asMap().entries.map((e) => _ColorChip(
+                          label: e.value.hex, color: Color.fromARGB(255, e.value.r, e.value.g, e.value.b), onRemove: () => _removeCustomColor(e.key),
+                        )),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          if (_level != SearchLevel.browse)
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [Spacer(), _SearchLevelBadge(level: _level)])),
-          const SizedBox(height: 8),
-          Expanded(child: _buildResults(theme, colorScheme)),
-        ],
+            const SizedBox(height: 8),
+            if (_level != SearchLevel.browse)
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [Spacer(), _SearchLevelBadge(level: _level)])),
+            const SizedBox(height: 8),
+            Expanded(child: _buildResults(theme, colorScheme)),
+          ],
+        ),
       ),
     );
   }
@@ -253,7 +279,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [Text(s.foundResults(_results!.length), style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.outline))])),
       const SizedBox(height: 4),
       Expanded(child: GridView.builder(
-        padding: const EdgeInsets.all(4),
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 84),
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 150,
           mainAxisSpacing: 4,
