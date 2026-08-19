@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'features/gallery/gallery_provider.dart';
 import 'features/import/import_preview_sheet.dart';
+import 'core/theme/app_theme.dart';
 import 'router.dart';
 import 'services/log_service.dart';
 import 'services/shared_media_handler.dart';
@@ -271,20 +272,8 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
       ],
       supportedLocales: S.supportedLocales,
       locale: ref.watch(localeProvider),
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: buildLightTheme(),
+      darkTheme: buildDarkTheme(),
       themeMode: themeMode,
       routerConfig: router,
     );
