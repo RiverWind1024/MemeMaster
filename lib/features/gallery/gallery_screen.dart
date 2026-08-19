@@ -11,7 +11,6 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../core/database/database.dart';
-import '../../core/theme/app_animations.dart';
 import '../../services/clipboard_service.dart';
 import '../../services/file_storage_service.dart';
 import '../../services/import_service.dart';

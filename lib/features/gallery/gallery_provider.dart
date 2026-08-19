@@ -788,18 +788,16 @@ final modelManagerProvider = Provider<ModelManager>((ref) {
 // ---- 管线配置 ----
 
 class OcrEnabledNotifier extends Notifier<bool> {
-  OcrEnabledNotifier({bool Function()? platformCheck, bool Function()? ocrAvailableCheck})
-      : _platformCheck = platformCheck,
-        _ocrAvailableCheck = ocrAvailableCheck;
+  OcrEnabledNotifier({this.platformCheck, this.ocrAvailableCheck});
 
   /// 可注入的平台判断（测试用）；默认按真实 Platform 判断
-  final bool Function()? _platformCheck;
-  final bool Function()? _ocrAvailableCheck;
+  final bool Function()? platformCheck;
+  final bool Function()? ocrAvailableCheck;
 
   @override
   bool build() {
     // 注入的 OCR 可用性检查（测试用）：显式不可用时强制关闭
-    if (_ocrAvailableCheck?.call() == false) return false;
+    if (ocrAvailableCheck?.call() == false) return false;
 
     // 系统级 OCR 平台（macOS: Apple Vision / Android·iOS: Google ML Kit）：
     // OCR 始终可用，直接读取用户已保存的开关状态，默认开启
@@ -836,7 +834,7 @@ class OcrEnabledNotifier extends Notifier<bool> {
   /// 平台是否具备"系统级" OCR（无需额外安装即可使用）
   /// macOS: Apple Vision / Android·iOS: Google ML Kit
   bool _isSystemOcrPlatform() =>
-      _platformCheck?.call() ??
+      platformCheck?.call() ??
       (Platform.isMacOS || Platform.isAndroid || Platform.isIOS);
 
   bool? _getSavedEnabled() {
