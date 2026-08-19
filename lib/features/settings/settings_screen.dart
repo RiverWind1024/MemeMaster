@@ -325,9 +325,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final ocrEnabled = ref.watch(ocrEnabledProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(S.of(context).settings)),
+      appBar: AppBar(),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 84),
         children: [
           // 外观
           Text(S.of(context).appearance, style: theme.textTheme.titleSmall),
