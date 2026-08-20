@@ -29,6 +29,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   final Set<int> _selectedColorValues = {};
   final List<ColorRgb> _customColors = [];
+  bool _colorFilterExpanded = false;
 
   bool get _hasActiveFilters =>
       _queryController.text.trim().isNotEmpty || _selectedColorValues.isNotEmpty;
@@ -191,7 +192,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ),
       ),
       body: Padding(
-        padding: const EdgeInsets.only(top: 72),
+        padding: const EdgeInsets.only(top: 64),
         child: Column(
           children: [
             Padding(
@@ -199,35 +200,71 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.palette_outlined, size: 18),
-                      const SizedBox(width: 6),
-                      Text(s.filterByColor, style: theme.textTheme.titleSmall),
-                      const Spacer(),
-                      if (_allColors.isNotEmpty)
-                        GestureDetector(
-                          onTap: () { setState(() { _selectedColorValues.clear(); _customColors.clear(); }); _triggerSearch(); },
-                          child: Text(s.clearFilter, style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.primary)),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ColorPickerPalette(selectedValues: _selectedColorValues.toList(), onToggle: _onColorToggle, onCustom: _openCustomPicker),
-                  if (_allColors.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6, runSpacing: 4,
-                      children: [
-                        ..._selectedColorValues.map((v) {
-                          final preset = kPresetColors(context).firstWhere((p) => p.value == v, orElse: () => PresetColor(label: '', value: v, rgb: _intToRgb(v)));
-                          return _ColorChip(label: preset.label, color: Color(v), onRemove: () => _removeColor(v));
-                        }),
-                        ..._customColors.asMap().entries.map((e) => _ColorChip(
-                          label: e.value.hex, color: Color.fromARGB(255, e.value.r, e.value.g, e.value.b), onRemove: () => _removeCustomColor(e.key),
-                        )),
-                      ],
+                  InkWell(
+                    onTap: () => setState(
+                        () => _colorFilterExpanded = !_colorFilterExpanded),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.palette_outlined, size: 18),
+                          const SizedBox(width: 6),
+                          Text(s.filterByColor,
+                              style: theme.textTheme.titleSmall),
+                          if (_selectedColorValues.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Text('(${_selectedColorValues.length})',
+                                style: theme.textTheme.bodySmall
+                                    ?.copyWith(color: colorScheme.outline)),
+                          ],
+                          const SizedBox(width: 2),
+                          Icon(
+                            _colorFilterExpanded
+                                ? Icons.expand_less
+                                : Icons.expand_more,
+                            size: 18,
+                            color: colorScheme.outline,
+                          ),
+                          const Spacer(),
+                          if (_allColors.isNotEmpty)
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedColorValues.clear();
+                                  _customColors.clear();
+                                });
+                                _triggerSearch();
+                              },
+                              child: Text(s.clearFilter,
+                                  style: theme.textTheme.bodySmall
+                                      ?.copyWith(color: colorScheme.primary)),
+                            ),
+                        ],
+                      ),
                     ),
+                  ),
+                  if (_colorFilterExpanded) ...[
+                    const SizedBox(height: 8),
+                    ColorPickerPalette(
+                        selectedValues: _selectedColorValues.toList(),
+                        onToggle: _onColorToggle,
+                        onCustom: _openCustomPicker),
+                    if (_allColors.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6, runSpacing: 4,
+                        children: [
+                          ..._selectedColorValues.map((v) {
+                            final preset = kPresetColors(context).firstWhere((p) => p.value == v, orElse: () => PresetColor(label: '', value: v, rgb: _intToRgb(v)));
+                            return _ColorChip(label: preset.label, color: Color(v), onRemove: () => _removeColor(v));
+                          }),
+                          ..._customColors.asMap().entries.map((e) => _ColorChip(
+                            label: e.value.hex, color: Color.fromARGB(255, e.value.r, e.value.g, e.value.b), onRemove: () => _removeCustomColor(e.key),
+                          )),
+                        ],
+                      ),
+                    ],
                   ],
                 ],
               ),
