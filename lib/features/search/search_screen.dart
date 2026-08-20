@@ -149,7 +149,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(56),
+        preferredSize: const Size.fromHeight(64),
         child: ClipRect(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
@@ -165,6 +165,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
               ),
               child: AppBar(
+                titleSpacing: 16,
+                title: TextField(
+                  controller: _queryController,
+                  onChanged: _onSearchChanged,
+                  decoration: InputDecoration(
+                    hintText: s.searchHint,
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _queryController.text.isNotEmpty
+                        ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _queryController.clear(); _onSearchChanged(''); })
+                        : null,
+                    filled: true,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
+                  ),
+                ),
                 actions: [
                   if (_hasActiveFilters)
                     TextButton(onPressed: _clearAll, child: Text(s.reset)),
@@ -175,27 +191,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ),
       ),
       body: Padding(
-        padding: const EdgeInsets.only(top: 56),
+        padding: const EdgeInsets.only(top: 72),
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: TextField(
-                controller: _queryController,
-                onChanged: _onSearchChanged,
-                decoration: InputDecoration(
-                  hintText: s.searchHint,
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _queryController.text.isNotEmpty
-                      ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _queryController.clear(); _onSearchChanged(''); })
-                      : null,
-                  filled: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
