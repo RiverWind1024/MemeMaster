@@ -29,7 +29,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   final Set<int> _selectedColorValues = {};
   final List<ColorRgb> _customColors = [];
-  bool _colorFilterExpanded = false;
 
   bool get _hasActiveFilters =>
       _queryController.text.trim().isNotEmpty || _selectedColorValues.isNotEmpty;
@@ -132,6 +131,83 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     setState(() { _selectedColorValues.clear(); _customColors.clear(); _results = null; });
   }
 
+  /// 颜色筛选底部弹窗（入口在玻璃条内的调色板按钮）
+  void _showColorFilterSheet() {
+    final s = S.of(context);
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.palette_outlined, size: 18),
+                    const SizedBox(width: 6),
+                    Text(s.filterByColor, style: theme.textTheme.titleSmall),
+                    if (_selectedColorValues.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Text('(${_selectedColorValues.length + _customColors.length})',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: theme.colorScheme.outline)),
+                    ],
+                    const Spacer(),
+                    if (_allColors.isNotEmpty)
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedColorValues.clear();
+                            _customColors.clear();
+                          });
+                          setSheetState(() {});
+                          _triggerSearch();
+                        },
+                        child: Text(s.clearFilter,
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: theme.colorScheme.primary)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ColorPickerPalette(
+                  selectedValues: _selectedColorValues.toList(),
+                  onToggle: (v) {
+                    _onColorToggle(v);
+                    setSheetState(() {});
+                  },
+                  onCustom: () async {
+                    await _openCustomPicker();
+                    setSheetState(() {});
+                  },
+                ),
+                if (_allColors.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 6, runSpacing: 4,
+                    children: [
+                      ..._selectedColorValues.map((v) {
+                        final preset = kPresetColors(context).firstWhere((p) => p.value == v, orElse: () => PresetColor(label: '', value: v, rgb: _intToRgb(v)));
+                        return _ColorChip(label: preset.label, color: Color(v), onRemove: () { _removeColor(v); setSheetState(() {}); });
+                      }),
+                      ..._customColors.asMap().entries.map((e) => _ColorChip(
+                        label: e.value.hex, color: Color.fromARGB(255, e.value.r, e.value.g, e.value.b), onRemove: () { _removeCustomColor(e.key); setSheetState(() {}); },
+                      )),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // 当图库数据变更（导入/删除）时自动刷新搜索结果
@@ -183,9 +259,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ),
                 ),
                 actions: [
-                  if (_hasActiveFilters)
-                    TextButton(onPressed: _clearAll, child: Text(s.reset)),
-                ],
+                IconButton(
+                  onPressed: _showColorFilterSheet,
+                  tooltip: s.filterByColor,
+                  icon: Badge(
+                    isLabelVisible:
+                        _selectedColorValues.isNotEmpty ||
+                            _customColors.isNotEmpty,
+                    label: Text(
+                        '${_selectedColorValues.length + _customColors.length}'),
+                    child: const Icon(Icons.palette_outlined),
+                  ),
+                ),
+                if (_hasActiveFilters)
+                  TextButton(onPressed: _clearAll, child: Text(s.reset)),
+              ],
               ),
             ),
           ),
@@ -195,81 +283,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         padding: const EdgeInsets.only(top: 64),
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  InkWell(
-                    onTap: () => setState(
-                        () => _colorFilterExpanded = !_colorFilterExpanded),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.palette_outlined, size: 18),
-                          const SizedBox(width: 6),
-                          Text(s.filterByColor,
-                              style: theme.textTheme.titleSmall),
-                          if (_selectedColorValues.isNotEmpty) ...[
-                            const SizedBox(width: 6),
-                            Text('(${_selectedColorValues.length})',
-                                style: theme.textTheme.bodySmall
-                                    ?.copyWith(color: colorScheme.outline)),
-                          ],
-                          const SizedBox(width: 2),
-                          Icon(
-                            _colorFilterExpanded
-                                ? Icons.expand_less
-                                : Icons.expand_more,
-                            size: 18,
-                            color: colorScheme.outline,
-                          ),
-                          const Spacer(),
-                          if (_allColors.isNotEmpty)
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _selectedColorValues.clear();
-                                  _customColors.clear();
-                                });
-                                _triggerSearch();
-                              },
-                              child: Text(s.clearFilter,
-                                  style: theme.textTheme.bodySmall
-                                      ?.copyWith(color: colorScheme.primary)),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (_colorFilterExpanded) ...[
-                    const SizedBox(height: 8),
-                    ColorPickerPalette(
-                        selectedValues: _selectedColorValues.toList(),
-                        onToggle: _onColorToggle,
-                        onCustom: _openCustomPicker),
-                    if (_allColors.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6, runSpacing: 4,
-                        children: [
-                          ..._selectedColorValues.map((v) {
-                            final preset = kPresetColors(context).firstWhere((p) => p.value == v, orElse: () => PresetColor(label: '', value: v, rgb: _intToRgb(v)));
-                            return _ColorChip(label: preset.label, color: Color(v), onRemove: () => _removeColor(v));
-                          }),
-                          ..._customColors.asMap().entries.map((e) => _ColorChip(
-                            label: e.value.hex, color: Color.fromARGB(255, e.value.r, e.value.g, e.value.b), onRemove: () => _removeCustomColor(e.key),
-                          )),
-                        ],
-                      ),
-                    ],
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
             if (_level != SearchLevel.browse)
               Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [Spacer(), _SearchLevelBadge(level: _level)])),
             const SizedBox(height: 8),
