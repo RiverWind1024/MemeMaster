@@ -1214,7 +1214,6 @@ class ReindexStateNotifier extends StateNotifier<ReindexState> {
 
 final analysisProgressProvider = StreamProvider<AnalysisProgress>((ref) async* {
   while (true) {
-    await Future.delayed(const Duration(seconds: 3));
     final colorDao = ref.read(colorAnalysisQueueDaoProvider);
     final ocrDao = ref.read(ocrAnalysisQueueDaoProvider);
     final aiDao = ref.read(aiAnalysisQueueDaoProvider);
@@ -1238,6 +1237,8 @@ final analysisProgressProvider = StreamProvider<AnalysisProgress>((ref) async* {
     } catch (_) {
       yield const AnalysisProgress();
     }
+    // 先查询后等待：避免短任务在轮询间隙完成导致横幅永远不显示
+    await Future.delayed(const Duration(milliseconds: 800));
   }
 });
 

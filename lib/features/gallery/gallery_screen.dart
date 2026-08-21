@@ -308,6 +308,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                   ? _buildSelectionGrid(memeListAsync)
                   : _buildTabbedBody(memeListAsync, nonDefaultAlbums),
               bottomNavigationBar: _selectionMode ? _buildSelectionBottomBar() : null,
+              floatingActionButtonLocation:
+                  const _FabAboveNavBarLocation(),
               floatingActionButton: _selectionMode ? null : _buildFab(),
               // 点击页面内容也关闭径向菜单
               onDrawerChanged: (_) => _closeRadial(),
@@ -520,10 +522,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     if (_tabController == null) return const SizedBox();
 
     final children = <Widget>[
-      _buildMemeGrid(memeListAsync, topPadding: _appBarOverlayTop),
+      _buildMemeGrid(memeListAsync),
       ...nonDefaultAlbums.map((a) {
         final albumMemes = ref.watch(memesByAlbumProvider(a.id));
-        return _buildMemeGrid(albumMemes, topPadding: _appBarOverlayTop);
+        return _buildMemeGrid(albumMemes);
       }),
     ];
 
@@ -1192,6 +1194,18 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         );
       }
     }
+  }
+}
+
+/// 将 FAB 上移到毛玻璃底部导航栏上方（endFloat 默认会被 extendBody 的底栏遮挡）
+class _FabAboveNavBarLocation extends FloatingActionButtonLocation {
+  const _FabAboveNavBarLocation();
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    final base =
+        FloatingActionButtonLocation.endFloat.getOffset(scaffoldGeometry);
+    return Offset(base.dx, base.dy - 92);
   }
 }
 
