@@ -272,7 +272,7 @@ class _MemeDetailPageState extends ConsumerState<_MemeDetailPage> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      _StatusChip(status: widget.meme.colorAnalysisStatus),
+                      _StatusChip(memeId: widget.memeId),
                       const SizedBox(width: 16),
                       _OcrChip(memeId: widget.memeId),
                       const SizedBox(width: 16),
@@ -282,7 +282,8 @@ class _MemeDetailPageState extends ConsumerState<_MemeDetailPage> {
                 ),
                 const SizedBox(height: 16),
 
-                _InfoRow(label: S.of(context).fileName, value: widget.meme.filename),
+                // 名称行：显示自定义名称（未设置则显示文件名），点击可编辑
+                _NameRow(memeId: widget.memeId, meme: widget.meme),
                 _InfoRow(
                     label: S.of(context).dimensions,
                     value: '${widget.meme.width} × ${widget.meme.height}'),
@@ -342,61 +343,140 @@ class _MemeDetailPageState extends ConsumerState<_MemeDetailPage> {
   }
 }
 
-class _StatusChip extends StatelessWidget {
-  final String status;
+/// 主色调状态标签：以该图片的实际颜色结果为准（而非传入对象的过时状态字段）
+class _StatusChip extends ConsumerWidget {
+  final String memeId;
 
-  const _StatusChip({required this.status});
+  const _StatusChip({required this.memeId});
 
   @override
-  Widget build(BuildContext context) {
-    final (label, color, icon) = switch (status) {
-      'done' => (S.of(context).colorExtractionDone, Colors.green, Icons.check_circle_outline),
-      'processing' => (S.of(context).colorExtracting, Colors.orange, Icons.sync),
-      'failed' => (S.of(context).colorExtractionFailed, Colors.red, Icons.error_outline),
-      _ => (S.of(context).pendingColorExtraction, Colors.grey, Icons.hourglass_empty),
-    };
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repo = ref.read(memeRepositoryProvider);
 
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 6),
-        Text(label, style: TextStyle(color: color, fontSize: 13)),
-      ],
+    return FutureBuilder<List<ColorEntry>>(
+      future: repo.getColors(memeId),
+      builder: (context, snapshot) {
+        final hasColors = snapshot.hasData && snapshot.data!.isNotEmpty;
+        if (hasColors) {
+          return Row(children: [
+            Icon(Icons.check_circle_outline,
+                size: 16, color: Colors.green),
+            const SizedBox(width: 6),
+            Text(S.of(context).colorExtractionDone,
+                style: const TextStyle(color: Colors.green, fontSize: 13)),
+          ]);
+        }
+
+        // 无颜色数据：按最新状态显示（processing / failed / 待提取）
+        return FutureBuilder<Meme?>(
+          future: repo.getById(memeId),
+          builder: (context, memeSnapshot) {
+            final status =
+                memeSnapshot.data?.colorAnalysisStatus ?? 'pending';
+            final (label, color, icon) = switch (status) {
+              'processing' => (
+                  S.of(context).colorExtracting,
+                  Colors.orange,
+                  Icons.sync
+                ),
+              'failed' => (
+                  S.of(context).colorExtractionFailed,
+                  Colors.red,
+                  Icons.error_outline
+                ),
+              _ => (
+                  S.of(context).pendingColorExtraction,
+                  Colors.grey,
+                  Icons.hourglass_empty
+                ),
+            };
+
+            return Row(children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(label, style: TextStyle(color: color, fontSize: 13)),
+            ]);
+          },
+        );
+      },
     );
   }
 }
 
-/// OCR 状态指示（单独一行）
+/// OCR 状态标签：以该图片是否已有 OCR 识别结果为准，其次才看开关
 class _OcrChip extends ConsumerWidget {
   final String memeId;
   const _OcrChip({required this.memeId});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final enabled = ref.watch(ocrEnabledProvider);
-    return Row(children: [
-      Icon(Icons.text_fields, size: 14, color: enabled ? Colors.blue : Colors.grey),
-      const SizedBox(width: 6),
-      Text(enabled ? S.of(context).ocrEnabled : S.of(context).ocrDisabled,
-          style: TextStyle(fontSize: 13, color: enabled ? Colors.blue : Colors.grey)),
-    ]);
+    final repo = ref.read(memeRepositoryProvider);
+
+    return FutureBuilder<List<TagEntry>>(
+      future: repo.getTags(memeId),
+      builder: (context, snapshot) {
+        final hasResult =
+            snapshot.data?.any((t) => t.source == 'ocr') ?? false;
+        if (hasResult) {
+          return Row(children: [
+            const Icon(Icons.text_fields, size: 14, color: Colors.blue),
+            const SizedBox(width: 6),
+            Text(S.of(context).ocrRecognized,
+                style: const TextStyle(fontSize: 13, color: Colors.blue)),
+          ]);
+        }
+
+        // 无结果：开关开启 → 待识别；关闭 → 未开启
+        final enabled = ref.watch(ocrEnabledProvider);
+        final (label, color, icon) = enabled
+            ? (S.of(context).pendingOcrRecognition, Colors.orange,
+                Icons.hourglass_empty)
+            : (S.of(context).ocrDisabled, Colors.grey, Icons.text_fields);
+        return Row(children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 13, color: color)),
+        ]);
+      },
+    );
   }
 }
 
-/// AI 识别状态指示（单独一行）
+/// AI 识别状态标签：以该图片是否已有 AI 识别结果为准，其次才看服务可用性
 class _AiChip extends ConsumerWidget {
   final String memeId;
   const _AiChip({required this.memeId});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 检查 AI 是否真正可用（而不仅仅是手动开关）
-    final llmService = ref.watch(llmServiceProvider);
-    final aiAvailable = llmService != null && llmService.isAvailable;
-    return Row(children: [
-      Icon(Icons.auto_awesome, size: 14, color: aiAvailable ? Colors.purple : Colors.grey),
-      const SizedBox(width: 6),
-      Text(aiAvailable ? S.of(context).aiEnabled : S.of(context).aiDisabled,
-          style: TextStyle(fontSize: 13, color: aiAvailable ? Colors.purple : Colors.grey)),
-    ]);
+    final repo = ref.read(memeRepositoryProvider);
+
+    return FutureBuilder<List<TagEntry>>(
+      future: repo.getTags(memeId),
+      builder: (context, snapshot) {
+        final hasResult =
+            snapshot.data?.any((t) => t.source == 'llm') ?? false;
+        if (hasResult) {
+          return Row(children: [
+            const Icon(Icons.auto_awesome, size: 14, color: Colors.purple),
+            const SizedBox(width: 6),
+            Text(S.of(context).aiRecognized,
+                style: const TextStyle(fontSize: 13, color: Colors.purple)),
+          ]);
+        }
+
+        // 无结果：AI 可用 → 待识别；不可用 → 未开启
+        final llmService = ref.watch(llmServiceProvider);
+        final aiAvailable = llmService != null && llmService.isAvailable;
+        final (label, color, icon) = aiAvailable
+            ? (S.of(context).pendingAiRecognition, Colors.orange,
+                Icons.hourglass_empty)
+            : (S.of(context).aiDisabled, Colors.grey, Icons.auto_awesome);
+        return Row(children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 13, color: color)),
+        ]);
+      },
+    );
   }
 }
 
@@ -421,6 +501,82 @@ class _InfoRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+}
+
+/// 名称行：优先显示自定义名称（未设置则显示文件名），点击弹出编辑对话框
+class _NameRow extends ConsumerStatefulWidget {
+  final String memeId;
+  final Meme meme;
+
+  const _NameRow({required this.memeId, required this.meme});
+
+  @override
+  ConsumerState<_NameRow> createState() => _NameRowState();
+}
+
+class _NameRowState extends ConsumerState<_NameRow> {
+  late String? _customName = widget.meme.customName;
+
+  Future<void> _editName() async {
+    final controller = TextEditingController(text: _customName ?? '');
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(S.of(ctx).editCustomName),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: S.of(ctx).editCustomNameHint,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(S.of(ctx).cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: Text(S.of(ctx).save),
+          ),
+        ],
+      ),
+    );
+    if (name == null) return; // 用户取消
+
+    final trimmed = name.trim();
+    final value = trimmed.isEmpty ? null : trimmed;
+    await ref.read(memeRepositoryProvider).updateCustomName(widget.memeId, value);
+    if (mounted) setState(() => _customName = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 60,
+            child: Text(S.of(context).customName,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                )),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(_customName ?? widget.meme.filename)),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: _editName,
+            child: Icon(Icons.edit,
+                size: 16, color: theme.colorScheme.outline),
+          ),
         ],
       ),
     );

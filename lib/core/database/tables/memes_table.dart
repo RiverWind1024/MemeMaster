@@ -5,6 +5,9 @@ class MemesTable extends Table {
   TextColumn get id => text()();
   TextColumn get filename => text()();
   TextColumn get filePath => text()();
+
+  /// 用户自定义名称（用于搜索与展示），null 表示未设置
+  TextColumn? get customName => text().nullable()();
   IntColumn get fileSize => integer()();
   TextColumn get mimeType => text()();
   IntColumn get width => integer()();

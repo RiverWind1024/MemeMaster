@@ -40,6 +40,17 @@ class $MemesTableTable extends MemesTable
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _customNameMeta = const VerificationMeta(
+    'customName',
+  );
+  @override
+  late final GeneratedColumn<String> customName = GeneratedColumn<String>(
+    'custom_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _fileSizeMeta = const VerificationMeta(
     'fileSize',
   );
@@ -232,6 +243,7 @@ class $MemesTableTable extends MemesTable
     id,
     filename,
     filePath,
+    customName,
     fileSize,
     mimeType,
     width,
@@ -282,6 +294,12 @@ class $MemesTableTable extends MemesTable
       );
     } else if (isInserting) {
       context.missing(_filePathMeta);
+    }
+    if (data.containsKey('custom_name')) {
+      context.handle(
+        _customNameMeta,
+        customName.isAcceptableOrUnknown(data['custom_name']!, _customNameMeta),
+      );
     }
     if (data.containsKey('file_size')) {
       context.handle(
@@ -437,6 +455,10 @@ class $MemesTableTable extends MemesTable
         DriftSqlType.string,
         data['${effectivePrefix}file_path'],
       )!,
+      customName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_name'],
+      ),
       fileSize: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}file_size'],
@@ -518,6 +540,9 @@ class Meme extends DataClass implements Insertable<Meme> {
   final String id;
   final String filename;
   final String filePath;
+
+  /// 用户自定义名称（用于搜索与展示），null 表示未设置
+  final String? customName;
   final int fileSize;
   final String mimeType;
   final int width;
@@ -553,6 +578,7 @@ class Meme extends DataClass implements Insertable<Meme> {
     required this.id,
     required this.filename,
     required this.filePath,
+    this.customName,
     required this.fileSize,
     required this.mimeType,
     required this.width,
@@ -577,6 +603,9 @@ class Meme extends DataClass implements Insertable<Meme> {
     map['id'] = Variable<String>(id);
     map['filename'] = Variable<String>(filename);
     map['file_path'] = Variable<String>(filePath);
+    if (!nullToAbsent || customName != null) {
+      map['custom_name'] = Variable<String>(customName);
+    }
     map['file_size'] = Variable<int>(fileSize);
     map['mime_type'] = Variable<String>(mimeType);
     map['width'] = Variable<int>(width);
@@ -610,6 +639,9 @@ class Meme extends DataClass implements Insertable<Meme> {
       id: Value(id),
       filename: Value(filename),
       filePath: Value(filePath),
+      customName: customName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(customName),
       fileSize: Value(fileSize),
       mimeType: Value(mimeType),
       width: Value(width),
@@ -647,6 +679,7 @@ class Meme extends DataClass implements Insertable<Meme> {
       id: serializer.fromJson<String>(json['id']),
       filename: serializer.fromJson<String>(json['filename']),
       filePath: serializer.fromJson<String>(json['filePath']),
+      customName: serializer.fromJson<String?>(json['customName']),
       fileSize: serializer.fromJson<int>(json['fileSize']),
       mimeType: serializer.fromJson<String>(json['mimeType']),
       width: serializer.fromJson<int>(json['width']),
@@ -675,6 +708,7 @@ class Meme extends DataClass implements Insertable<Meme> {
       'id': serializer.toJson<String>(id),
       'filename': serializer.toJson<String>(filename),
       'filePath': serializer.toJson<String>(filePath),
+      'customName': serializer.toJson<String?>(customName),
       'fileSize': serializer.toJson<int>(fileSize),
       'mimeType': serializer.toJson<String>(mimeType),
       'width': serializer.toJson<int>(width),
@@ -699,6 +733,7 @@ class Meme extends DataClass implements Insertable<Meme> {
     String? id,
     String? filename,
     String? filePath,
+    Value<String?> customName = const Value.absent(),
     int? fileSize,
     String? mimeType,
     int? width,
@@ -720,6 +755,7 @@ class Meme extends DataClass implements Insertable<Meme> {
     id: id ?? this.id,
     filename: filename ?? this.filename,
     filePath: filePath ?? this.filePath,
+    customName: customName.present ? customName.value : this.customName,
     fileSize: fileSize ?? this.fileSize,
     mimeType: mimeType ?? this.mimeType,
     width: width ?? this.width,
@@ -743,6 +779,9 @@ class Meme extends DataClass implements Insertable<Meme> {
       id: data.id.present ? data.id.value : this.id,
       filename: data.filename.present ? data.filename.value : this.filename,
       filePath: data.filePath.present ? data.filePath.value : this.filePath,
+      customName: data.customName.present
+          ? data.customName.value
+          : this.customName,
       fileSize: data.fileSize.present ? data.fileSize.value : this.fileSize,
       mimeType: data.mimeType.present ? data.mimeType.value : this.mimeType,
       width: data.width.present ? data.width.value : this.width,
@@ -781,6 +820,7 @@ class Meme extends DataClass implements Insertable<Meme> {
           ..write('id: $id, ')
           ..write('filename: $filename, ')
           ..write('filePath: $filePath, ')
+          ..write('customName: $customName, ')
           ..write('fileSize: $fileSize, ')
           ..write('mimeType: $mimeType, ')
           ..write('width: $width, ')
@@ -803,10 +843,11 @@ class Meme extends DataClass implements Insertable<Meme> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     filename,
     filePath,
+    customName,
     fileSize,
     mimeType,
     width,
@@ -824,7 +865,7 @@ class Meme extends DataClass implements Insertable<Meme> {
     copyCount,
     source,
     deletedAt,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -832,6 +873,7 @@ class Meme extends DataClass implements Insertable<Meme> {
           other.id == this.id &&
           other.filename == this.filename &&
           other.filePath == this.filePath &&
+          other.customName == this.customName &&
           other.fileSize == this.fileSize &&
           other.mimeType == this.mimeType &&
           other.width == this.width &&
@@ -855,6 +897,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
   final Value<String> id;
   final Value<String> filename;
   final Value<String> filePath;
+  final Value<String?> customName;
   final Value<int> fileSize;
   final Value<String> mimeType;
   final Value<int> width;
@@ -877,6 +920,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     this.id = const Value.absent(),
     this.filename = const Value.absent(),
     this.filePath = const Value.absent(),
+    this.customName = const Value.absent(),
     this.fileSize = const Value.absent(),
     this.mimeType = const Value.absent(),
     this.width = const Value.absent(),
@@ -900,6 +944,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     required String id,
     required String filename,
     required String filePath,
+    this.customName = const Value.absent(),
     required int fileSize,
     required String mimeType,
     required int width,
@@ -933,6 +978,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     Expression<String>? id,
     Expression<String>? filename,
     Expression<String>? filePath,
+    Expression<String>? customName,
     Expression<int>? fileSize,
     Expression<String>? mimeType,
     Expression<int>? width,
@@ -956,6 +1002,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
       if (id != null) 'id': id,
       if (filename != null) 'filename': filename,
       if (filePath != null) 'file_path': filePath,
+      if (customName != null) 'custom_name': customName,
       if (fileSize != null) 'file_size': fileSize,
       if (mimeType != null) 'mime_type': mimeType,
       if (width != null) 'width': width,
@@ -982,6 +1029,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     Value<String>? id,
     Value<String>? filename,
     Value<String>? filePath,
+    Value<String?>? customName,
     Value<int>? fileSize,
     Value<String>? mimeType,
     Value<int>? width,
@@ -1005,6 +1053,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
       id: id ?? this.id,
       filename: filename ?? this.filename,
       filePath: filePath ?? this.filePath,
+      customName: customName ?? this.customName,
       fileSize: fileSize ?? this.fileSize,
       mimeType: mimeType ?? this.mimeType,
       width: width ?? this.width,
@@ -1037,6 +1086,9 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
     }
     if (filePath.present) {
       map['file_path'] = Variable<String>(filePath.value);
+    }
+    if (customName.present) {
+      map['custom_name'] = Variable<String>(customName.value);
     }
     if (fileSize.present) {
       map['file_size'] = Variable<int>(fileSize.value);
@@ -1103,6 +1155,7 @@ class MemesTableCompanion extends UpdateCompanion<Meme> {
           ..write('id: $id, ')
           ..write('filename: $filename, ')
           ..write('filePath: $filePath, ')
+          ..write('customName: $customName, ')
           ..write('fileSize: $fileSize, ')
           ..write('mimeType: $mimeType, ')
           ..write('width: $width, ')
@@ -5905,6 +5958,7 @@ typedef $$MemesTableTableCreateCompanionBuilder =
       required String id,
       required String filename,
       required String filePath,
+      Value<String?> customName,
       required int fileSize,
       required String mimeType,
       required int width,
@@ -5929,6 +5983,7 @@ typedef $$MemesTableTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> filename,
       Value<String> filePath,
+      Value<String?> customName,
       Value<int> fileSize,
       Value<String> mimeType,
       Value<int> width,
@@ -6142,6 +6197,11 @@ class $$MemesTableTableFilterComposer
 
   ColumnFilters<String> get filePath => $composableBuilder(
     column: $table.filePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customName => $composableBuilder(
+    column: $table.customName,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6432,6 +6492,11 @@ class $$MemesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get customName => $composableBuilder(
+    column: $table.customName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get fileSize => $composableBuilder(
     column: $table.fileSize,
     builder: (column) => ColumnOrderings(column),
@@ -6535,6 +6600,11 @@ class $$MemesTableTableAnnotationComposer
 
   GeneratedColumn<String> get filePath =>
       $composableBuilder(column: $table.filePath, builder: (column) => column);
+
+  GeneratedColumn<String> get customName => $composableBuilder(
+    column: $table.customName,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get fileSize =>
       $composableBuilder(column: $table.fileSize, builder: (column) => column);
@@ -6819,6 +6889,7 @@ class $$MemesTableTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> filename = const Value.absent(),
                 Value<String> filePath = const Value.absent(),
+                Value<String?> customName = const Value.absent(),
                 Value<int> fileSize = const Value.absent(),
                 Value<String> mimeType = const Value.absent(),
                 Value<int> width = const Value.absent(),
@@ -6841,6 +6912,7 @@ class $$MemesTableTableTableManager
                 id: id,
                 filename: filename,
                 filePath: filePath,
+                customName: customName,
                 fileSize: fileSize,
                 mimeType: mimeType,
                 width: width,
@@ -6865,6 +6937,7 @@ class $$MemesTableTableTableManager
                 required String id,
                 required String filename,
                 required String filePath,
+                Value<String?> customName = const Value.absent(),
                 required int fileSize,
                 required String mimeType,
                 required int width,
@@ -6887,6 +6960,7 @@ class $$MemesTableTableTableManager
                 id: id,
                 filename: filename,
                 filePath: filePath,
+                customName: customName,
                 fileSize: fileSize,
                 mimeType: mimeType,
                 width: width,

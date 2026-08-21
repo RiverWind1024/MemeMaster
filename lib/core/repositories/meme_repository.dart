@@ -50,6 +50,9 @@ class MemeRepository {
   Future<List<Meme>> searchByFilename(String keyword) =>
       _memeDao.searchByFilename(keyword);
 
+  Future<void> updateCustomName(String id, String? name) =>
+      _memeDao.updateCustomName(id, name);
+
   Future<List<Meme>> searchByKeyword(String keyword) =>
       _memeDao.searchByKeyword(keyword);
 

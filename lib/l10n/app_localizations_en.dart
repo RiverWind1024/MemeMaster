@@ -745,6 +745,37 @@ class SEn extends S {
   String get aiDisabled => 'AI Disabled';
 
   @override
+  String get ocrRecognized => 'OCR';
+
+  @override
+  String get pendingOcrRecognition => 'Pending OCR';
+
+  @override
+  String get aiRecognized => 'AI';
+
+  @override
+  String get pendingAiRecognition => 'Pending AI';
+
+  @override
+  String get exitAppTitle => 'Exit App';
+
+  @override
+  String get exitAppMessage => 'Are you sure you want to exit MemeMaster?';
+
+  @override
+  String get exitApp => 'Exit';
+
+  @override
+  String get customName => 'Custom Name';
+
+  @override
+  String get editCustomName => 'Edit Name';
+
+  @override
+  String get editCustomNameHint =>
+      'Enter a custom name, leave empty to reset to filename';
+
+  @override
   String get dominantColors => 'Dominant Colors';
 
   @override

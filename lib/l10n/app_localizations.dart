@@ -1405,6 +1405,66 @@ abstract class S {
   /// **'未开启 AI 识别'**
   String get aiDisabled;
 
+  /// No description provided for @ocrRecognized.
+  ///
+  /// In zh, this message translates to:
+  /// **'OCR识别'**
+  String get ocrRecognized;
+
+  /// No description provided for @pendingOcrRecognition.
+  ///
+  /// In zh, this message translates to:
+  /// **'待OCR识别'**
+  String get pendingOcrRecognition;
+
+  /// No description provided for @aiRecognized.
+  ///
+  /// In zh, this message translates to:
+  /// **'AI识别'**
+  String get aiRecognized;
+
+  /// No description provided for @pendingAiRecognition.
+  ///
+  /// In zh, this message translates to:
+  /// **'待AI识别'**
+  String get pendingAiRecognition;
+
+  /// No description provided for @exitAppTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出应用'**
+  String get exitAppTitle;
+
+  /// No description provided for @exitAppMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要退出 MemeMaster 吗？'**
+  String get exitAppMessage;
+
+  /// No description provided for @exitApp.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出'**
+  String get exitApp;
+
+  /// No description provided for @customName.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义名称'**
+  String get customName;
+
+  /// No description provided for @editCustomName.
+  ///
+  /// In zh, this message translates to:
+  /// **'修改名称'**
+  String get editCustomName;
+
+  /// No description provided for @editCustomNameHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入自定义名称，留空恢复为文件名'**
+  String get editCustomNameHint;
+
   /// No description provided for @dominantColors.
   ///
   /// In zh, this message translates to:
