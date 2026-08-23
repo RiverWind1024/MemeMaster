@@ -25,6 +25,7 @@ import '../../services/file_storage_service.dart';
 import '../../core/ocr/tesseract_bindings.dart';
 import '../../services/log_service.dart';
 import '../../services/s3_config.dart';
+import '../../services/s3_secret_store.dart';
 import '../../services/s3_sync_service.dart';
 import '../../services/s3_sync_serializer.dart';
 import '../../services/import_service.dart';
@@ -933,6 +934,7 @@ final s3SyncServiceProvider = Provider<S3SyncService>((ref) {
       albumRepo: ref.read(albumRepositoryProvider),
       db: db,
     ),
+    secretStore: const FlutterSecureStorageS3SecretStore(),
     db: db,
     log: ref.read(logServiceProvider),
   );
