@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
 import 'app.dart';
 import 'core/llm/local_service.dart';
@@ -16,6 +17,11 @@ void main() async {
 
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('[Startup] ensureInitialized: ${DateTime.now().difference(t0).inMilliseconds}ms');
+
+  // Android 旧版本 SQLite 兼容处理（需在打开数据库前调用）
+  if (Platform.isAndroid) {
+    await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
+  }
 
   // 在所有 Provider 之前初始化 SharedPreferences
   final prefs = await SharedPreferences.getInstance();
@@ -50,7 +56,11 @@ void main() async {
 
   debugPrint('[Startup] runApp: ${DateTime.now().difference(t0).inMilliseconds}ms');
 
-  runApp(MemeManagerApp(prefs: prefs, storageDir: modelsDir.path));
+  runApp(MemeManagerApp(
+    prefs: prefs,
+    storageDir: modelsDir.path,
+    databasePath: '${docsDir.path}/meme_helper.db',
+  ));
 }
 
 /// 处理原生侧（macOS AppDelegate）的生命周期回调。

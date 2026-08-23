@@ -39,9 +39,14 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 
 // ---- Database ----
 
+/// 数据库文件路径，由 main.dart 在 app 启动时注入（仿照 [storageDirProvider]）
+final databasePathProvider = Provider<String>((ref) {
+  throw UnimplementedError('databasePathProvider 需要在 main.dart 中覆盖');
+});
+
 final databaseProvider = Provider<AppDatabase>((ref) {
   final t0 = DateTime.now();
-  final db = AppDatabase();
+  final db = AppDatabase.open(ref.read(databasePathProvider));
   debugPrint('[Startup] AppDatabase created: ${DateTime.now().difference(t0).inMilliseconds}ms');
   return db;
 });
