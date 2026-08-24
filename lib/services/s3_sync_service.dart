@@ -41,6 +41,9 @@ class S3SyncService {
   bool _syncInProgress = false;
   Timer? _periodicTimer;
 
+  /// 清空密码在 S3SecretStore 中的键名
+  static const clearPasswordKey = 's3_clear_password';
+
   S3SyncService({
     required MemeRepository memeRepo,
     required AlbumRepository albumRepo,
@@ -280,7 +283,7 @@ class S3SyncService {
 
   /// 删除 S3 bucket 中所有对象并重置同步状态
   Future<void> clearAllData({required String password}) async {
-    final storedPw = await _secretStore.read('s3_clear_password');
+    final storedPw = await _secretStore.read(clearPasswordKey);
     if (storedPw == null || storedPw != password) {
       throw ArgumentError('清空密码验证失败，请检查密码是否正确');
     }
@@ -306,14 +309,14 @@ class S3SyncService {
 
   /// 设置清空操作的密码
   Future<void> setClearPassword(String password) async {
-    await _secretStore.write('s3_clear_password', password);
+    await _secretStore.write(clearPasswordKey, password);
   }
 
   // ---- 清空密码管理 ----
 
   /// 检查是否已设置清空密码
   Future<bool> hasClearPassword() async {
-    final pw = await _secretStore.read('s3_clear_password');
+    final pw = await _secretStore.read(clearPasswordKey);
     return pw != null && pw.isNotEmpty;
   }
 
