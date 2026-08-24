@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 
 import '../cli_context.dart';
+import '../format.dart';
 import 'command.dart';
 
 /// list 命令：列出所有 meme。
@@ -17,7 +18,7 @@ class ListCommand extends CliCommand {
     int? limit;
     if (limitArg != null) {
       limit = int.tryParse(limitArg);
-      if (limit == null) {
+      if (limit == null || limit <= 0) {
         stderr.writeln('--limit 必须是正整数: $limitArg');
         return 1;
       }
@@ -47,16 +48,10 @@ class ListCommand extends CliCommand {
       final size = '${m.width}x${m.height}';
       print(
         '${m.id.substring(0, 8)}  ${m.filename}  $size  '
-        '${_formatTime(m.importedAt)}  ${m.analysisStatus}',
+        '${formatDateTime(DateTime.fromMillisecondsSinceEpoch(m.importedAt))}  '
+        '${m.analysisStatus}',
       );
     }
     return 0;
-  }
-
-  String _formatTime(int millis) {
-    final dt = DateTime.fromMillisecondsSinceEpoch(millis).toLocal();
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${dt.year}-${two(dt.month)}-${two(dt.day)} '
-        '${two(dt.hour)}:${two(dt.minute)}';
   }
 }

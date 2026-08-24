@@ -5,6 +5,7 @@ import 'package:args/args.dart';
 
 import '../../core/database/database.dart';
 import '../cli_context.dart';
+import '../format.dart';
 import 'command.dart';
 
 /// get 命令：查看单个 meme 详情（支持完整 id 或前 8 位短码）。
@@ -54,7 +55,7 @@ class GetCommand extends CliCommand {
       print('尺寸:       ${meme.width}x${meme.height}');
       print('大小:       ${meme.fileSize} B');
       print('类型:       ${meme.mimeType}');
-      print('导入时间:   ${_formatTime(meme.importedAt)}');
+      print('导入时间:   ${formatDateTime(DateTime.fromMillisecondsSinceEpoch(meme.importedAt))}');
       print(
         '分析状态:   ${meme.analysisStatus}（颜色 ${meme.colorAnalysisStatus}, '
         'OCR ${meme.ocrAnalysisStatus}, AI ${meme.aiAnalysisStatus}）',
@@ -67,6 +68,10 @@ class GetCommand extends CliCommand {
   }
 
   /// 先精确匹配完整 id，再尝试短码前缀匹配。
+  ///
+  /// 规模取舍：先走精确 id 命中，miss 时才全表加载做短码前缀过滤。个人工具
+  /// 规模（百到千条）全表匹配可接受；未来数据量大可改用 SQL LIKE 前缀查询，
+  /// 避免全表加载。
   Future<Meme?> _findMeme(CliContext context, String input) async {
     final exact = await context.memeRepo.getById(input);
     if (exact != null) return exact;
@@ -78,12 +83,5 @@ class GetCommand extends CliCommand {
       stderr.writeln('警告: 短码 "$input" 匹配多个 meme，请使用完整 id');
     }
     return null;
-  }
-
-  String _formatTime(int millis) {
-    final dt = DateTime.fromMillisecondsSinceEpoch(millis).toLocal();
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${dt.year}-${two(dt.month)}-${two(dt.day)} '
-        '${two(dt.hour)}:${two(dt.minute)}:${two(dt.second)}';
   }
 }

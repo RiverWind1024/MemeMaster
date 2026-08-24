@@ -3,11 +3,9 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 
+import '../../services/import_service.dart';
 import '../cli_context.dart';
 import 'command.dart';
-
-/// 支持的图片扩展名（与 ImportService._mimeType 保持一致）。
-const Set<String> _imageExts = {'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'};
 
 /// import 命令：导入图片（支持文件路径或目录，目录可 --recursive 递归）。
 class ImportCommand extends CliCommand {
@@ -30,7 +28,11 @@ class ImportCommand extends CliCommand {
     for (final path in paths) {
       final type = await FileSystemEntity.type(path);
       if (type == FileSystemEntityType.file) {
-        files.add(path);
+        if (ImportService.isSupportedImagePath(path)) {
+          files.add(path);
+        } else {
+          pathErrors.add('$path: 不支持的图片格式');
+        }
       } else if (type == FileSystemEntityType.directory) {
         final scanned = await _scanDirectory(Directory(path), recursive: recursive);
         if (scanned.isEmpty) {
@@ -72,6 +74,11 @@ class ImportCommand extends CliCommand {
       }
     }
 
+    // 路径级错误（不存在 / 不支持的格式）统一打到 stderr，避免随成功导入被吞掉。
+    for (final e in pathErrors) {
+      stderr.writeln(e);
+    }
+
     return pathErrors.isEmpty && result.errors.isEmpty ? 0 : 1;
   }
 
@@ -80,16 +87,10 @@ class ImportCommand extends CliCommand {
       {required bool recursive}) async {
     final files = <String>[];
     await for (final entity in recursive ? dir.list(recursive: true) : dir.list()) {
-      if (entity is File && _isImage(entity.path)) {
+      if (entity is File && ImportService.isSupportedImagePath(entity.path)) {
         files.add(entity.path);
       }
     }
     return files;
-  }
-
-  bool _isImage(String path) {
-    final dot = path.lastIndexOf('.');
-    if (dot < 0 || dot == path.length - 1) return false;
-    return _imageExts.contains(path.substring(dot + 1).toLowerCase());
   }
 }
