@@ -60,6 +60,7 @@ void main() async {
     prefs: prefs,
     storageDir: modelsDir.path,
     databasePath: '${docsDir.path}/meme_helper.db',
+    memesPath: '${docsDir.path}/memes',
   ));
 }
 

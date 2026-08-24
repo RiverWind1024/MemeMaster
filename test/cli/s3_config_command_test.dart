@@ -52,7 +52,7 @@ void main() {
       service = S3SyncService(
         memeRepo: memeRepo,
         albumRepo: albumRepo,
-        storage: FileStorageService(),
+        storage: FileStorageService(basePath: '${tempDir.path}/memes'),
         syncStateDao: db.syncStateDao,
         serializer: S3SyncSerializer(
           memeRepo: memeRepo,

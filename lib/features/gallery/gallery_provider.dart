@@ -52,6 +52,11 @@ final databaseProvider = Provider<AppDatabase>((ref) {
   return db;
 });
 
+/// meme 图片存储根路径，由 main.dart 在 app 启动时注入（仿照 [databasePathProvider]）
+final memesPathProvider = Provider<String>((ref) {
+  throw UnimplementedError('memesPathProvider 需要在 main.dart 中覆盖');
+});
+
 // ---- DAOs ----
 
 final memeDaoProvider = Provider((ref) {
@@ -95,6 +100,7 @@ final memeRepositoryProvider = Provider<MemeRepository>((ref) {
     tagDao: db.tagDao,
     colorDao: db.colorDao,
     queueDao: db.analysisQueueDao,
+    fileStorage: ref.read(fileStorageServiceProvider),
   );
 });
 
@@ -105,7 +111,7 @@ final colorRepositoryProvider = Provider<ColorRepository>((ref) {
 // ---- Services ----
 
 final fileStorageServiceProvider = Provider<FileStorageService>((ref) {
-  return FileStorageService();
+  return FileStorageService(basePath: ref.read(memesPathProvider));
 });
 
 /// 由 main.dart 在 app 启动时设置的日志持久化路径

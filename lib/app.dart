@@ -19,12 +19,14 @@ class MemeManagerApp extends StatelessWidget {
   final SharedPreferences prefs;
   final String storageDir;
   final String databasePath;
+  final String memesPath;
 
   const MemeManagerApp({
     super.key,
     required this.prefs,
     required this.storageDir,
     required this.databasePath,
+    required this.memesPath,
   });
 
   @override
@@ -34,6 +36,7 @@ class MemeManagerApp extends StatelessWidget {
         sharedPreferencesProvider.overrideWithValue(prefs),
         storageDirProvider.overrideWithValue(storageDir),
         databasePathProvider.overrideWithValue(databasePath),
+        memesPathProvider.overrideWithValue(memesPath),
       ],
       child: _AppBody(),
     );
