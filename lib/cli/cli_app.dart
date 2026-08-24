@@ -12,12 +12,15 @@ import '../services/meme_export_service.dart';
 import '../services/search_service.dart';
 import 'cli_context.dart';
 import 'command_parser.dart';
+import 'commands/albums_command.dart';
 import 'commands/command.dart';
+import 'commands/export_command.dart';
 import 'commands/get_command.dart';
 import 'commands/help_command.dart';
 import 'commands/import_command.dart';
 import 'commands/list_command.dart';
 import 'commands/search_command.dart';
+import 'commands/tags_command.dart';
 import 'commands/unimplemented_command.dart';
 
 /// CLI 应用：解析全局参数 → 组装上下文 → 分发到子命令。
@@ -135,6 +138,9 @@ class CliApp {
       'list': ListCommand(),
       'get': GetCommand(),
       'search': SearchCommand(),
+      'export': ExportCommand(),
+      'tags': TagsCommand(),
+      'albums': AlbumsCommand(),
       'help': HelpCommand(usage),
     };
     return commands;

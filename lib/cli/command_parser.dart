@@ -95,6 +95,15 @@ class CommandParser {
           ..addOption('color', help: '颜色搜索（#RRGGBB）')
           ..addOption('limit', help: '限制返回条数');
         break;
+      case 'export':
+        cmd
+          ..addOption('ids', help: '导出的 meme id（逗号分隔）')
+          ..addFlag('all', negatable: false, help: '导出全部')
+          ..addOption('output', help: '输出 zip 路径');
+        break;
+      case 'tags':
+        cmd.addOption('source', help: '标签来源（默认 custom）');
+        break;
     }
   }
 
