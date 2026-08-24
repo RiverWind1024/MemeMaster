@@ -90,6 +90,11 @@ class CommandParser {
       case 'list':
         cmd.addOption('limit', help: '限制返回条数');
         break;
+      case 'search':
+        cmd
+          ..addOption('color', help: '颜色搜索（#RRGGBB）')
+          ..addOption('limit', help: '限制返回条数');
+        break;
     }
   }
 
