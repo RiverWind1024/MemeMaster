@@ -33,12 +33,11 @@ class MemeRepository {
     OcrAnalysisQueueDao? ocrQueueDao,
     AiAnalysisQueueDao? aiQueueDao,
     AlbumDao? albumDao,
-    FileStorageService? fileStorage,
+    this._fileStorage,
   })  : _colorQueueDao = colorQueueDao ?? ColorAnalysisQueueDao(_memeDao.database),
         _ocrQueueDao = ocrQueueDao ?? OcrAnalysisQueueDao(_memeDao.database),
         _aiQueueDao = aiQueueDao ?? AiAnalysisQueueDao(_memeDao.database),
-        _albumDao = albumDao ?? AlbumDao(_memeDao.database),
-        _fileStorage = fileStorage;
+        _albumDao = albumDao ?? AlbumDao(_memeDao.database);
 
   Future<Meme?> getById(String id) => _memeDao.getById(id);
 

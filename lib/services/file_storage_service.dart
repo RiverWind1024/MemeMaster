@@ -11,13 +11,13 @@ import 'package:path/path.dart' as p;
 /// - GUI 由 main.dart 注入 `{documentsDir}/memes`
 /// - CLI 由 --storage 参数注入
 class FileStorageService {
-  String? _basePath;
+  final String? _basePath;
 
-  FileStorageService({String? basePath}) : _basePath = basePath;
+  FileStorageService({this._basePath});
 
   /// 获取基础存储路径（必须注入，未注入则抛 [StateError]）
   Future<String> get basePath async {
-    if (_basePath != null) return _basePath!;
+    if (_basePath != null) return _basePath;
     throw StateError(
       'FileStorageService.basePath 未注入：请在构造时传入 basePath（GUI 由 main.dart 注入，CLI 由 --storage 注入）',
     );

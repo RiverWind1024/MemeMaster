@@ -58,6 +58,12 @@ class CliApp {
       return 1;
     }
 
+    // 占位命令：直接短路，不打开数据库、不组装上下文
+    if (command is UnimplementedCommand) {
+      stderr.writeln(command.unimplementedMessage);
+      return 1;
+    }
+
     final commandResults = results.command!;
     final dbPath = parser.expandPath(
       _globalOption(results, commandResults, 'db'),
@@ -89,6 +95,7 @@ class CliApp {
       tagDao: db.tagDao,
       colorDao: db.colorDao,
       queueDao: db.analysisQueueDao,
+      fileStorage: storage,
     );
     final colorRepo = ColorRepository(db.colorDao);
     final albumRepo = AlbumRepository(db.albumDao);
@@ -111,11 +118,10 @@ class CliApp {
   Map<String, CliCommand> _buildCommands(String Function() usage) {
     final commands = <String, CliCommand>{
       for (final name in cliCommandNames)
-        if (name != 'list' && name != 'help')
-          name: UnimplementedCommand(
-            name: name,
-            description: cliCommandDescriptions[name] ?? '',
-          ),
+        name: UnimplementedCommand(
+          name: name,
+          description: cliCommandDescriptions[name] ?? '',
+        ),
       'list': ListCommand(),
       'help': HelpCommand(usage),
     };

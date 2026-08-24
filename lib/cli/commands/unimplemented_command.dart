@@ -9,9 +9,12 @@ import 'command.dart';
 class UnimplementedCommand extends CliCommand {
   UnimplementedCommand({required super.name, required super.description});
 
+  /// 尚未实现提示（供 cli_app 短路时输出，避免打开数据库）。
+  String get unimplementedMessage => '子命令 "$name" 尚未实现';
+
   @override
   Future<int> run(CliContext context, ArgResults args) async {
-    stderr.writeln('子命令 "$name" 尚未实现');
+    stderr.writeln(unimplementedMessage);
     return 1;
   }
 }
