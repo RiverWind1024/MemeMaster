@@ -13,7 +13,9 @@ import '../services/search_service.dart';
 import 'cli_context.dart';
 import 'command_parser.dart';
 import 'commands/command.dart';
+import 'commands/get_command.dart';
 import 'commands/help_command.dart';
+import 'commands/import_command.dart';
 import 'commands/list_command.dart';
 import 'commands/unimplemented_command.dart';
 
@@ -74,7 +76,11 @@ class CliApp {
 
     final db = AppDatabase.open(dbPath);
     try {
-      final context = _buildContext(db, storagePath);
+      final context = _buildContext(
+        db,
+        storagePath,
+        jsonOutput: results.wasParsed('json') || commandResults.wasParsed('json'),
+      );
       return await command.run(context, commandResults);
     } finally {
       await db.close();
@@ -88,7 +94,8 @@ class CliApp {
   }
 
   /// 组装 CLI 上下文（复用纯 Dart 引擎层，与 GUI 共用同一数据库）。
-  CliContext _buildContext(AppDatabase db, String storagePath) {
+  CliContext _buildContext(AppDatabase db, String storagePath,
+      {bool jsonOutput = false}) {
     final storage = FileStorageService(basePath: storagePath);
     final memeRepo = MemeRepository(
       memeDao: db.memeDao,
@@ -112,6 +119,7 @@ class CliApp {
       ),
       searchService: SearchService(memeRepo: memeRepo, colorRepo: colorRepo),
       exportService: MemeExportService(memeRepo: memeRepo, storage: storage),
+      jsonOutput: jsonOutput,
     );
   }
 
@@ -122,7 +130,9 @@ class CliApp {
           name: name,
           description: cliCommandDescriptions[name] ?? '',
         ),
+      'import': ImportCommand(),
       'list': ListCommand(),
+      'get': GetCommand(),
       'help': HelpCommand(usage),
     };
     return commands;

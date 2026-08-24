@@ -65,7 +65,9 @@ class CommandParser {
           help: '图片存储根目录（默认 $defaultStoragePath）')
       ..addFlag('json', negatable: false, help: 'JSON 输出');
     for (final name in commandNames) {
-      _addGlobalOptions(parser.addCommand(name));
+      final cmd = parser.addCommand(name);
+      _addGlobalOptions(cmd);
+      _addCommandOptions(cmd, name);
     }
     return parser;
   }
@@ -75,6 +77,20 @@ class CommandParser {
       ..addOption('db', help: 'SQLite 数据库路径')
       ..addOption('storage', help: '图片存储根目录')
       ..addFlag('json', negatable: false, help: 'JSON 输出');
+  }
+
+  /// 注册子命令专属参数。
+  static void _addCommandOptions(ArgParser cmd, String name) {
+    switch (name) {
+      case 'import':
+        cmd
+          ..addOption('source', help: '来源标记（如 clipboard, wechat, album）')
+          ..addFlag('recursive', negatable: false, help: '递归扫描目录');
+        break;
+      case 'list':
+        cmd.addOption('limit', help: '限制返回条数');
+        break;
+    }
   }
 
   ArgResults parse(List<String> args) => parser.parse(args);

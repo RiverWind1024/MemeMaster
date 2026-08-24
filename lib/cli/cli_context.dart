@@ -16,6 +16,9 @@ class CliContext {
   final SearchService searchService;
   final MemeExportService exportService;
 
+  /// 是否以 JSON 输出（由 CliApp 依据全局/子命令 --json 解析）
+  final bool jsonOutput;
+
   CliContext({
     required this.db,
     required this.memeRepo,
@@ -24,5 +27,6 @@ class CliContext {
     required this.importService,
     required this.searchService,
     required this.exportService,
+    this.jsonOutput = false,
   });
 }
