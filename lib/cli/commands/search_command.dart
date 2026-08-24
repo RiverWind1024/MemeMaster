@@ -15,9 +15,13 @@ class SearchCommand extends CliCommand {
 
   @override
   Future<int> run(CliContext context, ArgResults args) async {
+    if (args.rest.length > 1) {
+      stderr.writeln('search 仅支持单个关键词: ${args.rest.join(' ')}');
+      return 1;
+    }
+
     final query = args.rest.isNotEmpty ? args.rest.first : '';
     final colorArg = args['color'] as String?;
-    final limitArg = args['limit'] as String?;
 
     // 至少需要关键词或颜色之一
     if (query.trim().isEmpty && colorArg == null) {
@@ -25,14 +29,8 @@ class SearchCommand extends CliCommand {
       return 1;
     }
 
-    int? limit;
-    if (limitArg != null) {
-      limit = int.tryParse(limitArg);
-      if (limit == null || limit <= 0) {
-        stderr.writeln('--limit 必须是正整数: $limitArg');
-        return 1;
-      }
-    }
+    final limit = parsePositiveLimit(args);
+    if (args.wasParsed('limit') && limit == null) return 1;
 
     ColorRgb? color;
     if (colorArg != null) {
@@ -47,24 +45,18 @@ class SearchCommand extends CliCommand {
       }
     }
 
-    final results = await context.searchService.search(
+    final rawResults = await context.searchService.search(
       query: query,
       colors: color == null ? null : [color],
       limit: limit ?? 50,
     );
+    // 关键词搜索路径（_searchByText）不截断，命令层统一截断以保证 limit 生效。
+    final results = rawResults.take(limit ?? 50).toList();
 
     if (context.jsonOutput) {
       print(jsonEncode([
         for (final r in results)
-          {
-            'id': r.meme.id,
-            'shortId': r.meme.id.substring(0, 8),
-            'filename': r.meme.filename,
-            'width': r.meme.width,
-            'height': r.meme.height,
-            'importedAt': r.meme.importedAt,
-            'relevance': r.relevance,
-          }
+          {...memeToJson(r.meme), 'relevance': r.relevance}
       ]));
       return 0;
     }
@@ -76,12 +68,7 @@ class SearchCommand extends CliCommand {
 
     print('共 ${results.length} 条');
     for (final r in results) {
-      final m = r.meme;
-      final size = '${m.width}x${m.height}';
-      print(
-        '${m.id.substring(0, 8)}  ${m.filename}  $size  '
-        '${formatDateTime(DateTime.fromMillisecondsSinceEpoch(m.importedAt))}',
-      );
+      print(formatMemeRow(r.meme));
     }
     return 0;
   }

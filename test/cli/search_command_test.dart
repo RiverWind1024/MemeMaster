@@ -202,6 +202,8 @@ void main() {
               'search',
               '--color',
               '#ff0000',
+              '--limit',
+              '1',
               '--db',
               dbPath,
               '--storage',
@@ -209,7 +211,7 @@ void main() {
             ],
           );
         },
-        prints(contains('red.png')),
+        prints(allOf(contains('red.png'), isNot(contains('blue.png')))),
       );
       expect(exitCode, 0);
     });
