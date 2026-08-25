@@ -738,8 +738,16 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           const SizedBox(height: 12),
         ],
         // 主 FAB（旋转动画）
+        // elevation/shape 微调以呼应 TREK 毛玻璃风格的"漂浮感"，保持实色以保证主操作识别度
         FloatingActionButton(
           onPressed: _toggleRadial,
+          elevation: 6,
+          focusElevation: 8,
+          hoverElevation: 8,
+          highlightElevation: 12,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+          ),
           child: AnimatedRotation(
             turns: _radialOpen ? 0.125 : 0.0, // 45°
             duration: const Duration(milliseconds: 250),
