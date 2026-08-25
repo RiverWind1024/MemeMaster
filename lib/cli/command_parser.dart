@@ -111,6 +111,26 @@ class CommandParser {
           ..addFlag('ocr', negatable: false, help: '仅 OCR 识别')
           ..addFlag('ai', negatable: false, help: '仅 AI 分析');
         break;
+      case 'reindex':
+        cmd.addFlag('all', negatable: false, help: '重新索引全部 meme');
+        break;
+      case 'config':
+        cmd
+          ..addOption('provider',
+              allowed: ['openai', 'ollama'], help: 'LLM 供应商 (openai|ollama)')
+          ..addOption('base-url', help: 'LLM base URL')
+          ..addOption('model', help: '模型名')
+          ..addOption('api-key', help: 'API Key')
+          ..addOption('endpoint', help: 'S3 endpoint')
+          ..addOption('bucket', help: 'S3 bucket')
+          ..addOption('access-key', help: 'S3 access key')
+          ..addOption('secret-key', help: 'S3 secret key')
+          ..addOption('region', help: 'S3 region')
+          ..addFlag('use-ssl',
+              negatable: true, help: 'S3 是否使用 SSL（--no-use-ssl 关闭）')
+          ..addFlag('path-style',
+              negatable: true, help: 'S3 path-style（--no-path-style 关闭）');
+        break;
     }
   }
 

@@ -10,25 +10,36 @@ import '../services/file_storage_service.dart';
 import '../services/import_service.dart';
 import '../services/meme_export_service.dart';
 import '../services/search_service.dart';
+import 'cli_config_store.dart';
 import 'cli_context.dart';
 import 'command_parser.dart';
 import 'commands/albums_command.dart';
 import 'commands/analyze_command.dart';
 import 'commands/command.dart';
+import 'commands/config_command.dart';
 import 'commands/export_command.dart';
 import 'commands/get_command.dart';
 import 'commands/help_command.dart';
 import 'commands/import_command.dart';
 import 'commands/list_command.dart';
+import 'commands/reindex_command.dart';
+import 'commands/s3_command.dart';
 import 'commands/search_command.dart';
+import 'commands/stats_command.dart';
 import 'commands/tags_command.dart';
 import 'commands/unimplemented_command.dart';
 
 /// CLI 应用：解析全局参数 → 组装上下文 → 分发到子命令。
 class CliApp {
+  /// 配置文件路径（测试注入临时路径；null 用默认 ~/.config/mememaster/cli_config.json）。
+  final String? configPath;
+
+  CliApp({this.configPath});
+
   Future<int> run(List<String> args) async {
     final parser = CommandParser(cliCommandNames);
-    final commands = _buildCommands(() => parser.usage);
+    final store = CliConfigStore(configPath: configPath);
+    final commands = _buildCommands(() => parser.usage, store);
 
     final ArgResults results;
     try {
@@ -72,6 +83,14 @@ class CliApp {
     }
 
     final commandResults = results.command!;
+    final jsonOutput =
+        results.wasParsed('json') || commandResults.wasParsed('json');
+
+    // config 命令：不依赖数据库，直接短路（避免触碰 ~/Documents 默认库）
+    if (command is ConfigCommand) {
+      return command.execute(commandResults, jsonOutput: jsonOutput);
+    }
+
     final dbPath = CommandParser.expandPath(
       _globalOption(results, commandResults, 'db'),
     );
@@ -79,12 +98,17 @@ class CliApp {
       _globalOption(results, commandResults, 'storage'),
     );
 
+    // 仅对需要配置的命令加载 cli_config.json（避免无关命令触碰 ~/.config）
+    final cliConfig =
+        command.needsCliConfig ? await store.load() : const CliConfig();
+
     final db = AppDatabase.open(dbPath);
     try {
       final context = _buildContext(
         db,
         storagePath,
-        jsonOutput: results.wasParsed('json') || commandResults.wasParsed('json'),
+        cliConfig,
+        jsonOutput: jsonOutput,
       );
       return await command.run(context, commandResults);
     } finally {
@@ -99,7 +123,7 @@ class CliApp {
   }
 
   /// 组装 CLI 上下文（复用纯 Dart 引擎层，与 GUI 共用同一数据库）。
-  CliContext _buildContext(AppDatabase db, String storagePath,
+  CliContext _buildContext(AppDatabase db, String storagePath, CliConfig cliConfig,
       {bool jsonOutput = false}) {
     final storage = FileStorageService(basePath: storagePath);
     final memeRepo = MemeRepository(
@@ -124,11 +148,14 @@ class CliApp {
       ),
       searchService: SearchService(memeRepo: memeRepo, colorRepo: colorRepo),
       exportService: MemeExportService(memeRepo: memeRepo, storage: storage),
+      llmConfig: cliConfig.llm,
+      s3Config: cliConfig.s3,
       jsonOutput: jsonOutput,
     );
   }
 
-  Map<String, CliCommand> _buildCommands(String Function() usage) {
+  Map<String, CliCommand> _buildCommands(
+      String Function() usage, CliConfigStore store) {
     final commands = <String, CliCommand>{
       for (final name in cliCommandNames)
         name: UnimplementedCommand(
@@ -143,6 +170,10 @@ class CliApp {
       'tags': TagsCommand(),
       'albums': AlbumsCommand(),
       'analyze': AnalyzeCommand(),
+      's3': S3Command(),
+      'reindex': ReindexCommand(),
+      'stats': StatsCommand(),
+      'config': ConfigCommand(store),
       'help': HelpCommand(usage),
     };
     return commands;

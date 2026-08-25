@@ -9,6 +9,9 @@ abstract class CliCommand {
 
   CliCommand({required this.name, required this.description});
 
+  /// 是否需要从 CLI 配置文件加载 LLM/S3 配置（默认为不加载）。
+  bool get needsCliConfig => false;
+
   /// 执行命令，返回进程退出码（0 表示成功）。
   Future<int> run(CliContext context, ArgResults args);
 }

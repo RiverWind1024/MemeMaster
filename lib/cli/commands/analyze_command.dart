@@ -21,6 +21,9 @@ class AnalyzeCommand extends CliCommand {
   AnalyzeCommand() : super(name: 'analyze', description: '分析 meme（颜色/OCR/AI）');
 
   @override
+  bool get needsCliConfig => true;
+
+  @override
   Future<int> run(CliContext context, ArgResults args) async {
     final all = args['all'] as bool? ?? false;
     final ids = List<String>.of(args.rest);
@@ -152,7 +155,7 @@ class AnalyzeCommand extends CliCommand {
   Future<bool> _runAi(CliContext context, Meme meme, String path) async {
     try {
       await context.memeRepo.updateAiAnalysisStatus(meme.id, 'running');
-      final result = await CliVisionAnalyzer().analyze(path);
+      final result = await CliVisionAnalyzer(config: context.llmConfig).analyze(path);
       if (result.tags.isNotEmpty) {
         await context.memeRepo.deleteAutoTags(meme.id, sources: ['llm']);
         await context.memeRepo.saveTags([
