@@ -225,11 +225,12 @@ jobs:
 
       - name: Package Linux artifact
         run: |
+          ZIP_NAME="mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip"
           cd build/linux/x64/release/bundle
-          cp "$CLI_BIN" ./mememaster
-          zip -r mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip .
-          cd ../../../../..
-          mv build/linux/x64/release/bundle/mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip .
+          zip -r "../../../../../$ZIP_NAME" .
+          cd ../../../..
+          zip -j "$ZIP_NAME" "$CLI_BIN"
+          ls -lh "$ZIP_NAME"
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
@@ -375,9 +376,10 @@ jobs:
       - name: Package macOS artifact
         run: |
           APP=$(find build/macos/Build/Products/Release -name "*.app" -type d | head -1)
-          cp "$CLI_BIN" "$APP/Contents/MacOS/mememaster-cli"
-          zip -r mememaster-${{ env.VERSION }}-macos-arm64-metal.zip "$APP"
-          ls -lh mememaster-${{ env.VERSION }}-macos-arm64-metal.zip
+          ZIP_NAME="mememaster-${{ env.VERSION }}-macos-arm64-metal.zip"
+          zip -r "$ZIP_NAME" "$APP"
+          zip -j "$ZIP_NAME" "$CLI_BIN"
+          ls -lh "$ZIP_NAME"
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -846,10 +848,11 @@ jobs:
         shell: pwsh
         run: |
           $BUNDLE = "build\windows\x64\runner\Release"
-          Copy-Item $env:CLI_BIN "$BUNDLE\mememaster.exe" -Force
           $VERSION = "${{ env.VERSION }}"
-          Compress-Archive -Path "$BUNDLE\*" -DestinationPath "mememaster-${VERSION}-windows-x64-vulkan.zip" -Force
-          Get-Item "mememaster-${VERSION}-windows-x64-vulkan.zip"
+          $ZIP_NAME = "mememaster-${VERSION}-windows-x64-vulkan.zip"
+          Compress-Archive -Path "$BUNDLE\*" -DestinationPath $ZIP_NAME -Force
+          Compress-Archive -Path $env:CLI_BIN -DestinationPath $ZIP_NAME -Update
+          Get-Item $ZIP_NAME
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
