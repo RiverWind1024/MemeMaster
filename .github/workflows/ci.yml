@@ -826,7 +826,6 @@ jobs:
           path: mememaster-${{ env.VERSION }}-windows-x64-vulkan.zip
           retention-days: 7
 
-  release:
   # ---- CLI builds (pure Dart, no Flutter GUI dependencies) ----
   cli-linux:
     runs-on: ubuntu-latest
