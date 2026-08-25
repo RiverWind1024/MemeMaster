@@ -71,14 +71,14 @@ ThemeData _buildTheme(ColorScheme scheme, Brightness brightness) {
           ),
         ),
     appBarTheme: AppBarTheme(
-      backgroundColor: Colors.transparent,
+      backgroundColor: scheme.surface,
       elevation: 0,
       scrolledUnderElevation: 0,
       foregroundColor: scheme.onSurface,
       centerTitle: false,
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: Colors.transparent,
+      backgroundColor: scheme.surface,
       elevation: 0,
       height: 68,
       indicatorColor: scheme.primary.withValues(alpha: isDark ? 0.25 : 0.14),

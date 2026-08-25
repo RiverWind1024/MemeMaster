@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -224,73 +223,47 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final s = S.of(context);
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(64),
-        child: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white.withValues(alpha: 0.06)
-                    : Colors.white.withValues(alpha: 0.7),
-                border: Border(
-                  bottom: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.1),
-                  ),
-                ),
-              ),
-              child: AppBar(
-                titleSpacing: 16,
-                title: TextField(
-                  controller: _queryController,
-                  onChanged: _onSearchChanged,
-                  decoration: InputDecoration(
-                    hintText: s.searchHint,
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _queryController.text.isNotEmpty
-                        ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _queryController.clear(); _onSearchChanged(''); })
-                        : null,
-                    filled: true,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
-                  ),
-                ),
-                actions: [
-                IconButton(
-                  onPressed: _showColorFilterSheet,
-                  tooltip: s.filterByColor,
-                  icon: Badge(
-                    isLabelVisible:
-                        _selectedColorValues.isNotEmpty ||
-                            _customColors.isNotEmpty,
-                    label: Text(
-                        '${_selectedColorValues.length + _customColors.length}'),
-                    child: const Icon(Icons.palette_outlined),
-                  ),
-                ),
-                if (_hasActiveFilters)
-                  TextButton(onPressed: _clearAll, child: Text(s.reset)),
-              ],
-              ),
-            ),
+      appBar: AppBar(
+        titleSpacing: 16,
+        title: TextField(
+          controller: _queryController,
+          onChanged: _onSearchChanged,
+          decoration: InputDecoration(
+            hintText: s.searchHint,
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: _queryController.text.isNotEmpty
+                ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _queryController.clear(); _onSearchChanged(''); })
+                : null,
+            filled: true,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
           ),
         ),
+        actions: [
+          IconButton(
+            onPressed: _showColorFilterSheet,
+            tooltip: s.filterByColor,
+            icon: Badge(
+              isLabelVisible:
+                  _selectedColorValues.isNotEmpty ||
+                      _customColors.isNotEmpty,
+              label: Text(
+                  '${_selectedColorValues.length + _customColors.length}'),
+              child: const Icon(Icons.palette_outlined),
+            ),
+          ),
+          if (_hasActiveFilters)
+            TextButton(onPressed: _clearAll, child: Text(s.reset)),
+        ],
       ),
-      body: Padding(
-        // extendBodyBehindAppBar:true 时 body 从 y=0 开始，AppBar 内部 SafeArea 把 toolbar
-        // 推到 statusBar 之下；这里加上 statusBar 高度避免「展示 xx 张图片」被 AppBar 底部遮挡
-        padding: EdgeInsets.only(top: 64 + MediaQuery.of(context).padding.top),
-        child: Column(
-          children: [
-            if (_level != SearchLevel.browse)
-              Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [Spacer(), _SearchLevelBadge(level: _level)])),
-            const SizedBox(height: 8),
-            Expanded(child: _buildResults(theme, colorScheme)),
-          ],
-        ),
+      body: Column(
+        children: [
+          if (_level != SearchLevel.browse)
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [Spacer(), _SearchLevelBadge(level: _level)])),
+          const SizedBox(height: 8),
+          Expanded(child: _buildResults(theme, colorScheme)),
+        ],
       ),
     );
   }

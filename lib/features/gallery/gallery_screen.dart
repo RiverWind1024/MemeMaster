@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
@@ -35,8 +34,6 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   bool _dragOver = false;
   bool _radialOpen = false;
   final Set<String> _selectedIds = {};
-  /// body 顶部留白（内容从玻璃 AppBar 下穿过，普通模式为 Tab+排序栏高度，选择模式为 56）
-  double _appBarOverlayTop = 0;
 
   @override
   void dispose() {
@@ -272,16 +269,6 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
     _syncTabController(tabCount);
 
-    const sortBarHeight = 36.0;
-    const tabBarHeight = 48.0;
-    final appBarBottomHeight =
-        (tabCount > 1 ? tabBarHeight : 0.0) + sortBarHeight;
-    // extendBodyBehindAppBar:true 时 body 从 y=0 开始，但 AppBar 内部 SafeArea 会把
-    // bottom 区域推到 statusBar 之下；所以留白需额外包含 statusBar 高度，避免图片网格被遮挡
-    final statusBarTop = MediaQuery.of(context).padding.top;
-    _appBarOverlayTop =
-        (_selectionMode ? 56.0 : appBarBottomHeight) + statusBarTop;
-
     final memeListAsync = ref.watch(memeListProvider);
 
     return PopScope(
@@ -304,10 +291,9 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                 child: Container(color: Colors.black12),
               ),
             Scaffold(
-              extendBodyBehindAppBar: true,
               appBar: _selectionMode
-                  ? _glassWrap(_buildSelectionAppBar())
-                  : _glassWrap(_buildNormalAppBar(tabCount, nonDefaultAlbums)),
+                  ? _buildSelectionAppBar()
+                  : _buildNormalAppBar(tabCount, nonDefaultAlbums),
               body: _selectionMode
                   ? _buildSelectionGrid(memeListAsync)
                   : _buildTabbedBody(memeListAsync, nonDefaultAlbums),
@@ -411,30 +397,6 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     );
   }
 
-  /// 将 AppBar 包上毛玻璃效果（配合 extendBodyBehindAppBar 使用）
-  PreferredSizeWidget _glassWrap(PreferredSizeWidget appBar) {
-    return PreferredSize(
-      preferredSize: Size.fromHeight(appBar.preferredSize.height),
-      child: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : Colors.white.withValues(alpha: 0.7),
-              border: Border(
-                bottom: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.1),
-                ),
-              ),
-            ),
-            child: appBar,
-          ),
-        ),
-      ),
-    );
-  }
 
   PreferredSizeWidget _buildSelectionAppBar() {
     return AppBar(
@@ -533,21 +495,18 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       }),
     ];
 
-    return Padding(
-      padding: EdgeInsets.only(top: _appBarOverlayTop),
-      child: Column(
-        children: [
-          // 分析进度横幅
-          _buildAnalysisBanner(),
-          // 图库内容
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: children,
-            ),
+    return Column(
+      children: [
+        // 分析进度横幅
+        _buildAnalysisBanner(),
+        // 图库内容
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: children,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -619,8 +578,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     );
   }
 
-  Widget _buildMemeGrid(AsyncValue<List<Meme>> memeListAsync,
-      {double? topPadding}) {
+  Widget _buildMemeGrid(AsyncValue<List<Meme>> memeListAsync) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return memeListAsync.when(
@@ -655,7 +613,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
             ref.refresh(albumsProvider);
           },
           child: GridView.builder(
-            padding: EdgeInsets.fromLTRB(4, topPadding ?? 4, 4, 84),
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 84),
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 150,
           mainAxisSpacing: 4,
@@ -687,7 +645,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
   Widget _buildSelectionGrid(AsyncValue<List<Meme>> memeListAsync) {
     final memes = memeListAsync.asData?.value ?? [];
-    return _buildMemeGrid(AsyncValue.data(memes), topPadding: 56);
+    return _buildMemeGrid(AsyncValue.data(memes));
   }
 
   // ---- 速度旋盘 FAB（MUI Speed Dial 风格）----
