@@ -217,6 +217,7 @@ jobs:
         run: |
           dart build cli bin/mememaster.dart
           CLI_BIN=$(find build/cli -name "mememaster" -path "*/bin/mememaster" | head -1)
+          CLI_BIN="$GITHUB_WORKSPACE/$CLI_BIN"
           chmod +x "$CLI_BIN"
           "$CLI_BIN" --help
           echo "✓ CLI works on Linux"
@@ -365,6 +366,7 @@ jobs:
         run: |
           dart build cli bin/mememaster.dart
           CLI_BIN=$(find build/cli -name "mememaster" -path "*/bin/mememaster" | head -1)
+          CLI_BIN="$GITHUB_WORKSPACE/$CLI_BIN"
           chmod +x "$CLI_BIN"
           "$CLI_BIN" --help
           echo "✓ CLI works on macOS"
