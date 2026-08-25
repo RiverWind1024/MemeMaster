@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:http/http.dart' as http;
 
 import '../../core/database/database.dart';
 import '../../core/image/color_extractor.dart';
@@ -172,9 +173,16 @@ class AnalyzeCommand extends CliCommand {
       print('  [AI] ${result.tags.length} 个标签'
           '${result.description.isEmpty ? '' : '（${result.description}）'}');
       return false;
+    } on SocketException {
+      stderr.writeln('  [AI] 未检测到可用的 Ollama/OpenAI 服务，请用 config 命令配置，或确认本地 Ollama 已启动');
+      await context.memeRepo.updateAiAnalysisStatus(meme.id, 'failed');
+      return true;
+    } on http.ClientException {
+      stderr.writeln('  [AI] 未检测到可用的 Ollama/OpenAI 服务，请用 config 命令配置，或确认本地 Ollama 已启动');
+      await context.memeRepo.updateAiAnalysisStatus(meme.id, 'failed');
+      return true;
     } catch (e) {
       stderr.writeln('  [AI] 分析失败: $e');
-      stderr.writeln('  [AI] 未检测到可用的 Ollama/OpenAI 服务，请用 config 命令配置，或确认本地 Ollama 已启动');
       await context.memeRepo.updateAiAnalysisStatus(meme.id, 'failed');
       return true;
     }
