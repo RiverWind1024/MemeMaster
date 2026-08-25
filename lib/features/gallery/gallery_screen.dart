@@ -276,7 +276,11 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     const tabBarHeight = 48.0;
     final appBarBottomHeight =
         (tabCount > 1 ? tabBarHeight : 0.0) + sortBarHeight;
-    _appBarOverlayTop = _selectionMode ? 56.0 : appBarBottomHeight;
+    // extendBodyBehindAppBar:true 时 body 从 y=0 开始，但 AppBar 内部 SafeArea 会把
+    // bottom 区域推到 statusBar 之下；所以留白需额外包含 statusBar 高度，避免图片网格被遮挡
+    final statusBarTop = MediaQuery.of(context).padding.top;
+    _appBarOverlayTop =
+        (_selectionMode ? 56.0 : appBarBottomHeight) + statusBarTop;
 
     final memeListAsync = ref.watch(memeListProvider);
 

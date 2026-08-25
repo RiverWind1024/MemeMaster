@@ -280,7 +280,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ),
       ),
       body: Padding(
-        padding: const EdgeInsets.only(top: 64),
+        // extendBodyBehindAppBar:true 时 body 从 y=0 开始，AppBar 内部 SafeArea 把 toolbar
+        // 推到 statusBar 之下；这里加上 statusBar 高度避免「展示 xx 张图片」被 AppBar 底部遮挡
+        padding: EdgeInsets.only(top: 64 + MediaQuery.of(context).padding.top),
         child: Column(
           children: [
             if (_level != SearchLevel.browse)
