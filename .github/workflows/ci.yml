@@ -216,14 +216,16 @@ jobs:
       - name: Build CLI (Linux x64)
         run: |
           dart build cli bin/mememaster.dart
-          chmod +x build/cli/linux_x64/bundle/bin/mememaster
-          ./build/cli/linux_x64/bundle/bin/mememaster --help
+          CLI_BIN=$(find build/cli -name "mememaster" -path "*/bin/mememaster" | head -1)
+          chmod +x "$CLI_BIN"
+          "$CLI_BIN" --help
           echo "✓ CLI works on Linux"
+          echo "CLI_BIN=$CLI_BIN" >> $GITHUB_ENV
 
       - name: Package Linux artifact
         run: |
           cd build/linux/x64/release/bundle
-          cp ../../../../cli/linux_x64/bundle/bin/mememaster ./mememaster
+          cp "$CLI_BIN" ./mememaster
           zip -r mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip .
           cd ../../../../..
           mv build/linux/x64/release/bundle/mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip .
@@ -833,14 +835,16 @@ jobs:
         shell: pwsh
         run: |
           dart build cli bin/mememaster.dart
-          .\build\cli\windows_x64\bundle\bin\mememaster.exe --help
+          $CLI_BIN = Get-ChildItem -Path build\cli -Recurse -Filter "mememaster.exe" | Where-Object { $_.DirectoryName -match "bin$" } | Select-Object -First 1 -ExpandProperty FullName
+          & $CLI_BIN --help
           Write-Host "CLI works on Windows"
+          "CLI_BIN=$CLI_BIN" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Package Windows artifact
         shell: pwsh
         run: |
           $BUNDLE = "build\windows\x64\runner\Release"
-          Copy-Item "build\cli\windows_x64\bundle\bin\mememaster.exe" "$BUNDLE\mememaster.exe" -Force
+          Copy-Item $env:CLI_BIN "$BUNDLE\mememaster.exe" -Force
           $VERSION = "${{ env.VERSION }}"
           Compress-Archive -Path "$BUNDLE\*" -DestinationPath "mememaster-${VERSION}-windows-x64-vulkan.zip" -Force
           Get-Item "mememaster-${VERSION}-windows-x64-vulkan.zip"
