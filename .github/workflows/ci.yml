@@ -359,17 +359,19 @@ jobs:
             echo "No libmeme_llm.dylib found"
           fi
 
-      - name: Build CLI (macOS arm64)
+      - name: Build CLI (macOS)
         run: |
           dart build cli bin/mememaster.dart
-          chmod +x build/cli/macos_arm64/bundle/bin/mememaster
-          ./build/cli/macos_arm64/bundle/bin/mememaster --help
+          CLI_BIN=$(find build/cli -name "mememaster" -path "*/bin/mememaster" | head -1)
+          chmod +x "$CLI_BIN"
+          "$CLI_BIN" --help
           echo "✓ CLI works on macOS"
+          echo "CLI_BIN=$CLI_BIN" >> $GITHUB_ENV
 
       - name: Package macOS artifact
         run: |
           APP=$(find build/macos/Build/Products/Release -name "*.app" -type d | head -1)
-          cp build/cli/macos_arm64/bundle/bin/mememaster "$APP/Contents/MacOS/mememaster-cli"
+          cp "$CLI_BIN" "$APP/Contents/MacOS/mememaster-cli"
           zip -r mememaster-${{ env.VERSION }}-macos-arm64-metal.zip "$APP"
           ls -lh mememaster-${{ env.VERSION }}-macos-arm64-metal.zip
 
