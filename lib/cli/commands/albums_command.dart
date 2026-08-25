@@ -146,6 +146,22 @@ class AlbumsCommand extends CliCommand {
       return 1;
     }
 
+    // 检查是否已在相册中，避免 UNIQUE constraint 错误
+    final existingAlbumIds = await context.albumRepo.getAlbumIdsByMeme(memeId);
+    if (existingAlbumIds.contains(albumId)) {
+      if (context.jsonOutput) {
+        print(jsonEncode({
+          'success': true,
+          'memeId': memeId,
+          'albumId': albumId,
+          'note': 'already in album',
+        }));
+      } else {
+        print('meme 已在相册中');
+      }
+      return 0;
+    }
+
     await context.albumRepo.addMemeToAlbum(memeId, albumId);
 
     if (context.jsonOutput) {
