@@ -16,21 +16,58 @@ class CliVisionResult {
   const CliVisionResult({required this.tags, required this.description});
 }
 
+/// 内嵌的 prompt 模板（避免分发时依赖外部文件）。
+const _kSystemPromptZh = r'''<|no_think|>
+你是一个表情包分析专家。请分析这张图片，返回 JSON 格式的分析结果。
+
+要求：
+- 标签用中文，每个 2-10 字
+- 标签描述图片中的具体内容，如：物体、场景、人物、动作、情绪
+- 不要使用宽泛/通用标签，如：表情包、搞笑、网络梗、图片、meme、热梗
+- 标签数量 3-8 个
+- 描述用一句话概括，10 字以内
+- 只返回 JSON，不要多余文字
+
+好 vs 坏的标签示例：
+好：熊猫头、愤怒、红色标语、核心价值观、爱国
+坏：表情包、搞笑、网络梗、meme、热梗
+
+输出格式：
+{"tags": ["标签1", "标签2"], "description": "一句话描述"}''';
+
+const _kSystemPromptEn = r'''You are a meme analysis expert. Analyze this image and return a JSON result.
+
+Requirements:
+- Tags in {locale_language}, 2-10 characters each
+- Tags should describe specific content: objects, scenes, people, actions, emotions
+- Do NOT use generic tags like: meme, funny, internet joke, image, reaction
+- 3-8 tags
+- Description in one short sentence, under 10 words
+- Return ONLY JSON, no extra text
+
+Good vs Bad tag examples:
+Good: panda head, angry, red banner, core values, patriotic
+Bad: meme, funny, internet joke, reaction, viral
+
+Output format:
+{"tags": ["tag1", "tag2"], "description": "one sentence description"}''';
+
+const _kUserPromptZh = '请分析这张表情包图片：';
+const _kUserPromptEn = 'Analyze this meme image:';
+
 /// CLI 多模态 LLM 分析器。
 ///
 /// GUI 的 `VisionLlmEnricher` 依赖 Flutter（rootBundle / dart:ui），CLI 无法复用，
-/// 这里复刻其调用方式：读取 `assets/prompts/vision_*.txt` 提示词，用 [LlmService]
+/// 这里复刻其调用方式：内嵌提示词，用 [LlmService]
 /// 调用 Ollama（默认 localhost:11434）或 OpenAI 兼容 API，返回标签 + 描述。
 class CliVisionAnalyzer {
   final LlmService _llm;
   final LlmConfig _config;
-  final String promptDir;
   final String locale;
 
   CliVisionAnalyzer({
     LlmService? llm,
     LlmConfig config = const LlmConfig(),
-    this.promptDir = 'assets/prompts',
     this.locale = 'zh',
   })  : _llm = llm ?? _buildLlmService(config),
         _config = config;
@@ -60,17 +97,16 @@ class CliVisionAnalyzer {
   /// 分析图片，返回标签与描述；LLM 不可达或调用失败时抛出异常。
   Future<CliVisionResult> analyze(String imagePath) async {
     final isChinese = locale.startsWith('zh');
-    final systemFile = isChinese ? 'vision_system_zh.txt' : 'vision_system_en.txt';
-    final userFile = isChinese ? 'vision_user_zh.txt' : 'vision_user_en.txt';
+    final systemPrompt = isChinese ? _kSystemPromptZh : _kSystemPromptEn;
+    final userPrompt = isChinese ? _kUserPromptZh : _kUserPromptEn;
 
-    final systemPrompt = await _loadPrompt(systemFile);
-    final userPrompt = await _loadPrompt(userFile);
+    final systemText = systemPrompt.replaceAll('{locale_language}', _localeLanguageName);
 
     final bytes = await _readResizedImage(imagePath);
     final base64 = base64Encode(bytes);
 
     final messages = [
-      LlmMessage(role: 'system', content: systemPrompt),
+      LlmMessage(role: 'system', content: systemText),
       LlmMessage(role: 'user', content: userPrompt, imageBase64: base64),
     ];
 
@@ -83,12 +119,6 @@ class CliVisionAnalyzer {
     );
 
     return _parseResponse(response);
-  }
-
-  Future<String> _loadPrompt(String filename) async {
-    final file = File('$promptDir/$filename');
-    final text = await file.readAsString();
-    return text.replaceAll('{locale_language}', _localeLanguageName);
   }
 
   String get _localeLanguageName =>
