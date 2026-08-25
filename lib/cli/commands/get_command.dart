@@ -21,7 +21,7 @@ class GetCommand extends CliCommand {
     }
     final input = args.rest.first;
 
-    final meme = await _findMeme(context, input);
+    final meme = await context.findMeme(input);
     if (meme == null) {
       stderr.writeln('未找到 meme: $input');
       return 1;
@@ -65,23 +65,5 @@ class GetCommand extends CliCommand {
       print('颜色:       ${colors.isEmpty ? '-' : colors.map((c) => c.hexColor).join(', ')}');
     }
     return 0;
-  }
-
-  /// 先精确匹配完整 id，再尝试短码前缀匹配。
-  ///
-  /// 规模取舍：先走精确 id 命中，miss 时才全表加载做短码前缀过滤。个人工具
-  /// 规模（百到千条）全表匹配可接受；未来数据量大可改用 SQL LIKE 前缀查询，
-  /// 避免全表加载。
-  Future<Meme?> _findMeme(CliContext context, String input) async {
-    final exact = await context.memeRepo.getById(input);
-    if (exact != null) return exact;
-
-    final all = await context.memeRepo.getAll();
-    final matches = all.where((m) => m.id.startsWith(input)).toList();
-    if (matches.length == 1) return matches.first;
-    if (matches.length > 1) {
-      stderr.writeln('警告: 短码 "$input" 匹配多个 meme，请使用完整 id');
-    }
-    return null;
   }
 }

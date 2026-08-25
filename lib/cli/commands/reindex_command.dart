@@ -41,15 +41,16 @@ class ReindexCommand extends CliCommand {
     var hadError = false;
     final results = <Map<String, Object?>>[];
     for (final id in ids) {
-      if (await context.memeRepo.getById(id) == null) {
+      final meme = await context.findMeme(id);
+      if (meme == null) {
         stderr.writeln('未找到 meme: $id');
         hadError = true;
         continue;
       }
-      final enqueued = await context.memeRepo.reindexMeme(id);
-      results.add({'id': id, 'enqueued': enqueued});
+      final enqueued = await context.memeRepo.reindexMeme(meme.id);
+      results.add({'id': meme.id, 'enqueued': enqueued});
       if (!context.jsonOutput) {
-        print('${id.substring(0, 8)}: 入队 $enqueued 个分析维度');
+        print('${meme.id.substring(0, 8)}: 入队 $enqueued 个分析维度');
       }
     }
 

@@ -59,7 +59,7 @@ class AnalyzeCommand extends CliCommand {
 
     var hadError = false;
     for (final id in memeIds) {
-      final meme = await _findMeme(context, id);
+      final meme = await context.findMeme(id);
       if (meme == null) {
         stderr.writeln('未找到 meme: $id');
         hadError = true;
@@ -84,20 +84,6 @@ class AnalyzeCommand extends CliCommand {
     }
 
     return hadError ? 1 : 0;
-  }
-
-  /// 先精确匹配完整 id，再尝试短码前缀匹配（与 get 命令一致）。
-  Future<Meme?> _findMeme(CliContext context, String input) async {
-    final exact = await context.memeRepo.getById(input);
-    if (exact != null) return exact;
-
-    final all = await context.memeRepo.getAll();
-    final matches = all.where((m) => m.id.startsWith(input)).toList();
-    if (matches.length == 1) return matches.first;
-    if (matches.length > 1) {
-      stderr.writeln('警告: 短码 "$input" 匹配多个 meme，请使用完整 id');
-    }
-    return null;
   }
 
   /// 颜色提取：写入 colors 表 + 更新 colorAnalysisStatus。返回是否失败。

@@ -40,7 +40,7 @@ class TagsCommand extends CliCommand {
     final tag = args.rest[2].trim();
     final source = args['source'] as String? ?? 'custom';
 
-    if (await context.memeRepo.getById(memeId) == null) {
+    if (await context.findMeme(memeId) == null) {
       stderr.writeln('未找到 meme: $memeId');
       return 1;
     }
@@ -82,7 +82,7 @@ class TagsCommand extends CliCommand {
     final tag = args.rest[2].trim();
     final source = args['source'] as String? ?? 'custom';
 
-    if (await context.memeRepo.getById(memeId) == null) {
+    if (await context.findMeme(memeId) == null) {
       stderr.writeln('未找到 meme: $memeId');
       return 1;
     }
@@ -120,7 +120,7 @@ class TagsCommand extends CliCommand {
     }
     final memeId = args.rest[1];
 
-    if (await context.memeRepo.getById(memeId) == null) {
+    if (await context.findMeme(memeId) == null) {
       stderr.writeln('未找到 meme: $memeId');
       return 1;
     }

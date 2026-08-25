@@ -59,7 +59,7 @@ class ExportCommand extends CliCommand {
     // 校验每个 id 都存在，避免导出结果与预期不符
     final missing = <String>[];
     for (final id in ids) {
-      if (await context.memeRepo.getById(id) == null) missing.add(id);
+      if (await context.findMeme(id) == null) missing.add(id);
     }
     if (missing.isNotEmpty) {
       stderr.writeln('未找到 meme: ${missing.join(', ')}');
