@@ -48,7 +48,11 @@ class ConfigCommand extends CliCommand {
   Future<int> _show(bool jsonOutput) async {
     final config = await store.load();
     if (jsonOutput) {
-      print(jsonEncode({'llm': config.llm.toJson(), 's3': config.s3.toJson()}));
+      print(jsonEncode({
+        '_warning': 'JSON output includes plaintext secrets',
+        'llm': config.llm.toJson(),
+        's3': config.s3.toJson(),
+      }));
       return 0;
     }
 

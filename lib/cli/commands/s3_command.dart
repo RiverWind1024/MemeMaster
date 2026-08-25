@@ -54,11 +54,11 @@ class S3Command extends CliCommand {
       case 'test':
         return _test(context, service);
       case 'sync':
-        return _consume(context, service.incremental(), '增量同步');
+        return _consume(service.incremental(), '增量同步');
       case 'upload':
-        return _consume(context, service.uploadAll(), '全量上传');
+        return _consume(service.uploadAll(), '全量上传');
       case 'download':
-        return _consume(context, service.downloadAll(), '全量下载');
+        return _consume(service.downloadAll(), '全量下载');
       case 'stats':
         return _stats(context, service);
       default:
@@ -93,8 +93,7 @@ class S3Command extends CliCommand {
   }
 
   /// 消费同步进度流，错误打到 stderr，进度打到 stdout。
-  Future<int> _consume(
-      CliContext context, Stream<S3SyncProgress> stream, String label) async {
+  Future<int> _consume(Stream<S3SyncProgress> stream, String label) async {
     var hadError = false;
     await for (final p in stream) {
       if (p.errorMessage != null) {

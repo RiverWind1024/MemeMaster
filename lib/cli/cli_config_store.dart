@@ -60,6 +60,6 @@ class CliConfigStore {
     await file.writeAsString(jsonEncode({
       'llm': config.llm.toJson(),
       's3': config.s3.toJson(),
-    }));
+      }));
   }
 }
