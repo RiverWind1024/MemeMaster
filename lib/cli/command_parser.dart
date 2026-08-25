@@ -104,6 +104,13 @@ class CommandParser {
       case 'tags':
         cmd.addOption('source', help: '标签来源（默认 custom）');
         break;
+      case 'analyze':
+        cmd
+          ..addFlag('all', negatable: false, help: '分析全部 meme')
+          ..addFlag('color', negatable: false, help: '仅提取颜色')
+          ..addFlag('ocr', negatable: false, help: '仅 OCR 识别')
+          ..addFlag('ai', negatable: false, help: '仅 AI 分析');
+        break;
     }
   }
 

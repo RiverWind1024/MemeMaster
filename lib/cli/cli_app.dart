@@ -13,6 +13,7 @@ import '../services/search_service.dart';
 import 'cli_context.dart';
 import 'command_parser.dart';
 import 'commands/albums_command.dart';
+import 'commands/analyze_command.dart';
 import 'commands/command.dart';
 import 'commands/export_command.dart';
 import 'commands/get_command.dart';
@@ -141,6 +142,7 @@ class CliApp {
       'export': ExportCommand(),
       'tags': TagsCommand(),
       'albums': AlbumsCommand(),
+      'analyze': AnalyzeCommand(),
       'help': HelpCommand(usage),
     };
     return commands;
