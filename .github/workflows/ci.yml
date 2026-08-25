@@ -213,9 +213,17 @@ jobs:
             exit 1
           fi
 
+      - name: Build CLI (Linux x64)
+        run: |
+          dart build cli bin/mememaster.dart
+          chmod +x build/cli/linux_x64/bundle/bin/mememaster
+          ./build/cli/linux_x64/bundle/bin/mememaster --help
+          echo "✓ CLI works on Linux"
+
       - name: Package Linux artifact
         run: |
           cd build/linux/x64/release/bundle
+          cp ../../../../cli/linux_x64/bundle/bin/mememaster ./mememaster
           zip -r mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip .
           cd ../../../../..
           mv build/linux/x64/release/bundle/mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip .
@@ -351,9 +359,17 @@ jobs:
             echo "No libmeme_llm.dylib found"
           fi
 
+      - name: Build CLI (macOS arm64)
+        run: |
+          dart build cli bin/mememaster.dart
+          chmod +x build/cli/macos_arm64/bundle/bin/mememaster
+          ./build/cli/macos_arm64/bundle/bin/mememaster --help
+          echo "✓ CLI works on macOS"
+
       - name: Package macOS artifact
         run: |
           APP=$(find build/macos/Build/Products/Release -name "*.app" -type d | head -1)
+          cp build/cli/macos_arm64/bundle/bin/mememaster "$APP/Contents/MacOS/mememaster-cli"
           zip -r mememaster-${{ env.VERSION }}-macos-arm64-metal.zip "$APP"
           ls -lh mememaster-${{ env.VERSION }}-macos-arm64-metal.zip
 
@@ -811,10 +827,18 @@ jobs:
           Write-Host ""
           Write-Host "OCR FFI test passed"
 
+      - name: Build CLI (Windows x64)
+        shell: pwsh
+        run: |
+          dart build cli bin/mememaster.dart
+          .\build\cli\windows_x64\bundle\bin\mememaster.exe --help
+          Write-Host "CLI works on Windows"
+
       - name: Package Windows artifact
         shell: pwsh
         run: |
           $BUNDLE = "build\windows\x64\runner\Release"
+          Copy-Item "build\cli\windows_x64\bundle\bin\mememaster.exe" "$BUNDLE\mememaster.exe" -Force
           $VERSION = "${{ env.VERSION }}"
           Compress-Archive -Path "$BUNDLE\*" -DestinationPath "mememaster-${VERSION}-windows-x64-vulkan.zip" -Force
           Get-Item "mememaster-${VERSION}-windows-x64-vulkan.zip"
@@ -826,131 +850,9 @@ jobs:
           path: mememaster-${{ env.VERSION }}-windows-x64-vulkan.zip
           retention-days: 7
 
-  # ---- CLI builds (pure Dart, no Flutter GUI dependencies) ----
-  cli-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Setup Flutter
-        run: |
-          FLUTTER_VERSION=3.44.0
-          if [ ! -d "$HOME/flutter" ]; then
-            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xJ -C $HOME
-          fi
-          echo "$HOME/flutter/bin" >> $GITHUB_PATH
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Compile CLI (Linux x64)
-        run: |
-          dart build cli bin/mememaster.dart
-          chmod +x build/cli/linux_x64/bundle/bin/mememaster
-
-      - name: Verify CLI works
-        run: |
-          ./build/cli/linux_x64/bundle/bin/mememaster --help
-          echo "✓ CLI works on Linux"
-
-      - name: Package
-        run: |
-          mkdir -p dist
-          cd build/cli/linux_x64/bundle
-          zip -r ../../../mememaster-${{ env.VERSION }}-linux-x64.zip .
-          cd ../../../..
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mememaster-${{ env.VERSION }}-cli-linux-x64
-          path: dist/mememaster-${{ env.VERSION }}-linux-x64.zip
-
-  cli-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Setup Flutter
-        run: |
-          FLUTTER_VERSION=3.44.0
-          if [ ! -d "$HOME/flutter" ]; then
-            curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_${FLUTTER_VERSION}-stable.zip -o /tmp/flutter.zip
-            unzip -q /tmp/flutter.zip -d $HOME
-          fi
-          echo "$HOME/flutter/bin" >> $GITHUB_PATH
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Compile CLI (macOS arm64)
-        run: |
-          dart build cli bin/mememaster.dart
-          chmod +x build/cli/macos_arm64/bundle/bin/mememaster
-
-      - name: Verify CLI works
-        run: |
-          ./build/cli/macos_arm64/bundle/bin/mememaster --help
-          echo "✓ CLI works on macOS"
-
-      - name: Package
-        run: |
-          mkdir -p dist
-          cd build/cli/macos_arm64/bundle
-          zip -r ../../../mememaster-${{ env.VERSION }}-macos-arm64.zip .
-          cd ../../../..
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mememaster-${{ env.VERSION }}-cli-macos-arm64
-          path: dist/mememaster-${{ env.VERSION }}-macos-arm64.zip
-
-  cli-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Setup Flutter
-        run: |
-          choco install dart-sdk -y
-        shell: pwsh
-
-      - name: Get dependencies
-        run: dart pub get
-        shell: pwsh
-
-      - name: Compile CLI (Windows x64)
-        run: |
-          dart build cli bin/mememaster.dart
-        shell: pwsh
-
-      - name: Verify CLI works
-        run: |
-          .\build\cli\windows_x64\bundle\bin\mememaster.exe --help
-          echo "CLI works on Windows"
-        shell: pwsh
-
-      - name: Package
-        run: |
-          Compress-Archive -Path build/cli/windows_x64/bundle/* -DestinationPath dist/mememaster-${{ env.VERSION }}-windows-x64.zip
-        shell: pwsh
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mememaster-${{ env.VERSION }}-cli-windows-x64
-          path: dist/mememaster-${{ env.VERSION }}-windows-x64.zip
-
-  # ---- Release (GUI + CLI) ----
+  # ---- Release ----
   release:
-    needs: [linux, macos, android-vulkan, windows, cli-linux, cli-macos, cli-windows]
+    needs: [linux, macos, android-vulkan, windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
     steps:
@@ -982,24 +884,6 @@ jobs:
           name: mememaster-${{ env.VERSION }}-windows-x64-vulkan
           path: artifacts/windows-vulkan
 
-      - name: Download CLI Linux
-        uses: actions/download-artifact@v4
-        with:
-          name: mememaster-${{ env.VERSION }}-cli-linux-x64
-          path: artifacts/cli-linux
-
-      - name: Download CLI macOS
-        uses: actions/download-artifact@v4
-        with:
-          name: mememaster-${{ env.VERSION }}-cli-macos-arm64
-          path: artifacts/cli-macos
-
-      - name: Download CLI Windows
-        uses: actions/download-artifact@v4
-        with:
-          name: mememaster-${{ env.VERSION }}-cli-windows-x64
-          path: artifacts/cli-windows
-
       - name: Debug artifacts structure
         run: |
           echo "=== Linux Vulkan bundle ==="
@@ -1010,12 +894,6 @@ jobs:
           find artifacts/android* -type f | head -10
           echo "=== Windows Vulkan ==="
           find artifacts/windows-vulkan -type f | head -10
-          echo "=== CLI Linux ==="
-          find artifacts/cli-linux -type f | head -10
-          echo "=== CLI macOS ==="
-          find artifacts/cli-macos -type f | head -10
-          echo "=== CLI Windows ==="
-          find artifacts/cli-windows -type f | head -10
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -1028,25 +906,18 @@ jobs:
           body: |
             ## MemeMaster v${{ env.VERSION }}
 
-            ### GUI App
+            ### GUI App (含 CLI)
             - Linux: `mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip`
             - macOS: `mememaster-${{ env.VERSION }}-macos-arm64-metal.zip`
             - Windows: `mememaster-${{ env.VERSION }}-windows-x64-vulkan.zip`
             - Android: `mememaster-${{ env.VERSION }}-android-arm64-vulkan.apk`
 
-            ### CLI Tool
-            - Linux: `mememaster-${{ env.VERSION }}-linux-x64.zip`
-            - macOS: `mememaster-${{ env.VERSION }}-macos-arm64.zip`
-            - Windows: `mememaster-${{ env.VERSION }}-windows-x64.zip`
-
-            Usage: `./mememaster list`, `./mememaster import image.png`, etc.
+            每个平台 zip 内含 GUI 应用 + CLI 可执行文件 (`mememaster` 或 `mememaster.exe`)。
+            CLI 用法：`./mememaster list`, `./mememaster import image.png`, 等。
           files: |
             artifacts/linux-vulkan/mememaster-${{ env.VERSION }}-linux-x64-vulkan.zip
             artifacts/macos-metal/mememaster-${{ env.VERSION }}-macos-arm64-metal.zip
             artifacts/android-vulkan/mememaster-${{ env.VERSION }}-android-arm64-vulkan.apk
             artifacts/windows-vulkan/mememaster-${{ env.VERSION }}-windows-x64-vulkan.zip
-            artifacts/cli-linux/mememaster-${{ env.VERSION }}-linux-x64.zip
-            artifacts/cli-macos/mememaster-${{ env.VERSION }}-macos-arm64.zip
-            artifacts/cli-windows/mememaster-${{ env.VERSION }}-windows-x64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
