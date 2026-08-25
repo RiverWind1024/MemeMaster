@@ -4,7 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:mememaster/cli/cli_app.dart';
 import 'package:mememaster/cli/cli_ocr.dart';
+import 'package:mememaster/cli/cli_vision_analyzer.dart';
 import 'package:mememaster/core/database/database.dart';
+import 'package:mememaster/core/llm/config.dart';
+import 'package:mememaster/core/llm/ollama_service.dart';
+import 'package:mememaster/core/llm/openai_service.dart';
 import 'package:path/path.dart' as p;
 
 /// 程序化生成一张白底黑字图片，供 tesseract 识别。
@@ -109,6 +113,28 @@ void main() {
       // 用不存在的语言包触发降级，最终应回退 eng 识别到英文
       final text = await CliOcr(language: 'no_such_lang').recognize(path);
       expect(text.trim(), isNotEmpty);
+    });
+  });
+
+  group('CliVisionAnalyzer provider 分支', () {
+    test('默认配置走 Ollama 服务', () {
+      final analyzer = CliVisionAnalyzer();
+      addTearDown(() => analyzer.llm.dispose());
+      expect(analyzer.llm, isA<OllamaLlmService>());
+    });
+
+    test('openai 配置走 OpenAiLlmService 并透传 model', () {
+      final analyzer = CliVisionAnalyzer(
+        config: const LlmConfig(
+          provider: LlmProviderType.openai,
+          baseUrl: 'https://api.openai.com/v1',
+          apiKey: 'sk-test',
+          model: 'gpt-4o-mini',
+        ),
+      );
+      addTearDown(() => analyzer.llm.dispose());
+      expect(analyzer.llm, isA<OpenAiLlmService>());
+      expect(analyzer.llm.modelName, 'gpt-4o-mini');
     });
   });
 

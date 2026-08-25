@@ -4,8 +4,10 @@ import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
 
+import '../core/llm/config.dart';
 import '../core/llm/llm_service.dart';
 import '../core/llm/ollama_service.dart';
+import '../core/llm/openai_service.dart';
 
 /// CLI 多模态分析结果。
 class CliVisionResult {
@@ -21,14 +23,37 @@ class CliVisionResult {
 /// 调用 Ollama（默认 localhost:11434）或 OpenAI 兼容 API，返回标签 + 描述。
 class CliVisionAnalyzer {
   final LlmService _llm;
+  final LlmConfig _config;
   final String promptDir;
   final String locale;
 
   CliVisionAnalyzer({
     LlmService? llm,
+    LlmConfig config = const LlmConfig(),
     this.promptDir = 'assets/prompts',
     this.locale = 'zh',
-  }) : _llm = llm ?? OllamaLlmService();
+  })  : _llm = llm ?? _buildLlmService(config),
+        _config = config;
+
+  /// 根据 [LlmConfig.provider] 构造对应的 LLM 服务，透传 baseUrl/apiKey/model。
+  ///
+  /// 默认 [LlmConfig] 的 provider 为 ollama、baseUrl 为 localhost:11434/v1，
+  /// 与 GUI `gallery_provider.dart` 的 `llmServiceProvider` 选择逻辑保持一致。
+  static LlmService _buildLlmService(LlmConfig config) {
+    switch (config.provider) {
+      case LlmProviderType.openai:
+        return OpenAiLlmService(
+          baseUrl: config.baseUrl,
+          apiKey: config.apiKey,
+          model: config.model,
+        );
+      case LlmProviderType.ollama:
+        return OllamaLlmService(
+          baseUrl: config.baseUrl,
+          model: config.model,
+        );
+    }
+  }
 
   LlmService get llm => _llm;
 
@@ -51,7 +76,10 @@ class CliVisionAnalyzer {
 
     final response = await _llm.chat(
       messages,
-      options: const LlmOptions(temperature: 0.3, maxTokens: 256),
+      options: LlmOptions(
+        temperature: _config.temperature,
+        maxTokens: _config.maxTokens,
+      ),
     );
 
     return _parseResponse(response);
