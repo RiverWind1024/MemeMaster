@@ -221,7 +221,6 @@ jobs:
           chmod +x "$CLI_BIN"
           "$CLI_BIN" --help
           echo "✓ CLI works on Linux"
-          echo "CLI_BIN=$CLI_BIN" >> $GITHUB_ENV
 
       - name: Package Linux artifact
         run: |
@@ -229,7 +228,14 @@ jobs:
           cd build/linux/x64/release/bundle
           zip -r "../../../../../$ZIP_NAME" .
           cd ../../../..
-          zip -j "$ZIP_NAME" "$CLI_BIN"
+          # 在 zip 根目录放入 CLI 二进制，不依赖 $GITHUB_ENV 跨步骤传递
+          CLI_PATH=$(find build/cli -name "mememaster" -path "*/bin/mememaster" | head -1)
+          if [ -n "$CLI_PATH" ]; then
+            zip -j "$ZIP_NAME" "$CLI_PATH"
+            echo "✓ CLI binary added to zip root"
+          else
+            echo "WARNING: CLI binary not found, skipping"
+          fi
           ls -lh "$ZIP_NAME"
 
       - name: Upload Linux artifact
@@ -371,14 +377,22 @@ jobs:
           chmod +x "$CLI_BIN"
           "$CLI_BIN" --help
           echo "✓ CLI works on macOS"
-          echo "CLI_BIN=$CLI_BIN" >> $GITHUB_ENV
 
       - name: Package macOS artifact
         run: |
           APP=$(find build/macos/Build/Products/Release -name "*.app" -type d | head -1)
           ZIP_NAME="mememaster-${{ env.VERSION }}-macos-arm64-metal.zip"
           zip -r "$ZIP_NAME" "$APP"
-          zip -j "$ZIP_NAME" "$CLI_BIN"
+          # 在 zip 根目录放入 CLI 二进制，不依赖 $GITHUB_ENV 跨步骤传递
+          CLI_PATH=$(find build/cli -name "mememaster" -path "*/bin/mememaster" | head -1)
+          if [ -n "$CLI_PATH" ]; then
+            cp "$CLI_PATH" ./mememaster-cli
+            zip -j "$ZIP_NAME" ./mememaster-cli
+            rm -f ./mememaster-cli
+            echo "✓ CLI binary added to zip root"
+          else
+            echo "WARNING: CLI binary not found, skipping"
+          fi
           ls -lh "$ZIP_NAME"
 
       - name: Upload macOS artifact
