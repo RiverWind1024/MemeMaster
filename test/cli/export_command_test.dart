@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mememaster/cli/cli_app.dart';
+import 'package:mememaster/cli/command_parser.dart';
 import 'package:mememaster/core/database/database.dart';
 import 'package:path/path.dart' as p;
 
@@ -216,6 +217,17 @@ void main() {
         storagePath,
       ]);
       expect(exitCode, isNot(0));
+    });
+  });
+
+  group('export --output ~ 展开', () {
+    test('--output ~ 前缀被展开为 HOME', () async {
+      final home = Platform.environment['HOME'];
+      if (home == null || home.isEmpty) return;
+
+      expect(CommandParser.expandPath('~/x.zip'), p.join(home, 'x.zip'));
+      expect(CommandParser.expandPath('~'), home);
+      expect(CommandParser.expandPath('/tmp/x.zip'), '/tmp/x.zip');
     });
   });
 }

@@ -72,24 +72,27 @@ class TagsCommand extends CliCommand {
     return 0;
   }
 
-  /// `tags rm <memeId> <tag>`
+  /// `tags rm <memeId> <tag> [--source custom]`
   Future<int> _rm(CliContext context, ArgResults args) async {
     if (args.rest.length < 3) {
-      stderr.writeln('用法: mememaster tags rm <memeId> <tag>');
+      stderr.writeln('用法: mememaster tags rm <memeId> <tag> [--source custom]');
       return 1;
     }
     final memeId = args.rest[1];
     final tag = args.rest[2].trim();
+    final source = args['source'] as String? ?? 'custom';
 
     if (await context.memeRepo.getById(memeId) == null) {
       stderr.writeln('未找到 meme: $memeId');
       return 1;
     }
 
-    // 与 GUI 一致：删除后重建剩余标签，避免重复主键冲突。
+    // 与 GUI 一致：仅删除指定 source 的标签，避免误删自动标签。
+    // 删除后重建剩余标签，避免重复主键冲突。
     final all = await context.memeRepo.getTags(memeId);
-    final remaining =
-        all.where((t) => t.content != tag).toList(growable: false);
+    final remaining = all
+        .where((t) => !(t.content == tag && t.source == source))
+        .toList(growable: false);
     await context.memeRepo.deleteTags(memeId);
     if (remaining.isNotEmpty) {
       await context.memeRepo.saveTags(remaining);

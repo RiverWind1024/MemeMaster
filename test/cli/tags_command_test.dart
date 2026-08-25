@@ -196,6 +196,85 @@ void main() {
       await db2.close();
     });
 
+    test('rm 默认仅删除 custom 来源，保留同名自动标签', () async {
+      final db = AppDatabase.open(dbPath);
+      await _insertMeme(db, id: 'cat-0000000001', filename: 'cat.png');
+      await db.tagDao.insert(const TagEntry(
+        id: 'tag-1',
+        memeId: 'cat-0000000001',
+        source: 'custom',
+        content: '狗',
+        confidence: 1.0,
+      ));
+      await db.tagDao.insert(const TagEntry(
+        id: 'tag-2',
+        memeId: 'cat-0000000001',
+        source: 'llm',
+        content: '狗',
+        confidence: 0.9,
+      ));
+      await db.close();
+
+      final exitCode = await CliApp().run([
+        'tags',
+        'rm',
+        'cat-0000000001',
+        '狗',
+        '--db',
+        dbPath,
+        '--storage',
+        storagePath,
+      ]);
+      expect(exitCode, 0);
+
+      final db2 = AppDatabase.open(dbPath);
+      final tags = await db2.tagDao.getByMemeId('cat-0000000001');
+      expect(tags, hasLength(1));
+      expect(tags.single.source, 'llm');
+      expect(tags.single.content, '狗');
+      await db2.close();
+    });
+
+    test('rm --source 删除指定来源标签', () async {
+      final db = AppDatabase.open(dbPath);
+      await _insertMeme(db, id: 'cat-0000000001', filename: 'cat.png');
+      await db.tagDao.insert(const TagEntry(
+        id: 'tag-1',
+        memeId: 'cat-0000000001',
+        source: 'custom',
+        content: '狗',
+        confidence: 1.0,
+      ));
+      await db.tagDao.insert(const TagEntry(
+        id: 'tag-2',
+        memeId: 'cat-0000000001',
+        source: 'llm',
+        content: '狗',
+        confidence: 0.9,
+      ));
+      await db.close();
+
+      final exitCode = await CliApp().run([
+        'tags',
+        'rm',
+        'cat-0000000001',
+        '狗',
+        '--source',
+        'llm',
+        '--db',
+        dbPath,
+        '--storage',
+        storagePath,
+      ]);
+      expect(exitCode, 0);
+
+      final db2 = AppDatabase.open(dbPath);
+      final tags = await db2.tagDao.getByMemeId('cat-0000000001');
+      expect(tags, hasLength(1));
+      expect(tags.single.source, 'custom');
+      await db2.close();
+    });
+
     test('rm 不存在的标签幂等返回 0', () async {
       final db = AppDatabase.open(dbPath);
       await _insertMeme(db, id: 'cat-0000000001', filename: 'cat.png');

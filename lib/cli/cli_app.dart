@@ -71,10 +71,10 @@ class CliApp {
     }
 
     final commandResults = results.command!;
-    final dbPath = parser.expandPath(
+    final dbPath = CommandParser.expandPath(
       _globalOption(results, commandResults, 'db'),
     );
-    final storagePath = parser.expandPath(
+    final storagePath = CommandParser.expandPath(
       _globalOption(results, commandResults, 'storage'),
     );
 

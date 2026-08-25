@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 
 import '../cli_context.dart';
+import '../command_parser.dart';
 import 'command.dart';
 
 /// export 命令：导出 meme 为 zip 数据包。
@@ -34,6 +35,7 @@ class ExportCommand extends CliCommand {
       stderr.writeln('--output 必填');
       return 1;
     }
+    final outputPath = CommandParser.expandPath(output);
 
     final List<String> ids;
     if (all) {
@@ -65,7 +67,7 @@ class ExportCommand extends CliCommand {
     }
 
     try {
-      File(output).parent.createSync(recursive: true);
+      File(outputPath).parent.createSync(recursive: true);
     } on FileSystemException catch (e) {
       stderr.writeln('无法创建输出目录: $e');
       return 1;
@@ -74,7 +76,7 @@ class ExportCommand extends CliCommand {
     try {
       final path = await context.exportService.exportMemes(
         memeIds: ids,
-        outputPath: output,
+        outputPath: outputPath,
       );
       final size = await File(path).length();
       if (context.jsonOutput) {

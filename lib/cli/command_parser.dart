@@ -126,7 +126,7 @@ class CommandParser {
   }
 
   /// 展开 ~ 前缀为用户主目录（无 HOME 时原样返回）。
-  String expandPath(String path) {
+  static String expandPath(String path) {
     if (path == '~') return Platform.environment['HOME'] ?? path;
     if (path.startsWith('~/')) {
       final home = Platform.environment['HOME'];
