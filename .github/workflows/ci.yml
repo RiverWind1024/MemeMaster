@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master, release/*, feat/*, fix/*]
+    branches: [master, release/*, feat/*, feature/*, fix/*]
     tags: ['v*']
   pull_request:
     branches: [master, release/*]
