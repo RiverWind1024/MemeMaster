@@ -34,7 +34,7 @@ const Map<String, String> cliCommandDescriptions = {
   'stats': '统计信息',
   'config': '查看/修改配置',
   'analyze': '分析 meme（颜色/OCR/AI）',
-  'render': '在终端渲染图片（Sixel）',
+  'render': '在终端渲染图片',
   'help': '显示帮助信息',
 };
 
@@ -157,6 +157,9 @@ class CommandParser {
         break;
       case 'render':
         cmd
+          ..addOption('protocol',
+              allowed: ['iterm2', 'sixel', 'kitty', 'ascii'],
+              help: '图片协议（默认自动检测）')
           ..addOption('width', help: '渲染宽度（终端列数）')
           ..addOption('file', help: '直接渲染图片文件（跳过数据库查询）');
         break;
