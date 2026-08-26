@@ -16,6 +16,7 @@ const List<String> cliCommandNames = [
   'stats',
   'config',
   'analyze',
+  'render',
   'help',
 ];
 
@@ -33,15 +34,16 @@ const Map<String, String> cliCommandDescriptions = {
   'stats': '统计信息',
   'config': '查看/修改配置',
   'analyze': '分析 meme（颜色/OCR/AI）',
+  'render': '在终端渲染图片（Sixel）',
   'help': '显示帮助信息',
 };
 
 /// 全局默认参数：与 GUI 共用同一数据库/存储目录。
 ///
 /// 各平台 Application Documents 目录不同：
-/// - macOS (沙盒): ~/Library/Containers/<bundleId>/Data/Documents/
-/// - Linux: ~/.local/share/<appName>/ (XDG)
-/// - Windows: C:\Users\<username>\Documents\
+/// - macOS (沙盒): `~/Library/Containers/<bundleId>/Data/Documents/`
+/// - Linux: `~/.local/share/<appName>/` (XDG)
+/// - Windows: `C:\Users\<username>\Documents\`
 String get defaultDbPath => '${_appDocumentsDir}/meme_helper.db';
 String get defaultStoragePath => '${_appDocumentsDir}/memes';
 
@@ -152,6 +154,11 @@ class CommandParser {
               negatable: true, help: 'S3 是否使用 SSL（--no-use-ssl 关闭）')
           ..addFlag('path-style',
               negatable: true, help: 'S3 path-style（--no-path-style 关闭）');
+        break;
+      case 'render':
+        cmd
+          ..addOption('width', help: '渲染宽度（终端列数）')
+          ..addOption('file', help: '直接渲染图片文件（跳过数据库查询）');
         break;
     }
   }

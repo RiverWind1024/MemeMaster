@@ -23,6 +23,7 @@ import 'commands/help_command.dart';
 import 'commands/import_command.dart';
 import 'commands/list_command.dart';
 import 'commands/reindex_command.dart';
+import 'commands/render_command.dart';
 import 'commands/s3_command.dart';
 import 'commands/search_command.dart';
 import 'commands/stats_command.dart';
@@ -174,6 +175,7 @@ class CliApp {
       'reindex': ReindexCommand(),
       'stats': StatsCommand(),
       'config': ConfigCommand(store),
+      'render': RenderCommand(),
       'help': HelpCommand(usage),
     };
     return commands;

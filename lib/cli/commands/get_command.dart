@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 
-import '../../core/database/database.dart';
 import '../cli_context.dart';
 import '../format.dart';
 import 'command.dart';
@@ -30,11 +29,15 @@ class GetCommand extends CliCommand {
     final tags = await context.memeRepo.getTags(meme.id);
     final colors = await context.memeRepo.getColors(meme.id);
 
+    // 获取绝对路径
+    final absolutePath = (await context.storage.getImage(meme.filePath)).absolute.path;
+
     if (context.jsonOutput) {
       print(jsonEncode({
         'id': meme.id,
         'filename': meme.filename,
         'filePath': meme.filePath,
+        'absolutePath': absolutePath,
         'width': meme.width,
         'height': meme.height,
         'fileSize': meme.fileSize,
@@ -51,7 +54,7 @@ class GetCommand extends CliCommand {
     } else {
       print('ID:        ${meme.id}');
       print('文件名:     ${meme.filename}');
-      print('路径:       ${meme.filePath}');
+      print('路径:       $absolutePath');
       print('尺寸:       ${meme.width}x${meme.height}');
       print('大小:       ${meme.fileSize} B');
       print('类型:       ${meme.mimeType}');
