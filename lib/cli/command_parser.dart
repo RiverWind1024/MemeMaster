@@ -38,11 +38,29 @@ const Map<String, String> cliCommandDescriptions = {
 
 /// 全局默认参数：与 GUI 共用同一数据库/存储目录。
 ///
-/// macOS 沙盒应用的 Application Documents 目录实际位于
-/// ~/Library/Containers/<bundleId>/Data/Documents/，
-/// 而非 ~/Documents。CLI 默认路径需与之对齐。
-const String defaultDbPath = '~/Library/Containers/com.mememaster.mememaster/Data/Documents/meme_helper.db';
-const String defaultStoragePath = '~/Library/Containers/com.mememaster.mememaster/Data/Documents/memes';
+/// 各平台 Application Documents 目录不同：
+/// - macOS (沙盒): ~/Library/Containers/<bundleId>/Data/Documents/
+/// - Linux: ~/.local/share/<appName>/ (XDG)
+/// - Windows: C:\Users\<username>\Documents\
+String get defaultDbPath => '${_appDocumentsDir}/meme_helper.db';
+String get defaultStoragePath => '${_appDocumentsDir}/memes';
+
+/// 各平台 Application Documents 目录，与 GUI 的 getApplicationDocumentsDirectory() 对齐。
+String get _appDocumentsDir {
+  final home = Platform.environment['HOME'] ??
+      Platform.environment['USERPROFILE'] ??
+      '';
+  switch (Platform.operatingSystem) {
+    case 'macos':
+      return '$home/Library/Containers/com.mememaster.mememaster/Data/Documents';
+    case 'linux':
+      return '$home/.local/share/mememaster';
+    case 'windows':
+      return '$home/Documents';
+    default:
+      return '$home/Documents';
+  }
+}
 
 /// 命令行解析：全局参数 + 子命令。
 class CommandParser {
