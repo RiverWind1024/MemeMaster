@@ -127,7 +127,15 @@ class RenderCommand extends CliCommand {
 
   /// 自动检测终端能力，选择最佳协议
   Future<ImageProtocol> _detectProtocol() async {
+    final term = Platform.environment['TERM'] ?? '';
     final termProgram = Platform.environment['TERM_PROGRAM'] ?? '';
+
+    // Kitty 终端（通过 TERM=xterm-kitty 检测）
+    if (term.toLowerCase().contains('kitty') ||
+        termProgram.toLowerCase().contains('kitty')) {
+      print('检测到 Kitty 终端，使用 Kitty 协议');
+      return ImageProtocol.kitty;
+    }
 
     // Warp 终端（支持 iTerm2 协议）
     if (termProgram.toLowerCase().contains('warp') || termProgram == 'Warp') {
@@ -138,12 +146,6 @@ class RenderCommand extends CliCommand {
     // iTerm2
     if (termProgram.toLowerCase().contains('iterm')) {
       print('检测到 iTerm2，使用 iTerm2 协议');
-      return ImageProtocol.iterm2;
-    }
-
-    // Terminal.app（macOS 默认终端）
-    if (termProgram == 'Apple_Terminal' || Platform.isMacOS) {
-      print('检测到 macOS 终端，使用 iTerm2 协议');
       return ImageProtocol.iterm2;
     }
 
@@ -159,21 +161,16 @@ class RenderCommand extends CliCommand {
       return ImageProtocol.sixel;
     }
 
-    // Kitty 终端
-    if (termProgram.toLowerCase().contains('kitty')) {
-      print('检测到 Kitty 终端，使用 Kitty 协议');
-      return ImageProtocol.kitty;
-    }
-
-    // 检查是否支持 Sixel（尝试检测）
+    // macOS Terminal.app 或未识别的终端
+    // 检查是否支持 Sixel（优先）或降级到 ASCII
     if (await _isSixelSupported()) {
       print('检测到 Sixel 支持，使用 Sixel 协议');
       return ImageProtocol.sixel;
     }
 
-    // 降级到 iTerm2（大多数终端支持）
-    print('未检测到特定终端能力，使用 iTerm2 协议');
-    return ImageProtocol.iterm2;
+    // 降级到 ASCII
+    print('未检测到图片协议支持，使用 ASCII 降级显示');
+    return ImageProtocol.ascii;
   }
 
   /// 检测终端是否支持 Sixel
