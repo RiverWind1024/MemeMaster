@@ -1,7 +1,7 @@
 name: mememaster
 description: "MemeMaster - 表情包管理工具"
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+1
 
 environment:
   sdk: ^3.12.0
@@ -72,6 +72,7 @@ dependencies:
   collection: ^1.19.1
   path: ^1.9.1
   meta: ^1.16.0
+  args: ^2.4.2
   minio: ^3.5.8
   file_picker: ^11.0.2
   archive: ^4.0.9

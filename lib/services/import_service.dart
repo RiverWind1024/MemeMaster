@@ -113,6 +113,23 @@ class ImportService {
     );
   }
 
+  /// 支持的图片扩展名（不含点、小写），目录扫描与单文件导入共用。
+  static const Set<String> supportedImageExts = {
+    'png',
+    'jpg',
+    'jpeg',
+    'webp',
+    'gif',
+    'bmp',
+  };
+
+  /// 按扩展名判断路径是否为受支持的图片文件（不区分大小写）。
+  static bool isSupportedImagePath(String path) {
+    final dot = path.lastIndexOf('.');
+    if (dot < 0 || dot == path.length - 1) return false;
+    return supportedImageExts.contains(path.substring(dot + 1).toLowerCase());
+  }
+
   String _mimeType(String ext) {
     switch (ext) {
       case 'jpg':

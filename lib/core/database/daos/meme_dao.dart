@@ -110,24 +110,35 @@ class MemeDao {
     return result;
   }
 
-  /// 模糊搜索文件名
+  /// 模糊搜索文件名（含自定义名称）
   Future<List<Meme>> searchByFilename(String keyword) {
+    final pattern = '%$keyword%';
     return (_db.select(_db.memesTable)
           ..where(
-            (t) => t.filename.like('%$keyword%'),
+            (t) =>
+                t.filename.like(pattern) | t.customName.like(pattern),
           )
           ..orderBy([(t) => OrderingTerm.desc(t.importedAt)]))
         .get();
   }
 
-  /// 关键词搜索（含文件名和描述）
+  /// 关键词搜索（含文件名、自定义名称和描述）
   Future<List<Meme>> searchByKeyword(String keyword) {
     final pattern = '%$keyword%';
     return (_db.select(_db.memesTable)
           ..where((t) =>
-              t.filename.like(pattern) | t.description.like(pattern))
+              t.filename.like(pattern) |
+              t.customName.like(pattern) |
+              t.description.like(pattern))
           ..orderBy([(t) => OrderingTerm.desc(t.importedAt)]))
         .get();
+  }
+
+  /// 更新自定义名称
+  Future<int> updateCustomName(String id, String? name) {
+    return (_db.update(_db.memesTable)
+          ..where((t) => t.id.equals(id)))
+        .write(MemesTableCompanion(customName: Value(name)));
   }
 
   /// 更新分析状态

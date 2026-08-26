@@ -1,23 +1,26 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 /// 文件存储服务
 ///
 /// 将 meme 图片按日期组织在 app 内部存储中：
-///   {appDir}/memes/{yyyy}/{mm}/{hash}.{ext}
+///   {basePath}/{yyyy}/{mm}/{hash}.{ext}
+///
+/// 基础路径必须通过构造器注入：
+/// - GUI 由 main.dart 注入 `{documentsDir}/memes`
+/// - CLI 由 --storage 参数注入
 class FileStorageService {
-  String? _basePath;
+  final String? _basePath;
 
-  FileStorageService({String? basePath}) : _basePath = basePath;
+  FileStorageService({this._basePath});
 
-  /// 获取基础存储路径（懒初始化）
+  /// 获取基础存储路径（必须注入，未注入则抛 [StateError]）
   Future<String> get basePath async {
-    if (_basePath != null) return _basePath!;
-    final appDir = await getApplicationDocumentsDirectory();
-    _basePath = p.join(appDir.path, 'memes');
-    return _basePath!;
+    if (_basePath != null) return _basePath;
+    throw StateError(
+      'FileStorageService.basePath 未注入：请在构造时传入 basePath（GUI 由 main.dart 注入，CLI 由 --storage 注入）',
+    );
   }
 
   /// 存储图片文件，返回相对路径（用于 DB 存储）

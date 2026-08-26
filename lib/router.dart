@@ -7,6 +7,7 @@ import 'features/import/import_receiver_screen.dart';
 import 'features/import/import_screen.dart';
 import 'features/scan/scan_screen.dart';
 import 'features/settings/ai_analysis_config_screen.dart';
+import 'features/settings/color_extraction_screen.dart';
 import 'features/settings/llm_settings_screen.dart';
 import 'features/settings/model_manager_screen.dart';
 import 'features/settings/log_viewer_screen.dart';
@@ -115,6 +116,11 @@ final router = GoRouter(
           path: 'settings/ai-config',
           name: 'ai-config',
           builder: (context, state) => const AiAnalysisConfigScreen(),
+        ),
+        GoRoute(
+          path: 'settings/color-extraction',
+          name: 'color-extraction',
+          builder: (context, state) => const ColorExtractionScreen(),
         ),
       ],
     ),

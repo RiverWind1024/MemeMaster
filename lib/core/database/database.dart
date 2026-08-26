@@ -1,8 +1,8 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite3;
-import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import 'package:uuid/uuid.dart';
 
 import 'daos/meme_dao.dart';
@@ -36,10 +36,23 @@ part 'database.g.dart';
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
+  AppDatabase([QueryExecutor? executor])
+      : super(executor ?? _throwMissingExecutor());
+
+  /// 打开指定路径的数据库（CLI/GUI 共用，不依赖 Flutter 插件）。
+  ///
+  /// 自动创建父目录（CLI 可能通过 --db 指定新路径）。
+  static AppDatabase open(String dbPath) {
+    File(dbPath).parent.createSync(recursive: true);
+    return AppDatabase(NativeDatabase.opened(
+      sqlite3.sqlite3.open(dbPath, uri: false)
+        ..execute('PRAGMA journal_mode=WAL')
+        ..execute('PRAGMA foreign_keys=ON'),
+    ));
+  }
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration {
@@ -86,6 +99,10 @@ class AppDatabase extends _$AppDatabase {
           // 添加软删除时间戳（用于 S3 增量同步）
           await m.addColumn(memesTable, memesTable.deletedAt);
         }
+        if (from < 6) {
+          // 添加用户自定义名称
+          await m.addColumn(memesTable, memesTable.customName);
+        }
       },
     );
   }
@@ -102,23 +119,6 @@ class AppDatabase extends _$AppDatabase {
   late final UserStatsDao userStatsDao = UserStatsDao(this);
 }
 
-LazyDatabase _openConnection() {
-  return LazyDatabase(() async {
-    final dbDir = await getApplicationDocumentsDirectory();
-    await dbDir.create(recursive: true);
-
-    final dbPath = '${dbDir.path}/meme_helper.db';
-
-    await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
-
-    final db = sqlite3.sqlite3.open(
-      dbPath,
-      uri: false,
-    );
-
-    db.execute('PRAGMA journal_mode=WAL');
-    db.execute('PRAGMA foreign_keys=ON');
-
-    return NativeDatabase.opened(db);
-  });
-}
+/// 无 executor 时的守卫：不允许无路径/无注入的裸构造
+Never _throwMissingExecutor() =>
+    throw StateError('必须通过 AppDatabase.open(dbPath) 或传入 QueryExecutor 构造');

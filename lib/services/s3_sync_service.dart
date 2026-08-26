@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:minio/io.dart';
 import 'package:minio/minio.dart';
 
@@ -13,6 +12,7 @@ import '../core/repositories/meme_repository.dart';
 import 'file_storage_service.dart';
 import 'log_service.dart';
 import 's3_config.dart';
+import 's3_secret_store.dart';
 import 's3_sync_serializer.dart';
 
 /// S3 存储统计
@@ -32,6 +32,7 @@ class S3SyncService {
   final FileStorageService _storage;
   final SyncStateDao _syncStateDao;
   final S3SyncSerializer _serializer;
+  final S3SecretStore _secretStore;
   final LogService? _log;
   final AppDatabase _db;
   S3Config _config = const S3Config();
@@ -40,12 +41,16 @@ class S3SyncService {
   bool _syncInProgress = false;
   Timer? _periodicTimer;
 
+  /// 清空密码在 S3SecretStore 中的键名
+  static const clearPasswordKey = 's3_clear_password';
+
   S3SyncService({
     required MemeRepository memeRepo,
     required AlbumRepository albumRepo,
     required FileStorageService storage,
     required SyncStateDao syncStateDao,
     required S3SyncSerializer serializer,
+    required S3SecretStore secretStore,
     required AppDatabase db,
     LogService? log,
   })  : _memeRepo = memeRepo,
@@ -53,6 +58,7 @@ class S3SyncService {
         _storage = storage,
         _syncStateDao = syncStateDao,
         _serializer = serializer,
+        _secretStore = secretStore,
         _db = db,
         _log = log;
 
@@ -277,8 +283,7 @@ class S3SyncService {
 
   /// 删除 S3 bucket 中所有对象并重置同步状态
   Future<void> clearAllData({required String password}) async {
-    const storage = FlutterSecureStorage();
-    final storedPw = await storage.read(key: 's3_clear_password');
+    final storedPw = await _secretStore.read(clearPasswordKey);
     if (storedPw == null || storedPw != password) {
       throw ArgumentError('清空密码验证失败，请检查密码是否正确');
     }
@@ -304,16 +309,14 @@ class S3SyncService {
 
   /// 设置清空操作的密码
   Future<void> setClearPassword(String password) async {
-    const storage = FlutterSecureStorage();
-    await storage.write(key: 's3_clear_password', value: password);
+    await _secretStore.write(clearPasswordKey, password);
   }
 
   // ---- 清空密码管理 ----
 
   /// 检查是否已设置清空密码
   Future<bool> hasClearPassword() async {
-    const storage = FlutterSecureStorage();
-    final pw = await storage.read(key: 's3_clear_password');
+    final pw = await _secretStore.read(clearPasswordKey);
     return pw != null && pw.isNotEmpty;
   }
 

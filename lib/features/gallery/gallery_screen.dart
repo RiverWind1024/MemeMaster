@@ -298,6 +298,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                   ? _buildSelectionGrid(memeListAsync)
                   : _buildTabbedBody(memeListAsync, nonDefaultAlbums),
               bottomNavigationBar: _selectionMode ? _buildSelectionBottomBar() : null,
+              floatingActionButtonLocation:
+                  const _FabAboveNavBarLocation(),
               floatingActionButton: _selectionMode ? null : _buildFab(),
               // 点击页面内容也关闭径向菜单
               onDrawerChanged: (_) => _closeRadial(),
@@ -395,6 +397,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     );
   }
 
+
   PreferredSizeWidget _buildSelectionAppBar() {
     return AppBar(
       title: Text(S.of(context).selectedItems(_selectedIds.length)),
@@ -434,6 +437,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final allSelected = _selectedIds.length == memes.length && memes.isNotEmpty;
 
     return Container(
+      margin: const EdgeInsets.only(bottom: 68),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -609,7 +613,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
             ref.refresh(albumsProvider);
           },
           child: GridView.builder(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 84),
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 150,
           mainAxisSpacing: 4,
@@ -692,8 +696,16 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           const SizedBox(height: 12),
         ],
         // 主 FAB（旋转动画）
+        // elevation/shape 微调以呼应 TREK 毛玻璃风格的"漂浮感"，保持实色以保证主操作识别度
         FloatingActionButton(
           onPressed: _toggleRadial,
+          elevation: 6,
+          focusElevation: 8,
+          hoverElevation: 8,
+          highlightElevation: 12,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+          ),
           child: AnimatedRotation(
             turns: _radialOpen ? 0.125 : 0.0, // 45°
             duration: const Duration(milliseconds: 250),
@@ -1152,6 +1164,18 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         );
       }
     }
+  }
+}
+
+/// 将 FAB 上移到毛玻璃底部导航栏上方（endFloat 默认会被 extendBody 的底栏遮挡）
+class _FabAboveNavBarLocation extends FloatingActionButtonLocation {
+  const _FabAboveNavBarLocation();
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    final base =
+        FloatingActionButtonLocation.endFloat.getOffset(scaffoldGeometry);
+    return Offset(base.dx, base.dy - 92);
   }
 }
 

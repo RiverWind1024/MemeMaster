@@ -22,6 +22,7 @@ class MemeRepository {
   final AiAnalysisQueueDao _aiQueueDao;
   final AlbumDao _albumDao;
   final Uuid _uuid = const Uuid();
+  final FileStorageService? _fileStorage;
 
   MemeRepository({
     required this._memeDao,
@@ -32,6 +33,7 @@ class MemeRepository {
     OcrAnalysisQueueDao? ocrQueueDao,
     AiAnalysisQueueDao? aiQueueDao,
     AlbumDao? albumDao,
+    this._fileStorage,
   })  : _colorQueueDao = colorQueueDao ?? ColorAnalysisQueueDao(_memeDao.database),
         _ocrQueueDao = ocrQueueDao ?? OcrAnalysisQueueDao(_memeDao.database),
         _aiQueueDao = aiQueueDao ?? AiAnalysisQueueDao(_memeDao.database),
@@ -49,6 +51,9 @@ class MemeRepository {
 
   Future<List<Meme>> searchByFilename(String keyword) =>
       _memeDao.searchByFilename(keyword);
+
+  Future<void> updateCustomName(String id, String? name) =>
+      _memeDao.updateCustomName(id, name);
 
   Future<List<Meme>> searchByKeyword(String keyword) =>
       _memeDao.searchByKeyword(keyword);
@@ -109,8 +114,12 @@ class MemeRepository {
     await _memeDao.softDelete(id);
 
     if (deleteFile && meme != null && meme.filePath.isNotEmpty) {
+      final storage = _fileStorage;
+      if (storage == null) {
+        throw StateError(
+            'delete(deleteFile:true) 需要注入 FileStorageService（GUI 由 gallery_provider 注入，CLI 由 cli_app 注入）');
+      }
       try {
-        final storage = FileStorageService();
         await storage.deleteImage(meme.filePath);
       } catch (_) {
         // 文件已不存在或无法删除，不影响逻辑删除

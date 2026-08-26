@@ -242,7 +242,11 @@ List<_QuantizedColor> _mergeSimilarColors(
     for (var j = i + 1; j < colors.length; j++) {
       if (used[j]) continue;
 
-      final d = _deltaEInt(colors[i].rgb, colors[j].rgb);
+      // 使用 CIE Lab ΔE76 而非 RGB 加权距离：
+      // 旧版 `_deltaEInt` 给红色分配最低权重 (2x)，导致同色相不同明度的红色
+      // 在阈值 12 下无法合并，把大面积红色切成多个小簇挤出主色调结果。
+      // Lab 空间对色相的感知更均匀，红色家族 (深红/中红/粉红) 能被正确合并。
+      final d = deltaE(rgbToLab(colors[i].rgb), rgbToLab(colors[j].rgb));
       if (d < config.mergeThreshold) {
         totalCount += colors[j].count;
         rSum += colors[j].rgb.r * colors[j].count;
@@ -264,14 +268,6 @@ List<_QuantizedColor> _mergeSimilarColors(
 
   merged.sort((a, b) => b.count.compareTo(a.count));
   return merged;
-}
-
-/// 快速 RGB 近似 ΔE（避免重复 Lab 转换的开销）
-double _deltaEInt(ColorRgb a, ColorRgb b) {
-  final dr = a.r - b.r;
-  final dg = a.g - b.g;
-  final db = a.b - b.b;
-  return sqrt((2 * dr * dr) + (4 * dg * dg) + (3 * db * db));
 }
 
 /// 将 [_QuantizedColor] 列表转换为 [DominantColor] 列表，

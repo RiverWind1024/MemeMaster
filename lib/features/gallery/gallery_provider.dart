@@ -25,6 +25,7 @@ import '../../services/file_storage_service.dart';
 import '../../core/ocr/tesseract_bindings.dart';
 import '../../services/log_service.dart';
 import '../../services/s3_config.dart';
+import '../../services/s3_secret_store_flutter.dart';
 import '../../services/s3_sync_service.dart';
 import '../../services/s3_sync_serializer.dart';
 import '../../services/import_service.dart';
@@ -39,11 +40,21 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 
 // ---- Database ----
 
+/// 数据库文件路径，由 main.dart 在 app 启动时注入（仿照 [storageDirProvider]）
+final databasePathProvider = Provider<String>((ref) {
+  throw UnimplementedError('databasePathProvider 需要在 main.dart 中覆盖');
+});
+
 final databaseProvider = Provider<AppDatabase>((ref) {
   final t0 = DateTime.now();
-  final db = AppDatabase();
+  final db = AppDatabase.open(ref.read(databasePathProvider));
   debugPrint('[Startup] AppDatabase created: ${DateTime.now().difference(t0).inMilliseconds}ms');
   return db;
+});
+
+/// meme 图片存储根路径，由 main.dart 在 app 启动时注入（仿照 [databasePathProvider]）
+final memesPathProvider = Provider<String>((ref) {
+  throw UnimplementedError('memesPathProvider 需要在 main.dart 中覆盖');
 });
 
 // ---- DAOs ----
@@ -89,6 +100,7 @@ final memeRepositoryProvider = Provider<MemeRepository>((ref) {
     tagDao: db.tagDao,
     colorDao: db.colorDao,
     queueDao: db.analysisQueueDao,
+    fileStorage: ref.read(fileStorageServiceProvider),
   );
 });
 
@@ -99,7 +111,7 @@ final colorRepositoryProvider = Provider<ColorRepository>((ref) {
 // ---- Services ----
 
 final fileStorageServiceProvider = Provider<FileStorageService>((ref) {
-  return FileStorageService();
+  return FileStorageService(basePath: ref.read(memesPathProvider));
 });
 
 /// 由 main.dart 在 app 启动时设置的日志持久化路径
@@ -788,10 +800,20 @@ final modelManagerProvider = Provider<ModelManager>((ref) {
 // ---- 管线配置 ----
 
 class OcrEnabledNotifier extends Notifier<bool> {
+  OcrEnabledNotifier({this.platformCheck, this.ocrAvailableCheck});
+
+  /// 可注入的平台判断（测试用）；默认按真实 Platform 判断
+  final bool Function()? platformCheck;
+  final bool Function()? ocrAvailableCheck;
+
   @override
   bool build() {
-    // macOS: Apple Vision Framework 始终可用
-    if (Platform.isMacOS) {
+    // 注入的 OCR 可用性检查（测试用）：显式不可用时强制关闭
+    if (ocrAvailableCheck?.call() == false) return false;
+
+    // 系统级 OCR 平台（macOS: Apple Vision / Android·iOS: Google ML Kit）：
+    // OCR 始终可用，直接读取用户已保存的开关状态，默认开启
+    if (_isSystemOcrPlatform()) {
       return _getSavedEnabled() ?? true;
     }
 
@@ -820,6 +842,12 @@ class OcrEnabledNotifier extends Notifier<bool> {
     // FFI 和 CLI 都不可用 → OCR 无法使用
     return false;
   }
+
+  /// 平台是否具备"系统级" OCR（无需额外安装即可使用）
+  /// macOS: Apple Vision / Android·iOS: Google ML Kit
+  bool _isSystemOcrPlatform() =>
+      platformCheck?.call() ??
+      (Platform.isMacOS || Platform.isAndroid || Platform.isIOS);
 
   bool? _getSavedEnabled() {
     try {
@@ -912,6 +940,7 @@ final s3SyncServiceProvider = Provider<S3SyncService>((ref) {
       albumRepo: ref.read(albumRepositoryProvider),
       db: db,
     ),
+    secretStore: const FlutterSecureStorageS3SecretStore(),
     db: db,
     log: ref.read(logServiceProvider),
   );
@@ -1198,7 +1227,6 @@ class ReindexStateNotifier extends StateNotifier<ReindexState> {
 
 final analysisProgressProvider = StreamProvider<AnalysisProgress>((ref) async* {
   while (true) {
-    await Future.delayed(const Duration(seconds: 3));
     final colorDao = ref.read(colorAnalysisQueueDaoProvider);
     final ocrDao = ref.read(ocrAnalysisQueueDaoProvider);
     final aiDao = ref.read(aiAnalysisQueueDaoProvider);
@@ -1222,6 +1250,8 @@ final analysisProgressProvider = StreamProvider<AnalysisProgress>((ref) async* {
     } catch (_) {
       yield const AnalysisProgress();
     }
+    // 先查询后等待：避免短任务在轮询间隙完成导致横幅永远不显示
+    await Future.delayed(const Duration(milliseconds: 800));
   }
 });
 

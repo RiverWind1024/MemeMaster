@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'features/gallery/gallery_provider.dart';
 import 'features/import/import_preview_sheet.dart';
+import 'core/theme/app_theme.dart';
 import 'router.dart';
 import 'services/log_service.dart';
 import 'services/shared_media_handler.dart';
@@ -17,8 +18,16 @@ import 'services/shared_media_handler.dart';
 class MemeManagerApp extends StatelessWidget {
   final SharedPreferences prefs;
   final String storageDir;
+  final String databasePath;
+  final String memesPath;
 
-  const MemeManagerApp({super.key, required this.prefs, required this.storageDir});
+  const MemeManagerApp({
+    super.key,
+    required this.prefs,
+    required this.storageDir,
+    required this.databasePath,
+    required this.memesPath,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +35,8 @@ class MemeManagerApp extends StatelessWidget {
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
         storageDirProvider.overrideWithValue(storageDir),
+        databasePathProvider.overrideWithValue(databasePath),
+        memesPathProvider.overrideWithValue(memesPath),
       ],
       child: _AppBody(),
     );
@@ -271,20 +282,8 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
       ],
       supportedLocales: S.supportedLocales,
       locale: ref.watch(localeProvider),
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: buildLightTheme(),
+      darkTheme: buildDarkTheme(),
       themeMode: themeMode,
       routerConfig: router,
     );

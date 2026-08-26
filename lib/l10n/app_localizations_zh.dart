@@ -733,6 +733,36 @@ class SZh extends S {
   String get aiDisabled => '未开启 AI 识别';
 
   @override
+  String get ocrRecognized => 'OCR识别';
+
+  @override
+  String get pendingOcrRecognition => '待OCR识别';
+
+  @override
+  String get aiRecognized => 'AI识别';
+
+  @override
+  String get pendingAiRecognition => '待AI识别';
+
+  @override
+  String get exitAppTitle => '退出应用';
+
+  @override
+  String get exitAppMessage => '确定要退出 MemeMaster 吗？';
+
+  @override
+  String get exitApp => '退出';
+
+  @override
+  String get customName => '自定义名称';
+
+  @override
+  String get editCustomName => '修改名称';
+
+  @override
+  String get editCustomNameHint => '输入自定义名称，留空恢复为文件名';
+
+  @override
   String get dominantColors => '主色调';
 
   @override
