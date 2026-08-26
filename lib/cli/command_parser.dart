@@ -37,8 +37,12 @@ const Map<String, String> cliCommandDescriptions = {
 };
 
 /// 全局默认参数：与 GUI 共用同一数据库/存储目录。
-const String defaultDbPath = '~/Documents/meme_helper.db';
-const String defaultStoragePath = '~/Documents/memes';
+///
+/// macOS 沙盒应用的 Application Documents 目录实际位于
+/// ~/Library/Containers/<bundleId>/Data/Documents/，
+/// 而非 ~/Documents。CLI 默认路径需与之对齐。
+const String defaultDbPath = '~/Library/Containers/com.mememaster.mememaster/Data/Documents/meme_helper.db';
+const String defaultStoragePath = '~/Library/Containers/com.mememaster.mememaster/Data/Documents/memes';
 
 /// 命令行解析：全局参数 + 子命令。
 class CommandParser {
