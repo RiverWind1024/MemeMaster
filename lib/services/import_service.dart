@@ -35,14 +35,26 @@ class ImportService {
 
   Future<Meme?> importImage(String sourcePath, {String? source}) async {
     final file = File(sourcePath);
-    if (!await file.exists()) return null;
+    if (!await file.exists()) {
+      print('[Import] 文件不存在: $sourcePath');
+      return null;
+    }
 
     final fileBytes = await file.readAsBytes();
     final fileHash = sha256.convert(fileBytes).toString();
     final ext = sourcePath.split('.').last.toLowerCase();
 
+    print('[Import] 导入图片: $sourcePath');
+    print('[Import]   大小: ${fileBytes.length} bytes');
+    print('[Import]   哈希: $fileHash');
+    print('[Import]   扩展名: $ext');
+
     final existing = await _memeRepo.getByFileHash(fileHash);
-    if (existing != null) return null;
+    if (existing != null) {
+      print('[Import]   已存在: id=${existing.id}, filename=${existing.filename}');
+      return null;
+    }
+    print('[Import]   不存在，准备导入');
 
     int width = 0, height = 0;
     final decoded = img.decodeImage(fileBytes);

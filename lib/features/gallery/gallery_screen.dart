@@ -719,15 +719,38 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   // ---- 底部弹出菜单（保留作为备用，当前使用径向菜单）----
 
   Future<void> _onDrop(DropDoneDetails details) async {
+    final log = ref.read(logServiceProvider);
+    log.info('Drop', '=== _onDrop 开始 ===');
+    log.info('Drop', '收到 ${details.files.length} 个文件');
+
     final imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
-    final paths = details.files
-        .where((f) => imageExtensions.contains(f.name.split('.').last.toLowerCase()))
-        .map((f) => f.path)
-        .where((p) => p != null)
-        .cast<String>()
-        .toList();
+    final paths = <String>[];
+
+    for (final file in details.files) {
+      final ext = file.name.split('.').last.toLowerCase();
+      final isImage = imageExtensions.contains(ext);
+      final path = file.path;
+      log.info('Drop', '文件: ${file.name}, 扩展名: $ext, 是图片: $isImage, 路径: $path');
+
+      if (isImage && path != null) {
+        // 检查文件是否存在
+        final ioFile = File(path);
+        final exists = await ioFile.exists();
+        final size = exists ? await ioFile.length() : 0;
+        log.info('Drop', '  文件存在: $exists, 大小: $size bytes');
+
+        if (exists && size > 0) {
+          paths.add(path);
+        } else {
+          log.warning('Drop', '  跳过文件: $path (不存在或为空)');
+        }
+      }
+    }
+
+    log.info('Drop', '筛选后有效图片路径: $paths');
 
     if (paths.isEmpty) {
+      log.warning('Drop', '没有有效的图片文件');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(S.of(context).noImageFilesFound)),
@@ -737,7 +760,12 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     }
 
     final service = ref.read(importServiceProvider);
-    final result = await service.importImages(paths, source: '系统分享');
+    log.info('Drop', '开始导入 ${paths.length} 张图片...');
+    final result = await service.importImages(paths, source: '拖拽导入');
+    log.info('Drop', '导入结果: 成功=${result.success}, 跳过=${result.skipped}, 错误=${result.errors.length}');
+    if (result.skippedFiles.isNotEmpty) {
+      log.info('Drop', '跳过的文件: ${result.skippedFiles}');
+    }
 
     ref.invalidate(memeListProvider);
     ref.invalidate(memeCountProvider);
