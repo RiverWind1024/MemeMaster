@@ -244,7 +244,7 @@ class RenderCommand extends CliCommand {
     int w = 0, h = 0;
 
     if (bytes.length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xD8) {
-      format = '100'; // JPEG 类型 ID
+      format = '101'; // JPEG 类型 ID
       final decoded = _decodeJpegDims(bytes);
       w = decoded.$1;
       h = decoded.$2;
