@@ -161,27 +161,16 @@ class RenderCommand extends CliCommand {
       return ImageProtocol.sixel;
     }
 
-    // macOS Terminal.app 或未识别的终端
-    // 检查是否支持 Sixel（优先）或降级到 ASCII
-    if (await _isSixelSupported()) {
-      print('检测到 Sixel 支持，使用 Sixel 协议');
-      return ImageProtocol.sixel;
+    // macOS Terminal.app: 实际不支持任何图片协议 → ASCII 降级
+    if (termProgram == 'Apple_Terminal' || termProgram == 'Apple_Teerminal') {
+      print('检测到 macOS Terminal.app，使用 ASCII 降级显示');
+      return ImageProtocol.ascii;
     }
 
-    // 降级到 ASCII
-    print('未检测到图片协议支持，使用 ASCII 降级显示');
+    // 未识别的终端：默认 ASCII（Sixel/其它协议不支持自动探测终端能力）
+    print('未检测到已知图片协议支持，使用 ASCII 降级显示');
+    print('提示: 可手动指定协议 --protocol <iterm2|sixel|kitty>');
     return ImageProtocol.ascii;
-  }
-
-  /// 检测终端是否支持 Sixel
-  Future<bool> _isSixelSupported() async {
-    // 检查 img2sixel 是否可用
-    try {
-      final result = await Process.run('img2sixel', ['--version']);
-      return result.exitCode == 0;
-    } catch (_) {
-      return false;
-    }
   }
 
   /// iTerm2 Image Protocol
@@ -227,11 +216,80 @@ class RenderCommand extends CliCommand {
   }
 
   /// Kitty Graphics Protocol
-  /// 格式: `\033_Gf=100,t=d;<base64数据>\033\\`
-  int _renderKitty(String base64Data, String? width) {
-    // Kitty 协议：直接传输 base64 数据
-    stdout.write('\x1b_Gf=100,t=d;$base64Data\x1b\\');
+  ///
+  /// Kitty 需要两步：先传输（a=T, store），再放置（a=p, put）。
+  /// 格式:
+  ///   传输: `\033_Ga=T,f=<格式>,s=<宽>,v=<高>[,c=<块数>];<数据>\033\\`
+  ///   放置: `\033_Ga=p\033\\`
+  Future<int> _renderKitty(String base64Data, String? width) async {
+    // 从 base64 解码获取图片尺寸和格式
+    final bytes = base64Decode(base64Data);
+    final (imgFormat, imgW, imgH) = await _probeImage(bytes);
+
+    // 计算显示大小（可选 --width）
+    // Kitty 用 s/v 指定传输像素尺寸，用 U/W/H 指定放置尺寸（cell 单位）
+
+    // 传输图片（base64 已编码）
+    final header = <String>['a=T', 'f=$imgFormat', 's=$imgW', 'v=$imgH'];
+    stdout.write('\x1b_G${header.join(',')};$base64Data\x1b\\');
+
+    // 放置图片（默认等比，可用 U 指定列数）
+    stdout.write('\x1b_Ga=p\x1b\\');
     return 0;
+  }
+
+  /// 探测图片格式与尺寸（只读取头部，返回 JPEG/PNG/GIF 格式标识与宽高）。
+  Future<(String, int, int)> _probeImage(List<int> bytes) async {
+    String format;
+    int w = 0, h = 0;
+
+    if (bytes.length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xD8) {
+      format = '100'; // JPEG 类型 ID
+      final decoded = _decodeJpegDims(bytes);
+      w = decoded.$1;
+      h = decoded.$2;
+    } else if (bytes.length >= 8 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) {
+      format = '100'; // PNG 类型 ID
+      // PNG 宽高在 IHDR 块（bytes 16..23 大端）
+      if (bytes.length >= 24) {
+        w = (bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19];
+        h = (bytes[20] << 24) | (bytes[21] << 16) | (bytes[22] << 8) | bytes[23];
+      }
+    } else {
+      format = '100'; // 未知，尝试通用
+    }
+    if (w <= 0 || h <= 0) w = 100; // 兜底
+    if (h <= 0) h = 100;
+    return (format, w, h);
+  }
+
+  /// 解析 JPEG 尺寸（SOF 段）。
+  (int, int) _decodeJpegDims(List<int> bytes) {
+    var i = 2;
+    final len = bytes.length;
+    while (i < len) {
+      if (bytes[i] != 0xFF) {
+        i++;
+        continue;
+      }
+      final marker = bytes[i + 1];
+      if (marker == 0xDA) break; // SOS，结束
+      if (marker >= 0xC0 && marker <= 0xCF && marker != 0xC4 && marker != 0xC8) {
+        // SOF 段
+        if (i + 9 < len) {
+          final h = (bytes[i + 5] << 8) | bytes[i + 6];
+          final w = (bytes[i + 7] << 8) | bytes[i + 8];
+          return (w, h);
+        }
+      }
+      final segLen = (bytes[i + 2] << 8) | bytes[i + 3];
+      i += 2 + segLen;
+    }
+    return (0, 0);
   }
 
   /// ASCII 艺术降级显示
