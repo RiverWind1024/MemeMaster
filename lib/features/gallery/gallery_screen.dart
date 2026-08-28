@@ -16,6 +16,7 @@ import '../../services/import_service.dart';
 import '../../services/meme_export_service.dart';
 import '../../services/meme_import_service.dart';
 import '../../services/shared_media_handler.dart';
+import '../overlay/overlay_toggle_button.dart';
 import 'gallery_provider.dart';
 import '../../l10n/app_localizations.dart';
 
@@ -359,7 +360,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             if (actualTabCount > 1) tabBar,
-            // 排序栏
+            // 排序栏 + 悬浮窗按钮
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               height: 36,
@@ -388,6 +389,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                       ),
                     ),
                   ),
+                  const OverlayToggleButton(),
                 ],
               ),
             ),
