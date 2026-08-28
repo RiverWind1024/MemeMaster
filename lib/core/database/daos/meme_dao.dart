@@ -66,7 +66,7 @@ class MemeDao {
         .getSingleOrNull();
   }
 
-  /// 通过标签内容模糊搜索 meme（JOIN tags 表）
+  /// 通过标签内容模糊搜索 meme（JOIN tags 表，排除已删除）
   Future<List<Meme>> searchByTagContent(String keyword) async {
     final pattern = '%$keyword%';
     final rows = await (_db.customSelect(
@@ -77,7 +77,7 @@ class MemeDao {
       'm.copy_count, m.source '
       'FROM memes_table AS m '
       'INNER JOIN tags_table AS t ON t.meme_id = m.id '
-      'WHERE t.content LIKE ? '
+      'WHERE t.content LIKE ? AND m.deleted_at IS NULL '
       'ORDER BY m.imported_at DESC',
       variables: [Variable.withString(pattern)],
     )).get();
@@ -110,26 +110,28 @@ class MemeDao {
     return result;
   }
 
-  /// 模糊搜索文件名（含自定义名称）
+  /// 模糊搜索文件名（含自定义名称，排除已删除）
   Future<List<Meme>> searchByFilename(String keyword) {
     final pattern = '%$keyword%';
     return (_db.select(_db.memesTable)
           ..where(
             (t) =>
-                t.filename.like(pattern) | t.customName.like(pattern),
+                (t.filename.like(pattern) | t.customName.like(pattern)) &
+                t.deletedAt.isNull(),
           )
           ..orderBy([(t) => OrderingTerm.desc(t.importedAt)]))
         .get();
   }
 
-  /// 关键词搜索（含文件名、自定义名称和描述）
+  /// 关键词搜索（含文件名、自定义名称和描述，排除已删除）
   Future<List<Meme>> searchByKeyword(String keyword) {
     final pattern = '%$keyword%';
     return (_db.select(_db.memesTable)
           ..where((t) =>
-              t.filename.like(pattern) |
+              (t.filename.like(pattern) |
               t.customName.like(pattern) |
-              t.description.like(pattern))
+              t.description.like(pattern)) &
+              t.deletedAt.isNull())
           ..orderBy([(t) => OrderingTerm.desc(t.importedAt)]))
         .get();
   }
@@ -224,10 +226,11 @@ class MemeDao {
     return await (_db.delete(_db.memesTable)..where((t) => t.id.equals(id))).go();
   }
 
-  /// 统计总数
+  /// 统计总数（排除已删除）
   Future<int> countAll() async {
-    final result =
-        await _db.customSelect('SELECT COUNT(*) FROM memes_table').getSingle();
+    final result = await _db.customSelect(
+      'SELECT COUNT(*) FROM memes_table WHERE deleted_at IS NULL',
+    ).getSingle();
     return result.data.values.first as int;
   }
 
@@ -244,7 +247,7 @@ class MemeDao {
     final limitClause = limit != null ? 'LIMIT $limit' : '';
     final offsetClause = offset != null ? 'OFFSET $offset' : '';
     final rows = await _db.customSelect(
-      'SELECT * FROM memes_table ORDER BY $field $direction $limitClause $offsetClause',
+      'SELECT * FROM memes_table WHERE deleted_at IS NULL ORDER BY $field $direction $limitClause $offsetClause',
     ).get();
     return rows.map((row) {
       final d = row.data;
