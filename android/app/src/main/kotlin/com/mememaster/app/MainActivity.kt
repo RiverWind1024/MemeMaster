@@ -19,11 +19,14 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileOutputStream
+import com.mememaster.app.overlay.OverlayPermissionHelper
+import com.mememaster.app.overlay.OverlayService
 
 private const val CHANNEL_CLIPBOARD = "com.mememaster.app/clipboard"
 private const val CHANNEL_SHARE = "com.mememaster.app/share"
 private const val CHANNEL_STORAGE = "com.mememaster.app/storage"
 private const val CHANNEL_FILE = "com.mememaster.app/file"
+private const val CHANNEL_OVERLAY = "com.mememaster.app/overlay"
 
 class MainActivity : FlutterActivity() {
     companion object {
@@ -209,6 +212,34 @@ class MainActivity : FlutterActivity() {
             }
         }
 
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.mememaster.app/overlay"
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startOverlay" -> {
+                    if (OverlayPermissionHelper.canDrawOverlays(this)) {
+                        OverlayService.start(this)
+                        result.success(true)
+                    } else {
+                        result.error("NO_PERMISSION", "悬浮窗权限未授予", null)
+                    }
+                }
+                "stopOverlay" -> {
+                    OverlayService.stop(this)
+                    result.success(true)
+                }
+                "canDrawOverlays" -> {
+                    result.success(OverlayPermissionHelper.canDrawOverlays(this))
+                }
+                "requestPermission" -> {
+                    OverlayPermissionHelper.requestPermission(this)
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
         handleIntent(intent)
     }
 
@@ -274,6 +305,12 @@ class MainActivity : FlutterActivity() {
                     addPendingUri(uri)
                 }
             }
+            "com.mememaster.app.action.OVERLAY_IMAGE_DROPPED" -> {
+                val uri = intent.data
+                if (uri != null) {
+                    addPendingUri(uri)
+                }
+            }
             else -> {
                 android.util.Log.w(tag, "unhandled action: $action")
             }
@@ -325,6 +362,13 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun copyContentUriToCache(uri: Uri): String? {
+        // 尝试获取持久化读取权限（荣耀扣图等第三方 content provider 需要）
+        try {
+            contentResolver.takePersistableUriPermission(
+                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (_: Exception) { /* 忽略：某些 provider 不支持 persistable */ }
+
         val inputStream = contentResolver.openInputStream(uri) ?: return null
 
         var fileName = "shared_${System.currentTimeMillis()}"

@@ -9,6 +9,8 @@ typedef NativeEventHandler = void Function(String method);
 
 class SharedMediaHandler {
   static const _channel = MethodChannel('com.mememaster.app/share');
+  static const MethodChannel _overlayChannel =
+      MethodChannel('com.mememaster.app/overlay');
 
   static final SharedMediaHandler _instance = SharedMediaHandler._();
   factory SharedMediaHandler() => _instance;
@@ -90,6 +92,50 @@ class SharedMediaHandler {
     } catch (e) {
       debugPrint('$_tag copyContentUri failed: $e');
       return null;
+    }
+  }
+
+  // ---- Overlay (悬浮窗) ----
+
+  /// 启动悬浮窗
+  Future<bool> startOverlay() async {
+    try {
+      final result = await _overlayChannel.invokeMethod<bool>('startOverlay');
+      return result ?? false;
+    } catch (e) {
+      debugPrint('$_tag startOverlay failed: $e');
+      return false;
+    }
+  }
+
+  /// 停止悬浮窗
+  Future<bool> stopOverlay() async {
+    try {
+      final result = await _overlayChannel.invokeMethod<bool>('stopOverlay');
+      return result ?? false;
+    } catch (e) {
+      debugPrint('$_tag stopOverlay failed: $e');
+      return false;
+    }
+  }
+
+  /// 检查悬浮窗权限
+  Future<bool> canDrawOverlays() async {
+    try {
+      final result = await _overlayChannel.invokeMethod<bool>('canDrawOverlays');
+      return result ?? false;
+    } catch (e) {
+      debugPrint('$_tag canDrawOverlays failed: $e');
+      return false;
+    }
+  }
+
+  /// 请求悬浮窗权限
+  Future<void> requestOverlayPermission() async {
+    try {
+      await _overlayChannel.invokeMethod<void>('requestPermission');
+    } catch (e) {
+      debugPrint('$_tag requestOverlayPermission failed: $e');
     }
   }
 }
