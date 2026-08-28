@@ -733,16 +733,27 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       log.info('Drop', '文件: ${file.name}, 扩展名: $ext, 是图片: $isImage, 路径: $path');
 
       if (isImage && path != null) {
-        // 检查文件是否存在
-        final ioFile = File(path);
-        final exists = await ioFile.exists();
-        final size = exists ? await ioFile.length() : 0;
-        log.info('Drop', '  文件存在: $exists, 大小: $size bytes');
-
-        if (exists && size > 0) {
-          paths.add(path);
+        // content URI（如荣耀扣图）无法直接用 File 访问，需通过 ContentResolver 复制到缓存
+        if (path.startsWith('content://')) {
+          log.info('Drop', '  检测到 content URI，尝试 copyContentUri...');
+          final copied = await SharedMediaHandler().copyContentUri(path);
+          if (copied != null) {
+            log.info('Drop', '  copyContentUri 成功: $copied');
+            paths.add(copied);
+          } else {
+            log.warning('Drop', '  copyContentUri 失败: $path');
+          }
         } else {
-          log.warning('Drop', '  跳过文件: $path (不存在或为空)');
+          final ioFile = File(path);
+          final exists = await ioFile.exists();
+          final size = exists ? await ioFile.length() : 0;
+          log.info('Drop', '  文件存在: $exists, 大小: $size bytes');
+
+          if (exists && size > 0) {
+            paths.add(path);
+          } else {
+            log.warning('Drop', '  跳过文件: $path (不存在或为空)');
+          }
         }
       }
     }
