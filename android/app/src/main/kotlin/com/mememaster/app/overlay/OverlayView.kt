@@ -3,9 +3,6 @@ package com.mememaster.app.overlay
 import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.Context
-import android.graphics.PixelFormat
-import android.net.Uri
-import android.os.Build
 import android.view.*
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -65,11 +62,6 @@ class OverlayView(
                         val uri = item.uri
 
                         if (uri != null) {
-                            // 请求拖放权限
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                                val permission = requestDragAndDropPermissions(event)
-                                permission?.release()
-                            }
                             onImageDropped(uri)
                         }
                     }
