@@ -217,29 +217,65 @@ class RenderCommand extends CliCommand {
 
   /// Kitty Graphics Protocol
   ///
-  /// Kitty 需要两步：先传输（a=T, store），再放置（a=p, put）。
-  /// 格式:
-  ///   传输: `\033_Ga=T,f=<格式>,s=<宽>,v=<高>[,c=<块数>];<数据>\033\\`
-  ///   放置: `\033_Ga=p\033\\`
+  /// Kitty 需要两步：先传输（a=T），再放置（a=p）。
+  /// 传输必须分块：payload 每块不超过 4096 字节，除最后一块外 m=1，
+  /// 后续块只带 m 键，最后一块 m=0。格式如下：
+  ///   第一块: `\033_Ga=T,f=<格式>[,s=<宽>,v=<高>],m=1;<数据>\033\\`
+  ///   中间块: `\033_Gm=1;<数据>\033\\`
+  ///   最后块: `\033_Gm=0;<数据>\033\\`
+  ///   放置:   `\033_Ga=p\033\\`
   Future<int> _renderKitty(String base64Data, String? width) async {
     // 从 base64 解码获取图片尺寸和格式
     final bytes = base64Decode(base64Data);
-    final (imgFormat, imgW, imgH) = await _probeImage(bytes);
+    final (imgFormat, imgW, imgH) = _probeImage(bytes);
 
-    // 计算显示大小（可选 --width）
-    // Kitty 用 s/v 指定传输像素尺寸，用 U/W/H 指定放置尺寸（cell 单位）
+    // 计算显示尺寸（可选 --width，单位 cell 列）
+    var displayW = imgW;
+    var displayH = imgH;
+    if (width != null) {
+      final w = int.tryParse(width) ?? 0;
+      if (w > 0 && imgW > 0) {
+        displayW = w;
+        displayH = (imgH * w / imgW).round();
+      }
+    }
 
-    // 传输图片（base64 已编码）
-    final header = <String>['a=T', 'f=$imgFormat', 's=$imgW', 'v=$imgH'];
-    stdout.write('\x1b_G${header.join(',')};$base64Data\x1b\\');
+    // 分块传输（每块 4096 字节 base64）
+    const chunkSize = 4096;
+    final offsets = <int>[]; // 每个块在 base64Data 中的起始位置
+    var pos = 0;
+    while (pos < base64Data.length) {
+      offsets.add(pos);
+      pos += chunkSize;
+    }
 
-    // 放置图片（默认等比，可用 U 指定列数）
+    for (var i = 0; i < offsets.length; i++) {
+      final start = offsets[i];
+      final end = (start + chunkSize < base64Data.length)
+          ? start + chunkSize
+          : base64Data.length;
+      final chunk = base64Data.substring(start, end);
+      final more = i < offsets.length - 1;
+      final m = more ? 'm=1' : 'm=0';
+
+      if (i == 0) {
+        // 第一块携带完整控制参数
+        final header =
+            'a=T,f=$imgFormat,s=$displayW,v=$displayH,$m';
+        stdout.write('\x1b_G$header;$chunk\x1b\\');
+      } else {
+        // 后续块只带 m 键
+        stdout.write('\x1b_G$m;$chunk\x1b\\');
+      }
+    }
+
+    // 放置图片
     stdout.write('\x1b_Ga=p\x1b\\');
     return 0;
   }
 
-  /// 探测图片格式与尺寸（只读取头部，返回 JPEG/PNG/GIF 格式标识与宽高）。
-  Future<(String, int, int)> _probeImage(List<int> bytes) async {
+  /// 探测图片格式与尺寸（只读取头部，返回 JPEG/PNG 格式标识与宽高）。
+  (String, int, int) _probeImage(List<int> bytes) {
     String format;
     int w = 0, h = 0;
 
