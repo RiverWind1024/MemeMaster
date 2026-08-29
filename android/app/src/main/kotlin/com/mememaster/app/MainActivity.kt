@@ -362,6 +362,8 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun copyContentUriToCache(uri: Uri): String? {
+        android.util.Log.d(tag, "copyContentUriToCache: uri=$uri")
+
         // 尝试获取持久化读取权限（荣耀扣图等第三方 content provider 需要）
         try {
             contentResolver.takePersistableUriPermission(
@@ -369,7 +371,42 @@ class MainActivity : FlutterActivity() {
             )
         } catch (_: Exception) { /* 忽略：某些 provider 不支持 persistable */ }
 
-        val inputStream = contentResolver.openInputStream(uri) ?: return null
+        // 回退方案1：尝试从 _data 列获取真实文件路径
+        try {
+            val cursor = contentResolver.query(uri, null, null, null, null)
+            cursor?.use {
+                android.util.Log.d(tag, "copyContentUriToCache: cursor count=${it.count}, columns=${it.columnNames.joinToString()}")
+                if (it.moveToFirst()) {
+                    val dataIndex = it.getColumnIndex("_data")
+                    android.util.Log.d(tag, "copyContentUriToCache: _data index=$dataIndex")
+                    if (dataIndex >= 0) {
+                        val filePath = it.getString(dataIndex)
+                        android.util.Log.d(tag, "copyContentUriToCache: _data=$filePath")
+                        if (filePath != null) {
+                            val file = File(filePath)
+                            if (file.exists() && file.length() > 0) {
+                                android.util.Log.d(tag, "copyContentUriToCache: got real path $filePath, size=${file.length()}")
+                                val ext = filePath.substringAfterLast('.', "jpg")
+                                val destFile = File(cacheDir, "share_import/shared_${System.currentTimeMillis()}.$ext")
+                                destFile.parentFile?.mkdirs()
+                                file.copyTo(destFile, overwrite = true)
+                                return destFile.absolutePath
+                            } else {
+                                android.util.Log.w(tag, "copyContentUriToCache: file not accessible: exists=${file.exists()}, size=${if(file.exists()) file.length() else -1}")
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w(tag, "copyContentUriToCache: _data query failed", e)
+        }
+
+        // 回退方案2：标准 openInputStream
+        val inputStream = contentResolver.openInputStream(uri) ?: run {
+            android.util.Log.w(tag, "copyContentUriToCache: openInputStream returned null for $uri")
+            return null
+        }
 
         var fileName = "shared_${System.currentTimeMillis()}"
         val mimeType = contentResolver.getType(uri)

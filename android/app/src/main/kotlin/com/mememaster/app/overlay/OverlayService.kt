@@ -53,8 +53,13 @@ class OverlayService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                startForeground(NOTIFICATION_ID, createNotification())
-                showOverlay()
+                try {
+                    startForeground(NOTIFICATION_ID, createNotification())
+                    showOverlay()
+                } catch (e: Exception) {
+                    android.util.Log.e("OverlayService", "Failed to start overlay", e)
+                    stopSelf()
+                }
             }
             ACTION_STOP -> {
                 hideOverlay()
@@ -131,7 +136,7 @@ class OverlayService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("MemeMaster")
             .setContentText("悬浮窗已开启，可拖动图片导入")
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_overlay_notification)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .build()
