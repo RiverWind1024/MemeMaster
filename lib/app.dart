@@ -152,7 +152,7 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       }
     } catch (e) {
-      _log.error('Overlay', '_importFromOverlay failed', e);
+      _log.error('Overlay', '_importFromOverlay failed: $e');
     }
   }
 
