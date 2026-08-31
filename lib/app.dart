@@ -65,11 +65,15 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     debugPrint('[Startup] _AppBodyState.initState: ${t0.difference(_appStartTime).inMilliseconds}ms');
     SharedMediaHandler.init();
     debugPrint('[Startup] SharedMediaHandler.init: ${DateTime.now().difference(t0).inMilliseconds}ms');
-    SharedMediaHandler.onNativeEvent = (method) {
+    SharedMediaHandler.onNativeEvent = (method, [args]) {
       if (method == 'onNewIntent' && mounted) {
         _log.info('Intent', 'native onNewIntent event → checking pending files');
         _checkOnResume();
       }
+    };
+    SharedMediaHandler.onOverlayImageImported = (cachePath) {
+      _log.info('Overlay', '图片已缓存: $cachePath，开始导入...');
+      _importFromOverlay(cachePath);
     };
     WidgetsBinding.instance.addObserver(this);
     debugPrint('[Startup] addObserver: ${DateTime.now().difference(t0).inMilliseconds}ms');
@@ -82,6 +86,7 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
   @override
   void dispose() {
     SharedMediaHandler.onNativeEvent = null;
+    SharedMediaHandler.onOverlayImageImported = null;
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -130,6 +135,25 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     }
     _log.info('Intent', 'showImportPreviewSheet');
     showImportPreviewSheet(_navCtx!, paths);
+  }
+
+  /// 悬浮窗拖拽导入成功后，直接导入图片
+  Future<void> _importFromOverlay(String cachePath) async {
+    if (!mounted) return;
+    _log.info('Overlay', '_importFromOverlay: $cachePath');
+    try {
+      final service = ref.read(importServiceProvider);
+      final result = await service.importImages([cachePath], source: '悬浮窗导入');
+      _log.info('Overlay', '导入结果: 成功=${result.success}, 跳过=${result.skipped}, 错误=${result.errors.length}');
+      if (mounted) {
+        final msg = result.success > 0
+            ? '已导入 ${result.success} 张图片'
+            : (result.errors.isNotEmpty ? '导入失败: ${result.errors.first}' : '跳过（已存在）');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      }
+    } catch (e) {
+      _log.error('Overlay', '_importFromOverlay failed', e);
+    }
   }
 
   /// app 启动时检查剪贴板（无需延迟）

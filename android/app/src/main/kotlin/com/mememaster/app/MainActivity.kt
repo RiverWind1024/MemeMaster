@@ -212,10 +212,12 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        MethodChannel(
+        val overlayChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "com.mememaster.app/overlay"
-        ).setMethodCallHandler { call, result ->
+        )
+        OverlayService.setMethodChannel(overlayChannel)
+        overlayChannel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "startOverlay" -> {
                     if (OverlayPermissionHelper.canDrawOverlays(this)) {

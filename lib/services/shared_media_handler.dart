@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:pasteboard/pasteboard.dart';
 
 /// 原生侧通过 method channel 反向调用的回调
-typedef NativeEventHandler = void Function(String method);
+typedef NativeEventHandler = void Function(String method, [dynamic arguments]);
 
 class SharedMediaHandler {
   static const _channel = MethodChannel('com.mememaster.app/share');
@@ -19,11 +19,25 @@ class SharedMediaHandler {
   /// 注册原生→Dart 回调（由 app.dart 设置，用于 onNewIntent 通知）
   static NativeEventHandler? onNativeEvent;
 
+  /// 悬浮窗图片导入回调（OverlayService 拖拽成功后调用）
+  static void Function(String cachePath)? onOverlayImageImported;
+
   /// 初始化 method channel handler，接收原生侧发来的事件
   static void init() {
     _channel.setMethodCallHandler((call) async {
       debugPrint('[SharedMediaHandler] native event: ${call.method} ${call.arguments}');
       onNativeEvent?.call(call.method);
+      return null;
+    });
+
+    _overlayChannel.setMethodCallHandler((call) async {
+      debugPrint('[SharedMediaHandler] overlay event: ${call.method} ${call.arguments}');
+      if (call.method == 'onOverlayImageImported') {
+        final cachePath = call.arguments as String?;
+        if (cachePath != null) {
+          onOverlayImageImported?.call(cachePath);
+        }
+      }
       return null;
     });
   }
