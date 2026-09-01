@@ -1,7 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mememaster/features/overlay/overlay_controller.dart';
+import 'package:mememaster/services/log_service.dart';
 
 /// 悬浮窗开关按钮
 class OverlayToggleButton extends ConsumerWidget {
@@ -19,7 +19,7 @@ class OverlayToggleButton extends ConsumerWidget {
       onPressed: overlayState.isLoading
           ? null
           : () {
-              debugPrint('[Overlay] toggle button pressed');
+              LogService.instance.info('Overlay', 'toggle button pressed');
               ref.read(overlayProvider.notifier).toggle();
             },
     );
