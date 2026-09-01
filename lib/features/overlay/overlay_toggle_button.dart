@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mememaster/features/overlay/overlay_controller.dart';
@@ -17,7 +18,10 @@ class OverlayToggleButton extends ConsumerWidget {
       tooltip: overlayState.isActive ? '关闭悬浮窗' : '开启悬浮窗',
       onPressed: overlayState.isLoading
           ? null
-          : () => ref.read(overlayProvider.notifier).toggle(),
+          : () {
+              debugPrint('[Overlay] toggle button pressed');
+              ref.read(overlayProvider.notifier).toggle();
+            },
     );
   }
 }

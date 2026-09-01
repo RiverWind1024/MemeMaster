@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mememaster/services/shared_media_handler.dart';
 
@@ -42,26 +43,33 @@ class OverlayController extends StateNotifier<OverlayState> {
 
   /// 切换悬浮窗开关
   Future<void> toggle() async {
+    debugPrint('[Overlay] toggle() called, isActive=${state.isActive}, hasPermission=${state.hasPermission}, isLoading=${state.isLoading}');
     if (state.isLoading) return;
 
     state = state.copyWith(isLoading: true);
     try {
       if (state.isActive) {
+        debugPrint('[Overlay] -> stopping overlay');
         await _handler.stopOverlay();
         state = state.copyWith(isActive: false, isLoading: false);
       } else {
         if (!state.hasPermission) {
+          debugPrint('[Overlay] -> requesting permission');
           await _handler.requestOverlayPermission();
           await _checkPermission();
           if (!state.hasPermission) {
+            debugPrint('[Overlay] -> permission denied');
             state = state.copyWith(isLoading: false);
             return;
           }
         }
+        debugPrint('[Overlay] -> starting overlay');
         final started = await _handler.startOverlay();
+        debugPrint('[Overlay] -> startOverlay returned: $started');
         state = state.copyWith(isActive: started, isLoading: false);
       }
-    } catch (e) {
+    } catch (e, s) {
+      debugPrint('[Overlay] toggle error: $e\n$s');
       state = state.copyWith(isLoading: false);
     }
   }
