@@ -75,6 +75,9 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
       _log.info('Overlay', '图片已缓存: $cachePath，开始导入...');
       _importFromOverlay(cachePath);
     };
+    SharedMediaHandler.onOverlayError = (message) {
+      _log.error('Overlay', message);
+    };
     WidgetsBinding.instance.addObserver(this);
     debugPrint('[Startup] addObserver: ${DateTime.now().difference(t0).inMilliseconds}ms');
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -87,6 +90,7 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
   void dispose() {
     SharedMediaHandler.onNativeEvent = null;
     SharedMediaHandler.onOverlayImageImported = null;
+    SharedMediaHandler.onOverlayError = null;
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

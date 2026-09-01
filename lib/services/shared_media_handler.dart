@@ -22,6 +22,9 @@ class SharedMediaHandler {
   /// 悬浮窗图片导入回调（OverlayService 拖拽成功后调用）
   static void Function(String cachePath)? onOverlayImageImported;
 
+  /// 悬浮窗错误回调（OverlayService 启动失败等）
+  static void Function(String message)? onOverlayError;
+
   /// 初始化 method channel handler，接收原生侧发来的事件
   static void init() {
     _channel.setMethodCallHandler((call) async {
@@ -36,6 +39,11 @@ class SharedMediaHandler {
         final cachePath = call.arguments as String?;
         if (cachePath != null) {
           onOverlayImageImported?.call(cachePath);
+        }
+      } else if (call.method == 'onOverlayError') {
+        final msg = call.arguments as String?;
+        if (msg != null) {
+          onOverlayError?.call(msg);
         }
       }
       return null;

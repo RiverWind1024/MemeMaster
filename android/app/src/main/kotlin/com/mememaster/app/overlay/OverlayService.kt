@@ -65,6 +65,13 @@ class OverlayService : Service() {
                     showOverlay()
                 } catch (e: Exception) {
                     android.util.Log.e("OverlayService", "Failed to start overlay", e)
+                    // 通过 MethodChannel 反调 Flutter，让用户能在日志查看器看到错误
+                    try {
+                        methodChannel?.invokeMethod(
+                            "onOverlayError",
+                            "启动悬浮窗失败: ${e.javaClass.simpleName}: ${e.message}"
+                        )
+                    } catch (_: Exception) {}
                     stopSelf()
                 }
             }
