@@ -117,6 +117,10 @@ class OverlayService : Service() {
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
 
+        val prefs = getSharedPreferences("overlay_prefs", Context.MODE_PRIVATE)
+        val savedX = prefs.getInt("pos_x", -1)
+        val savedY = prefs.getInt("pos_y", -1)
+
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -125,8 +129,19 @@ class OverlayService : Service() {
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            x = 0
+            // TOP|START 使 x/y 为绝对坐标，便于拖动与位置记忆
+            gravity = Gravity.TOP or Gravity.START
+            if (savedX < 0 || savedY < 0) {
+                // 首次：放置屏幕右边缘上方
+                val metrics = resources.displayMetrics
+                x = metrics.widthPixels - 170
+                y = (metrics.heightPixels * 0.3f).toInt()
+                android.util.Log.d("OverlayService", "overlay 初始位置=($x,$y) 屏幕=${metrics.widthPixels}x${metrics.heightPixels}")
+            } else {
+                x = savedX
+                y = savedY
+                android.util.Log.d("OverlayService", "overlay 恢复位置=($x,$y)")
+            }
         }
 
         overlayView = OverlayView(
@@ -138,6 +153,20 @@ class OverlayService : Service() {
                 } catch (_: Exception) {}
             }
         )
+
+        // 注入拖动句柄：更新悬浮窗位置，并在拖动结束后记忆
+        overlayView?.attachDragHandle(windowManager!!, params) { px, py ->
+            try {
+                getSharedPreferences("overlay_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putInt("pos_x", px)
+                    .putInt("pos_y", py)
+                    .apply()
+                android.util.Log.d("OverlayService", "保存 overlay 位置=($px,$py)")
+            } catch (e: Exception) {
+                android.util.Log.w("OverlayService", "保存位置失败: $e")
+            }
+        }
 
         windowManager?.addView(overlayView, params)
     }

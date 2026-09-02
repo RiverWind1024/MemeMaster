@@ -20,6 +20,15 @@ class OverlayView(
     private val textView: TextView
     private var isDragOver = false
 
+    // 拖动相关：由 OverlayService 在 addView 前注入
+    private var windowManager: android.view.WindowManager? = null
+    private var layoutParams: android.view.WindowManager.LayoutParams? = null
+    private var touchStartX = 0f
+    private var touchStartY = 0f
+    private var paramsStartX = 0
+    private var paramsStartY = 0
+    private var onPositionChanged: ((Int, Int) -> Unit)? = null
+
     init {
         val inflater = LayoutInflater.from(context)
         inflater.inflate(R.layout.overlay_layout, this, true)
@@ -28,6 +37,50 @@ class OverlayView(
         textView = findViewById(R.id.overlay_text)
 
         setupDragListener()
+        setupTouchMove()
+    }
+
+    /// 由 OverlayService 注入 WindowManager、当前 LayoutParams 与位置持久化回调
+    fun attachDragHandle(
+        windowManager: android.view.WindowManager,
+        layoutParams: android.view.WindowManager.LayoutParams,
+        onPositionChanged: (Int, Int) -> Unit
+    ) {
+        this.windowManager = windowManager
+        this.layoutParams = layoutParams
+        this.onPositionChanged = onPositionChanged
+    }
+
+    private fun setupTouchMove() {
+        setOnTouchListener { _, event ->
+            val params = layoutParams ?: return@setOnTouchListener false
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    touchStartX = event.rawX
+                    touchStartY = event.rawY
+                    paramsStartX = params.x
+                    paramsStartY = params.y
+                    android.util.Log.d("OverlayView", "touch DOWN 起点=(${touchStartX.toInt()},${touchStartY.toInt()}) params=(${params.x},${params.y})")
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = (event.rawX - touchStartX).toInt()
+                    val dy = (event.rawY - touchStartY).toInt()
+                    params.x = paramsStartX + dx
+                    params.y = paramsStartY + dy
+                    try {
+                        windowManager?.updateViewLayout(this, params)
+                    } catch (_: Exception) {}
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    android.util.Log.d("OverlayView", "touch UP 拖动结束 新位置=(${params.x},${params.y})")
+                    onPositionChanged?.invoke(params.x, params.y)
+                    true
+                }
+                else -> false
+            }
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")
