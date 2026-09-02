@@ -315,19 +315,6 @@ class MainActivity : FlutterActivity() {
         } catch (_: Exception) {}
     }
 
-    /// 通知 Flutter 某个缓存图片路径已就绪，直接导入
-    private fun notifyFlutterImportPath(cachePath: String) {
-        try {
-            val messenger = flutterEngine?.dartExecutor?.binaryMessenger
-            if (messenger != null) {
-                MethodChannel(messenger, CHANNEL_SHARE)
-                    .invokeMethod("onNativeDropImages", listOf(cachePath))
-            }
-        } catch (e: Exception) {
-            android.util.Log.e(tag, "notifyFlutterImportPath failed", e)
-        }
-    }
-
     @android.annotation.TargetApi(Build.VERSION_CODES.N)
     private fun handleNativeDrop(event: DragEvent) {
         val clipData = event.clipData ?: run {
@@ -462,15 +449,9 @@ class MainActivity : FlutterActivity() {
                 }
             }
             "com.mememaster.app.action.OVERLAY_IMAGE_DROPPED" -> {
-                val cachedPath = intent.getStringExtra("cached_path")
-                if (cachedPath != null) {
-                    android.util.Log.d(tag, "OVERLAY_IMAGE_DROPPED: cached_path=$cachedPath")
-                    notifyFlutterImportPath(cachedPath)
-                } else {
-                    val uri = intent.data
-                    if (uri != null) {
-                        addPendingUri(uri)
-                    }
+                val uri = intent.data
+                if (uri != null) {
+                    addPendingUri(uri)
                 }
             }
             else -> {

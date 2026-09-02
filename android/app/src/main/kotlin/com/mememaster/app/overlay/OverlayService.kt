@@ -45,34 +45,6 @@ class OverlayService : Service() {
             }
             context.startService(intent)
         }
-
-        /// 供 DropProxyActivity 在读取完拖放图片后调用，通知 Flutter 导入。
-        /// 所有组件同进程，直接走 MethodChannel 反调 Flutter。
-        fun notifyImageImported(context: Context, cachePath: String) {
-            android.util.Log.d("OverlayService", "notifyImageImported: $cachePath")
-            try {
-                methodChannel?.invokeMethod("onOverlayImageImported", cachePath)
-            } catch (e: Exception) {
-                android.util.Log.e("OverlayService", "notifyImageImported via channel failed", e)
-                // 回退：通过 Intent 发送给 MainActivity
-                val intent = Intent(context, MainActivity::class.java).apply {
-                    action = "com.mememaster.app.action.OVERLAY_IMAGE_DROPPED"
-                    putExtra("cached_path", cachePath)
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                }
-                try {
-                    context.startActivity(intent)
-                } catch (_: Exception) {}
-            }
-        }
-
-        /// 供 DropProxyActivity 在读取失败时通知 Flutter。
-        fun notifyImageImportedFailed(reason: String) {
-            android.util.Log.w("OverlayService", "notifyImageImportedFailed: $reason")
-            try {
-                methodChannel?.invokeMethod("onOverlayError", "拖放导入失败: $reason")
-            } catch (_: Exception) {}
-        }
     }
 
     private var windowManager: WindowManager? = null

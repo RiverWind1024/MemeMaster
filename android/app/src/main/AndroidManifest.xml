@@ -89,18 +89,6 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="显示可拖放图片导入的悬浮窗，接收图片拖放导入到 MemeMaster"/>
         </service>
-
-        <!-- 拖放代理 Activity：透明、独立任务栈、不进最近任务、不可被外部启动 -->
-        <activity
-            android:name=".overlay.DropProxyActivity"
-            android:exported="false"
-            android:theme="@style/DropProxyTheme"
-            android:taskAffinity=""
-            android:excludeFromRecents="true"
-            android:noHistory="true"
-            android:launchMode="singleTask"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-            android:hardwareAccelerated="true" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

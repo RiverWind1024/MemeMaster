@@ -1,9 +1,7 @@
 package com.mememaster.app.overlay
 
 import android.annotation.SuppressLint
-import android.content.ClipData
 import android.content.Context
-import android.content.Intent
 import android.view.*
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -111,29 +109,11 @@ class OverlayView(
 
                     android.util.Log.d("OverlayView", "ACTION_DROP received, clipData=${event.clipData?.itemCount}")
 
-                    val clipData: ClipData? = event.clipData
-                    if (clipData != null && clipData.itemCount > 0 && clipData.getItemAt(0).uri != null) {
-                        // 悬浮窗（Service View）没有 Activity token，无法 requestDragAndDropPermissions，
-                        // 直接 openInputStream 读不到荣耀等临时 content provider。
-                        // 变通：把 clipData 连同 FLAG_GRANT_READ_URI_PERMISSION 转发给
-                        // 透明的 DropProxyActivity，由其在 Activity 层读取字节写缓存。
-                        val intent = Intent(context, DropProxyActivity::class.java).apply {
-                            action = DropProxyActivity.ACTION_IMPORT_DROP
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
-                            setClipData(clipData)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
-                        try {
-                            context.startActivity(intent)
-                            android.util.Log.d("OverlayView", "forwarded drop to DropProxyActivity")
-                        } catch (e: Exception) {
-                            android.util.Log.e("OverlayView", "failed to start DropProxyActivity", e)
-                            onImportFailed("无法启动拖放代理: ${e.message}")
-                        }
-                    } else {
-                        android.util.Log.e("OverlayView", "no clip data with uri on drop")
-                        onImportFailed("没有检测到有效图片数据")
-                    }
+                    // 悬浮窗（Service WindowManager View）没有 Activity token，
+                    // 无法 requestDragAndDropPermissions；仅凭 clipData 中的 content URI
+                    // 无法读取荣耀 dumpprovider 等临时 provider 的图片（系统安全模型限制）。
+                    // 引导用户在前台 app 内拖入。
+                    onImportFailed("请在前台打开 MemeMaster 拖入图片导入")
                     true
                 }
 
