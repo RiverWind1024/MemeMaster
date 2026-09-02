@@ -25,10 +25,20 @@ class SharedMediaHandler {
   /// 悬浮窗错误回调（OverlayService 启动失败等）
   static void Function(String message)? onOverlayError;
 
+  /// 原生拖拽成功读取到缓存图片路径的回调（MainActivity ACTION_DROP 同步读取后调用）
+  static void Function(List<String> cachePaths)? onNativeDropImages;
+
   /// 初始化 method channel handler，接收原生侧发来的事件
   static void init() {
     _channel.setMethodCallHandler((call) async {
       debugPrint('[SharedMediaHandler] native event: ${call.method} ${call.arguments}');
+      if (call.method == 'onNativeDropImages') {
+        final paths = (call.arguments as List?)?.cast<String>();
+        if (paths != null && paths.isNotEmpty) {
+          onNativeDropImages?.call(paths);
+        }
+        return null;
+      }
       onNativeEvent?.call(call.method);
       return null;
     });

@@ -13,6 +13,9 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import android.view.DragEvent
+import android.view.View
+import android.view.ViewGroup
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -245,6 +248,24 @@ class MainActivity : FlutterActivity() {
         handleIntent(intent)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 覆盖 desktop_drop 的 OnDragListener。
+        // desktop_drop 在 ACTION_DROP 里 requestDragAndDropPermissions 后立即 release，
+        // 导致 Dart 层异步读取 content URI 时权限已失效（荣耀扣图尤其明显）。
+        // 这里在原生层同步申请权限并读取字节写缓存，把真实文件路径交给 Flutter。
+        // 每次 onResume 重设，确保覆盖 desktop_drop（插件只在 attach 时设置一次）。
+        try {
+            val content = findViewById<ViewGroup>(android.R.id.content)
+            if (content != null) {
+                content.setOnDragListener(nativeDropListener)
+                android.util.Log.d(tag, "native drop listener installed (onResume)")
+            }
+        } catch (e: Exception) {
+            android.util.Log.w(tag, "failed to install native drop listener", e)
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         android.util.Log.d(tag, "onNewIntent called: action=${intent.action} data=${intent.data}")
@@ -259,6 +280,104 @@ class MainActivity : FlutterActivity() {
     }
 
     private val tag = "ShareImport"
+
+    private val nativeDropListener = View.OnDragListener { _, event ->
+        when (event.action) {
+            DragEvent.ACTION_DROP -> {
+                android.util.Log.d(tag, "native ACTION_DROP, items=${event.clipData?.itemCount}")
+                handleNativeDrop(event)
+                true
+            }
+            DragEvent.ACTION_DRAG_ENDED -> true
+            else -> true
+        }
+    }
+
+    @android.annotation.TargetApi(Build.VERSION_CODES.N)
+    private fun handleNativeDrop(event: DragEvent) {
+        val clipData = event.clipData ?: run {
+            android.util.Log.w(tag, "native drop: no clip data")
+            return
+        }
+
+        // 必须在 ACTION_DROP 回调内同步申请权限，否则之后读不到荣耀等临时 content provider
+        val dropPermissions = requestDragAndDropPermissions(event)
+        android.util.Log.d(tag, "native drop: requestDragAndDropPermissions = $dropPermissions")
+
+        val cachedPaths = mutableListOf<String>()
+        val failedUris = mutableListOf<String>()
+        for (i in 0 until clipData.itemCount) {
+            val uri = clipData.getItemAt(i)?.uri ?: continue
+            android.util.Log.d(tag, "native drop uri[$i] = $uri, mime=${contentResolver.getType(uri)}")
+            val path = syncReadUriToCache(uri)
+            if (path != null) {
+                cachedPaths.add(path)
+            } else {
+                failedUris.add(uri.toString())
+            }
+        }
+        dropPermissions?.release()
+
+        android.util.Log.d(tag, "native drop resolve: ${cachedPaths.size} ok, ${failedUris.size} failed: $failedUris")
+
+        if (cachedPaths.isNotEmpty()) {
+            try {
+                val messenger = flutterEngine?.dartExecutor?.binaryMessenger
+                if (messenger != null) {
+                    MethodChannel(messenger, CHANNEL_SHARE).invokeMethod(
+                        "onNativeDropImages", cachedPaths
+                    )
+                }
+            } catch (e: Exception) {
+                android.util.Log.e(tag, "failed to send onNativeDropImages", e)
+            }
+        }
+    }
+
+    /// 在拖放权限有效期内同步读取 content URI 到缓存文件，返回真实路径；失败返回 null。
+    private fun syncReadUriToCache(uri: Uri): String? {
+        return try {
+            var fileName = "dropped_${System.currentTimeMillis()}.png"
+            try {
+                contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val name = cursor.getString(0)
+                        if (name != null && name.isNotBlank()) fileName = name
+                    }
+                }
+            } catch (_: Exception) {}
+
+            val inputStream = contentResolver.openInputStream(uri) ?: run {
+                android.util.Log.w(tag, "syncReadUriToCache: openInputStream null for $uri")
+                return null
+            }
+
+            val mime = contentResolver.getType(uri)
+            val ext = when {
+                mime?.contains("png") == true -> ".png"
+                mime?.contains("webp") == true -> ".webp"
+                mime?.contains("gif") == true -> ".gif"
+                mime?.contains("bmp") == true -> ".bmp"
+                mime?.contains("jpeg") == true -> ".jpg"
+                mime?.contains("jpg") == true -> ".jpg"
+                mime?.contains("heic") == true -> ".heic"
+                mime?.contains("heif") == true -> ".heif"
+                else -> ".png"
+            }
+            if (!fileName.contains('.')) fileName = "$fileName$ext"
+
+            val destFile = File(cacheDir, "drop_import/$fileName")
+            destFile.parentFile?.mkdirs()
+            destFile.outputStream().use { output ->
+                inputStream.use { input -> input.copyTo(output) }
+            }
+            android.util.Log.d(tag, "syncReadUriToCache: $uri -> ${destFile.absolutePath} (${destFile.length()} bytes)")
+            destFile.absolutePath
+        } catch (e: Exception) {
+            android.util.Log.e(tag, "syncReadUriToCache failed for $uri", e)
+            null
+        }
+    }
 
     private fun handleIntent(intent: Intent?) {
         if (intent == null) {

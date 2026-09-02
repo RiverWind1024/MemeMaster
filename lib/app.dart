@@ -78,6 +78,10 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     SharedMediaHandler.onOverlayError = (message) {
       _log.error('Overlay', message);
     };
+    SharedMediaHandler.onNativeDropImages = (paths) {
+      _log.info('Drop', '原生拖拽读取到 ${paths.length} 张图片: $paths');
+      _importDroppedImages(paths);
+    };
     WidgetsBinding.instance.addObserver(this);
     debugPrint('[Startup] addObserver: ${DateTime.now().difference(t0).inMilliseconds}ms');
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -91,6 +95,7 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     SharedMediaHandler.onNativeEvent = null;
     SharedMediaHandler.onOverlayImageImported = null;
     SharedMediaHandler.onOverlayError = null;
+    SharedMediaHandler.onNativeDropImages = null;
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -139,6 +144,25 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     }
     _log.info('Intent', 'showImportPreviewSheet');
     showImportPreviewSheet(_navCtx!, paths);
+  }
+
+  /// 原生拖拽读取成功后，导入图片
+  Future<void> _importDroppedImages(List<String> paths) async {
+    if (!mounted || paths.isEmpty) return;
+    _log.info('Drop', '_importDroppedImages: ${paths.length} 张');
+    try {
+      final service = ref.read(importServiceProvider);
+      final result = await service.importImages(paths, source: '拖拽导入');
+      _log.info('Drop', '导入结果: 成功=${result.success}, 跳过=${result.skipped}, 错误=${result.errors.length}');
+      if (mounted) {
+        final msg = result.success > 0
+            ? '已导入 ${result.success} 张图片'
+            : (result.errors.isNotEmpty ? '导入失败: ${result.errors.first}' : '跳过（已存在）');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      }
+    } catch (e) {
+      _log.error('Drop', '_importDroppedImages failed: $e');
+    }
   }
 
   /// 悬浮窗拖拽导入成功后，直接导入图片
