@@ -114,8 +114,11 @@ class OverlayService : Service() {
                     fallbackViaIntent(cachePath)
                 }
             },
-            onImportFailed = {
-                android.util.Log.w("OverlayService", "image import failed from overlay drop")
+            onImportFailed = { reason ->
+                android.util.Log.w("OverlayService", "image import failed: $reason")
+                try {
+                    methodChannel?.invokeMethod("onOverlayError", "拖放导入失败: $reason")
+                } catch (_: Exception) {}
             }
         )
 

@@ -16,7 +16,7 @@ import java.io.File
 class OverlayView(
     context: Context,
     private val onImageImported: (String) -> Unit,
-    private val onImportFailed: () -> Unit = {}
+    private val onImportFailed: (String) -> Unit = {}
 ) : FrameLayout(context) {
 
     private val imageView: ImageView
@@ -59,25 +59,33 @@ class OverlayView(
                     isDragOver = false
                     updateAppearance(false)
 
+                    android.util.Log.d("OverlayView", "ACTION_DROP received, clipData=${event.clipData?.itemCount}")
+
                     val clipData: ClipData? = event.clipData
                     if (clipData != null && clipData.itemCount > 0) {
                         val item = clipData.getItemAt(0)
                         val uri = item.uri
+                        android.util.Log.d("OverlayView", "drop item uri=$uri")
 
                         if (uri != null) {
                             // 关键：在 ACTION_DROP 回调中直接读取字节，
                             // 此时系统仍授予了临时 URI 读取权限
                             val path = readUriToCache(uri)
                             if (path != null) {
+                                android.util.Log.d("OverlayView", "read success: $path")
                                 onImageImported(path)
                             } else {
-                                onImportFailed()
+                                val mime = try { context.contentResolver.getType(uri) } catch (e: Exception) { "getType err: ${e.message}" }
+                                android.util.Log.e("OverlayView", "readUriToCache returned null, uri=$uri, mime=$mime")
+                                onImportFailed("无法读取拖放图片 (uri=$uri, mime=$mime)")
                             }
                         } else {
-                            onImportFailed()
+                            android.util.Log.e("OverlayView", "drop item has no uri")
+                            onImportFailed("拖放数据不含 URI")
                         }
                     } else {
-                        onImportFailed()
+                        android.util.Log.e("OverlayView", "no clip data on drop")
+                        onImportFailed("没有检测到拖放数据")
                     }
                     true
                 }
