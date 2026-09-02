@@ -1105,6 +1105,29 @@ class LocaleNotifier extends Notifier<Locale?> {
 final localeProvider =
     NotifierProvider<LocaleNotifier, Locale?>(LocaleNotifier.new);
 
+// ---- 自动开启悬浮窗 ----
+
+class AutoOverlayEnabledNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    try {
+      return ref.read(sharedPreferencesProvider).getBool('auto_overlay_enabled') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void setEnabled(bool value) {
+    state = value;
+    try {
+      ref.read(sharedPreferencesProvider).setBool('auto_overlay_enabled', value);
+    } catch (_) {}
+  }
+}
+
+final autoOverlayEnabledProvider =
+    NotifierProvider<AutoOverlayEnabledNotifier, bool>(AutoOverlayEnabledNotifier.new);
+
 // ---- 定时同步 ----
 
 class AutoSyncEnabledNotifier extends Notifier<bool> {

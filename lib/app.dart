@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'features/gallery/gallery_provider.dart';
 import 'features/import/import_preview_sheet.dart';
+import 'features/overlay/overlay_controller.dart';
 import 'core/theme/app_theme.dart';
 import 'router.dart';
 import 'services/log_service.dart';
@@ -87,6 +88,7 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       debugPrint('[Startup] postFrameCallback: ${DateTime.now().difference(_appStartTime).inMilliseconds}ms');
       _checkOnStart();
+      _autoStartOverlayIfEnabled();
     });
   }
 
@@ -183,8 +185,31 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
             : (result.errors.isNotEmpty ? '导入失败: ${result.errors.first}' : '跳过（已存在）');
         ScaffoldMessenger.of(_navCtx!).showSnackBar(SnackBar(content: Text(msg)));
       }
+      if (result.success > 0) {
+        ref.invalidate(memeListProvider);
+        ref.invalidate(memeCountProvider);
+      }
     } catch (e) {
       _log.error('Overlay', '_importFromOverlay failed: $e');
+    }
+  }
+
+  /// 若开启『自动开启悬浮窗』，应用启动后自动启动悬浮窗（仅 Android）
+  Future<void> _autoStartOverlayIfEnabled() async {
+    try {
+      if (!Platform.isAndroid) return;
+      final enabled = ref.read(autoOverlayEnabledProvider);
+      _log.info('Overlay', '自动开启悬浮窗开关: $enabled');
+      if (!enabled) return;
+      final controller = ref.read(overlayProvider.notifier);
+      final state = controller.state;
+      if (state.isActive) {
+        _log.info('Overlay', '悬浮窗已启动，跳过自动开启');
+        return;
+      }
+      await controller.toggle();
+    } catch (e) {
+      _log.error('Overlay', '自动开启悬浮窗失败: $e');
     }
   }
 

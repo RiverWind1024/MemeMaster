@@ -16,7 +16,6 @@ class OverlayView(
 
     private val imageView: ImageView
     private val textView: TextView
-    private var isDragOver = false
 
     // 拖动相关：由 OverlayService 在 addView 前注入
     private var windowManager: android.view.WindowManager? = null
@@ -84,69 +83,62 @@ class OverlayView(
     @SuppressLint("ClickableViewAccessibility")
     private fun setupDragListener() {
         setOnDragListener { _, event ->
-            when (event.action) {
-                DragEvent.ACTION_DRAG_STARTED -> {
-                    isDragOver = false
-                    updateAppearance(false)
-                    true
-                }
-
-                DragEvent.ACTION_DRAG_ENTERED -> {
-                    isDragOver = true
-                    updateAppearance(true)
-                    true
-                }
-
-                DragEvent.ACTION_DRAG_EXITED -> {
-                    isDragOver = false
-                    updateAppearance(false)
-                    true
-                }
-
-                DragEvent.ACTION_DROP -> {
-                    isDragOver = false
-                    updateAppearance(false)
-
-                    android.util.Log.d("OverlayView", "ACTION_DROP received, clipData=${event.clipData?.itemCount}")
-
-                    // 悬浮窗（Service WindowManager View）没有 Activity token，
-                    // 无法 requestDragAndDropPermissions；仅凭 clipData 中的 content URI
-                    // 无法读取荣耀 dumpprovider 等临时 provider 的图片（系统安全模型限制）。
-                    // 引导用户在前台 app 内拖入。
-                    onImportFailed("请在前台打开 MemeMaster 拖入图片导入")
-                    true
-                }
-
-                DragEvent.ACTION_DRAG_ENDED -> {
-                    isDragOver = false
-                    updateAppearance(false)
-                    true
-                }
-
-                else -> false
+            // 悬浮窗只负责在拖放开始时启动承载导入的全屏透明页。
+            // 关键：这里始终返回 false，使悬浮窗不被注册为 drop target，
+            // 从而不拦截 DROP，让拖放命中测试穿透到下面的全屏透明 Activity。
+            if (event.action == DragEvent.ACTION_DRAG_STARTED) {
+                OverlayService.logDebug("悬浮窗收到 DRAG_STARTED，启动全屏透明导入页")
+                setDragVisual(false)
+                launchDropPermissionActivity()
             }
+            false
         }
 
         isFocusable = false
-        isClickable = false
+        isClickable = true
     }
 
-    private fun updateAppearance(isHighlighted: Boolean) {
-        val container = findViewById<View>(R.id.overlay_container) ?: return
-        if (isHighlighted) {
-            container.setBackgroundResource(R.drawable.overlay_bg_active)
-            imageView.alpha = 1.0f
-            imageView.scaleX = 1.2f
-            imageView.scaleY = 1.2f
-            textView.text = "松开导入"
-            textView.setTextColor(0xFFFFFFFF.toInt())
-        } else {
-            container.setBackgroundResource(R.drawable.overlay_bg)
-            imageView.alpha = 0.85f
-            imageView.scaleX = 1.0f
-            imageView.scaleY = 1.0f
-            textView.text = "拖入图片导入"
-            textView.setTextColor(0xFFFFFFFF.toInt())
+    /// 拖放期间隐藏悬浮窗药丸，把视觉完全交给透明页的橙色高亮（避免文字互相遮挡）
+    fun setDragVisual(active: Boolean) {
+        val view = this
+        view.post {
+            view.visibility = if (active) View.VISIBLE else View.INVISIBLE
+        }
+    }
+
+    /// 拖放开始：把"放大的可导入矩形"传给全屏透明 DragPermissionActivity。
+    /// 判定区域刻意大于药丸，方便用户对准（药丸视觉居中，周围留白也计入可导入区）。
+    private fun launchDropPermissionActivity() {
+        android.util.Log.d("OverlayView", "DRAG_STARTED, launching DragPermissionActivity")
+        try {
+            val px = layoutParams?.x ?: 0
+            val py = layoutParams?.y ?: 0
+            val pw = if (width > 0) width else (resources.displayMetrics.widthPixels / 4)
+            val ph = if (height > 0) height else (resources.displayMetrics.heightPixels / 10)
+            val cx = px + pw / 2
+            val cy = py + ph / 2
+            // 在药丸基础上向外扩展，扩大可导入/高亮判定区域（单位：dp）
+            val padH = (48 * resources.displayMetrics.density).toInt()
+            val padV = (48 * resources.displayMetrics.density).toInt()
+            val xl = cx - pw / 2 - padH
+            val yt = cy - ph / 2 - padV
+            val xr = cx + pw / 2 + padH
+            val yb = cy + ph / 2 + padV
+            val intent = android.content.Intent(context, com.mememaster.app.DragPermissionActivity::class.java).apply {
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                putExtra("rect_l", xl)
+                putExtra("rect_t", yt)
+                putExtra("rect_r", xr)
+                putExtra("rect_b", yb)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            android.util.Log.e("OverlayView", "启动 DragPermissionActivity 失败", e)
+            try {
+                val f = java.io.File(context.filesDir, "spike_crash.txt")
+                f.writeText("${e.javaClass.simpleName}: ${e.message}\n${e.stackTraceToString()}")
+            } catch (_: Exception) {}
+            onImportFailed("启动导入通道失败: ${e.message}")
         }
     }
 }

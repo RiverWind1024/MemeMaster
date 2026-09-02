@@ -89,6 +89,16 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="显示可拖放图片导入的悬浮窗，接收图片拖放导入到 MemeMaster"/>
         </service>
+        <!-- 透明拖放接收页（spike）：承接悬浮窗转交的全局拖放并申请 URI 权限 -->
+        <activity
+            android:name=".DragPermissionActivity"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:taskAffinity="com.mememaster.app.drop"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.TransparentDrop"
+            android:configChanges="orientation|screenSize|keyboardHidden|density|uiMode" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

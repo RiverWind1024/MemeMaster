@@ -24,8 +24,41 @@ class OverlayService : Service() {
 
         private var methodChannel: MethodChannel? = null
 
+        @Volatile
+        private var activeView: OverlayView? = null
+
+        /// 记录当前悬浮窗 view（供拖放结束后恢复药丸可见性）
+        fun setActiveView(view: OverlayView?) {
+            activeView = view
+        }
+
+        /// 拖放结束：恢复悬浮窗药丸显示
+        fun restorePill() {
+            activeView?.setDragVisual(true)
+        }
+
         fun setMethodChannel(channel: MethodChannel) {
             methodChannel = channel
+        }
+
+        /// 拖放诊断：把原生拖放链路各节点反调给 Flutter，进入应用内“运行日志”
+        fun logDebug(msg: String) {
+            android.util.Log.d("OverlayService", "overlayDebug: $msg")
+            try {
+                methodChannel?.invokeMethod("onOverlayError", "[拖放] $msg")
+            } catch (e: Exception) {
+                android.util.Log.e("OverlayService", "logDebug failed", e)
+            }
+        }
+
+        /// 拖放导入成功：把缓存图片路径反调给 Flutter 导入
+        fun notifyImageImported(cachePath: String) {
+            android.util.Log.d("OverlayService", "notifyImageImported: $cachePath")
+            try {
+                methodChannel?.invokeMethod("onOverlayImageImported", cachePath)
+            } catch (e: Exception) {
+                android.util.Log.e("OverlayService", "notifyImageImported failed", e)
+            }
         }
 
         fun start(context: Context) {
@@ -125,6 +158,7 @@ class OverlayService : Service() {
                 } catch (_: Exception) {}
             }
         )
+        OverlayService.setActiveView(overlayView)
 
         // 注入拖动句柄：更新悬浮窗位置，并在拖动结束后记忆
         overlayView?.attachDragHandle(windowManager!!, params) { px, py ->
@@ -144,6 +178,7 @@ class OverlayService : Service() {
     }
 
     private fun hideOverlay() {
+        OverlayService.setActiveView(null)
         overlayView?.let {
             windowManager?.removeView(it)
         }

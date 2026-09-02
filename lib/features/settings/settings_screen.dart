@@ -436,6 +436,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const SizedBox(height: 24),
 
+          // 悬浮窗
+          Text('悬浮窗', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Card(
+            child: SwitchListTile(
+              title: const Text('自动开启悬浮窗'),
+              subtitle: const Text('打开应用后自动启动悬浮窗，无需手动开启'),
+              value: ref.watch(autoOverlayEnabledProvider),
+              secondary: const Icon(Icons.picture_in_picture_alt),
+              onChanged: (value) {
+                ref.read(autoOverlayEnabledProvider.notifier).setEnabled(value);
+              },
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
           // 配置导入导出
           Text(S.of(context).config, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
