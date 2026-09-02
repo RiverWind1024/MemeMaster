@@ -3,19 +3,16 @@ package com.mememaster.app.overlay
 import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.Context
-import android.net.Uri
-import android.provider.OpenableColumns
+import android.content.Intent
 import android.view.*
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import com.mememaster.app.R
-import java.io.File
 
 @SuppressLint("ViewConstructor")
 class OverlayView(
     context: Context,
-    private val onImageImported: (String) -> Unit,
     private val onImportFailed: (String) -> Unit = {}
 ) : FrameLayout(context) {
 
@@ -62,30 +59,27 @@ class OverlayView(
                     android.util.Log.d("OverlayView", "ACTION_DROP received, clipData=${event.clipData?.itemCount}")
 
                     val clipData: ClipData? = event.clipData
-                    if (clipData != null && clipData.itemCount > 0) {
-                        val item = clipData.getItemAt(0)
-                        val uri = item.uri
-                        android.util.Log.d("OverlayView", "drop item uri=$uri")
-
-                        if (uri != null) {
-                            // 关键：在 ACTION_DROP 回调中直接读取字节，
-                            // 此时系统仍授予了临时 URI 读取权限
-                            val path = readUriToCache(uri)
-                            if (path != null) {
-                                android.util.Log.d("OverlayView", "read success: $path")
-                                onImageImported(path)
-                            } else {
-                                val mime = try { context.contentResolver.getType(uri) } catch (e: Exception) { "getType err: ${e.message}" }
-                                android.util.Log.e("OverlayView", "readUriToCache returned null, uri=$uri, mime=$mime")
-                                onImportFailed("无法读取拖放图片 (uri=$uri, mime=$mime)")
-                            }
-                        } else {
-                            android.util.Log.e("OverlayView", "drop item has no uri")
-                            onImportFailed("拖放数据不含 URI")
+                    if (clipData != null && clipData.itemCount > 0 && clipData.getItemAt(0).uri != null) {
+                        // 悬浮窗（Service View）没有 Activity token，无法 requestDragAndDropPermissions，
+                        // 直接 openInputStream 读不到荣耀等临时 content provider。
+                        // 变通：把 clipData 连同 FLAG_GRANT_READ_URI_PERMISSION 转发给
+                        // 透明的 DropProxyActivity，由其在 Activity 层读取字节写缓存。
+                        val intent = Intent(context, DropProxyActivity::class.java).apply {
+                            action = DropProxyActivity.ACTION_IMPORT_DROP
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+                            setClipData(clipData)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        try {
+                            context.startActivity(intent)
+                            android.util.Log.d("OverlayView", "forwarded drop to DropProxyActivity")
+                        } catch (e: Exception) {
+                            android.util.Log.e("OverlayView", "failed to start DropProxyActivity", e)
+                            onImportFailed("无法启动拖放代理: ${e.message}")
                         }
                     } else {
-                        android.util.Log.e("OverlayView", "no clip data on drop")
-                        onImportFailed("没有检测到拖放数据")
+                        android.util.Log.e("OverlayView", "no clip data with uri on drop")
+                        onImportFailed("没有检测到有效图片数据")
                     }
                     true
                 }
@@ -104,75 +98,22 @@ class OverlayView(
         isClickable = false
     }
 
-    /**
-     * 在 ACTION_DROP 回调中直接读取 content URI 到缓存文件。
-     * 此时系统仍授予了临时读取权限（DragEvent 的 ClipData 权限）。
-     */
-    private fun readUriToCache(uri: Uri): String? {
-        return try {
-            val ctx = context
-
-            // 尝试读取文件名
-            var fileName = "overlay_${System.currentTimeMillis()}"
-            try {
-                ctx.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                        if (nameIndex >= 0) {
-                            val name = cursor.getString(nameIndex)
-                            if (name != null) fileName = name
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
-
-            // 读取字节
-            val inputStream = ctx.contentResolver.openInputStream(uri) ?: run {
-                android.util.Log.w("OverlayView", "openInputStream returned null for $uri")
-                return null
-            }
-
-            // 确定扩展名
-            val ext = if (fileName.contains('.')) {
-                fileName.substringAfterLast('.')
-            } else {
-                val mimeType = ctx.contentResolver.getType(uri)
-                when {
-                    mimeType?.contains("png") == true -> "png"
-                    mimeType?.contains("webp") == true -> "webp"
-                    mimeType?.contains("gif") == true -> "gif"
-                    mimeType?.contains("jpeg") == true -> "jpg"
-                    mimeType?.contains("jpg") == true -> "jpg"
-                    else -> "jpg"
-                }
-            }
-            if (!fileName.contains('.')) fileName = "$fileName.$ext"
-
-            val destFile = File(ctx.cacheDir, "share_import/$fileName")
-            destFile.parentFile?.mkdirs()
-            destFile.outputStream().use { output ->
-                inputStream.use { input ->
-                    input.copyTo(output)
-                }
-            }
-
-            android.util.Log.d("OverlayView", "readUriToCache: $uri -> ${destFile.absolutePath} (${destFile.length()} bytes)")
-            destFile.absolutePath
-        } catch (e: Exception) {
-            android.util.Log.e("OverlayView", "readUriToCache failed for $uri", e)
-            null
-        }
-    }
-
     private fun updateAppearance(isHighlighted: Boolean) {
+        val container = findViewById<View>(R.id.overlay_container) ?: return
         if (isHighlighted) {
+            container.setBackgroundResource(R.drawable.overlay_bg_active)
             imageView.alpha = 1.0f
-            textView.visibility = View.VISIBLE
-            setBackgroundColor(0x4000FF00.toInt())
+            imageView.scaleX = 1.2f
+            imageView.scaleY = 1.2f
+            textView.text = "松开导入"
+            textView.setTextColor(0xFFFFFFFF.toInt())
         } else {
-            imageView.alpha = 0.6f
-            textView.visibility = View.GONE
-            setBackgroundColor(0x20000000.toInt())
+            container.setBackgroundResource(R.drawable.overlay_bg)
+            imageView.alpha = 0.85f
+            imageView.scaleX = 1.0f
+            imageView.scaleY = 1.0f
+            textView.text = "拖入图片导入"
+            textView.setTextColor(0xFFFFFFFF.toInt())
         }
     }
 }

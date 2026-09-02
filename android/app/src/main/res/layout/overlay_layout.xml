@@ -1,26 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="100dp"
-    android:layout_height="100dp"
-    android:background="#20000000"
-    android:padding="8dp">
+<!-- 悬浮窗：小药丸胶囊形态 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/overlay_container"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/overlay_bg"
+    android:paddingStart="12dp"
+    android:paddingEnd="14dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp">
 
     <ImageView
         android:id="@+id/overlay_image"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
-        android:layout_gravity="center_horizontal"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
         android:src="@mipmap/ic_launcher"
-        android:alpha="0.6"/>
+        android:alpha="0.85"/>
 
     <TextView
         android:id="@+id/overlay_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        android:text="松开导入"
-        android:textColor="#00FF00"
-        android:textSize="10sp"
-        android:visibility="gone"/>
+        android:layout_marginStart="8dp"
+        android:text="拖入图片导入"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:shadowColor="#80000000"
+        android:shadowRadius="2"/>
 
-</FrameLayout>
+</LinearLayout>
