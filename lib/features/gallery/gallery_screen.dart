@@ -35,9 +35,22 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   bool _dragOver = false;
   bool _radialOpen = false;
   final Set<String> _selectedIds = {};
+  VoidCallback? _dragOverListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _dragOverListener = () {
+      if (mounted) setState(() => _dragOver = SharedMediaHandler.dragOver.value);
+    };
+    SharedMediaHandler.dragOver.addListener(_dragOverListener!);
+  }
 
   @override
   void dispose() {
+    if (_dragOverListener != null) {
+      SharedMediaHandler.dragOver.removeListener(_dragOverListener!);
+    }
     _tabController?.dispose();
     super.dispose();
   }

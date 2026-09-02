@@ -154,11 +154,15 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
       final service = ref.read(importServiceProvider);
       final result = await service.importImages(paths, source: '拖拽导入');
       _log.info('Drop', '导入结果: 成功=${result.success}, 跳过=${result.skipped}, 错误=${result.errors.length}');
-      if (mounted) {
+      if (mounted && _navCtx != null) {
         final msg = result.success > 0
             ? '已导入 ${result.success} 张图片'
             : (result.errors.isNotEmpty ? '导入失败: ${result.errors.first}' : '跳过（已存在）');
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        ScaffoldMessenger.of(_navCtx!).showSnackBar(SnackBar(content: Text(msg)));
+      }
+      if (result.success > 0) {
+        ref.invalidate(memeListProvider);
+        ref.invalidate(memeCountProvider);
       }
     } catch (e) {
       _log.error('Drop', '_importDroppedImages failed: $e');
@@ -173,11 +177,11 @@ class _AppBodyState extends ConsumerState<_AppBody> with WidgetsBindingObserver 
       final service = ref.read(importServiceProvider);
       final result = await service.importImages([cachePath], source: '悬浮窗导入');
       _log.info('Overlay', '导入结果: 成功=${result.success}, 跳过=${result.skipped}, 错误=${result.errors.length}');
-      if (mounted) {
+      if (mounted && _navCtx != null) {
         final msg = result.success > 0
             ? '已导入 ${result.success} 张图片'
             : (result.errors.isNotEmpty ? '导入失败: ${result.errors.first}' : '跳过（已存在）');
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        ScaffoldMessenger.of(_navCtx!).showSnackBar(SnackBar(content: Text(msg)));
       }
     } catch (e) {
       _log.error('Overlay', '_importFromOverlay failed: $e');

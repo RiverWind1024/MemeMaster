@@ -283,14 +283,36 @@ class MainActivity : FlutterActivity() {
 
     private val nativeDropListener = View.OnDragListener { _, event ->
         when (event.action) {
+            DragEvent.ACTION_DRAG_ENTERED, DragEvent.ACTION_DRAG_LOCATION -> {
+                notifyFlutterDragOver(true)
+                true
+            }
+            DragEvent.ACTION_DRAG_EXITED -> {
+                notifyFlutterDragOver(false)
+                true
+            }
             DragEvent.ACTION_DROP -> {
                 android.util.Log.d(tag, "native ACTION_DROP, items=${event.clipData?.itemCount}")
                 handleNativeDrop(event)
+                notifyFlutterDragOver(false)
                 true
             }
-            DragEvent.ACTION_DRAG_ENDED -> true
+            DragEvent.ACTION_DRAG_ENDED -> {
+                notifyFlutterDragOver(false)
+                true
+            }
             else -> true
         }
+    }
+
+    /// 通知 Flutter 拖拽进入/离开，用于显示"松开导入"提示
+    private fun notifyFlutterDragOver(over: Boolean) {
+        try {
+            val messenger = flutterEngine?.dartExecutor?.binaryMessenger
+            if (messenger != null) {
+                MethodChannel(messenger, CHANNEL_SHARE).invokeMethod("onDragOver", over)
+            }
+        } catch (_: Exception) {}
     }
 
     @android.annotation.TargetApi(Build.VERSION_CODES.N)

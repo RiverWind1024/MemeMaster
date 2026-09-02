@@ -28,6 +28,9 @@ class SharedMediaHandler {
   /// 原生拖拽成功读取到缓存图片路径的回调（MainActivity ACTION_DROP 同步读取后调用）
   static void Function(List<String> cachePaths)? onNativeDropImages;
 
+  /// 拖拽悬停状态（是否停留在 app 窗口内，用于显示"松开导入"提示）
+  static final ValueNotifier<bool> dragOver = ValueNotifier<bool>(false);
+
   /// 初始化 method channel handler，接收原生侧发来的事件
   static void init() {
     _channel.setMethodCallHandler((call) async {
@@ -37,6 +40,10 @@ class SharedMediaHandler {
         if (paths != null && paths.isNotEmpty) {
           onNativeDropImages?.call(paths);
         }
+        return null;
+      }
+      if (call.method == 'onDragOver') {
+        dragOver.value = (call.arguments as bool?) ?? false;
         return null;
       }
       onNativeEvent?.call(call.method);
