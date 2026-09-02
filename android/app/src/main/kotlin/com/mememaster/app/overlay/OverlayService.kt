@@ -37,6 +37,11 @@ class OverlayService : Service() {
             activeView?.setDragVisual(true)
         }
 
+        /// 拖放进行中、指尖进入判定区域时隐藏药丸（视觉转交透明页橙色高亮）
+        fun hidePill() {
+            activeView?.setDragVisual(false)
+        }
+
         fun setMethodChannel(channel: MethodChannel) {
             methodChannel = channel
         }

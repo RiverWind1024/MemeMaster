@@ -88,7 +88,6 @@ class OverlayView(
             // 从而不拦截 DROP，让拖放命中测试穿透到下面的全屏透明 Activity。
             if (event.action == DragEvent.ACTION_DRAG_STARTED) {
                 OverlayService.logDebug("悬浮窗收到 DRAG_STARTED，启动全屏透明导入页")
-                setDragVisual(false)
                 launchDropPermissionActivity()
             }
             false

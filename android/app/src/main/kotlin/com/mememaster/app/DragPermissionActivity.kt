@@ -114,17 +114,9 @@ class DragPermissionActivity : Activity() {
                     }
 
                     DragEvent.ACTION_DRAG_LOCATION -> {
-                        // 实时判定指尖是否在悬浮窗矩形内，动态高亮
-                        val inRect = pointInRect(event.x, event.y)
-                        hint.visibility = if (inRect) View.VISIBLE else View.GONE
-                        true
-                    }
-                    DragEvent.ACTION_DRAG_ENTERED -> {
-                        hint.visibility = View.VISIBLE
-                        true
-                    }
-                    DragEvent.ACTION_DRAG_EXITED -> {
-                        hint.visibility = View.GONE
+                        // 实时判定指尖是否在悬浮窗矩形内，动态高亮（仅以此为准，
+                        // 避免 ENTERED 在拖放开始就隐藏药丸）
+                        setHighlighted(pointInRect(event.x, event.y))
                         true
                     }
 
@@ -167,6 +159,24 @@ class DragPermissionActivity : Activity() {
     private fun pointInRect(x: Float, y: Float): Boolean {
         if (rectR <= rectL || rectB <= rectT) return false
         return x >= rectL && x <= rectR && y >= rectT && y <= rectB
+    }
+
+    /// 同步控制橙色高亮与悬浮窗药丸可见性：
+    /// 指尖进入矩形 -> 显示橙色胶囊并隐藏药丸（视觉无缝转交）；
+    /// 指尖离开 -> 隐藏橙色并恢复药丸。
+    private fun setHighlighted(inRect: Boolean) {
+        val h = hint ?: return
+        if (inRect) {
+            if (h.visibility != View.VISIBLE) {
+                h.visibility = View.VISIBLE
+                OverlayService.hidePill()
+            }
+        } else {
+            if (h.visibility != View.GONE) {
+                h.visibility = View.GONE
+                OverlayService.restorePill()
+            }
+        }
     }
 
     private fun centerHint() {
