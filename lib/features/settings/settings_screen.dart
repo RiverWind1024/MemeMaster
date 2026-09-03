@@ -152,6 +152,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _startReindex(BuildContext context, WidgetRef ref) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(S.of(ctx).reindexConfirmTitle),
+        content: Text(S.of(ctx).reindexConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(S.of(ctx).cancel),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _runReindex(context, ref);
+            },
+            child: Text(S.of(ctx).confirm),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _runReindex(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(reindexStateProvider.notifier);
     notifier.startReindex();
     ScaffoldMessenger.of(context).showSnackBar(
