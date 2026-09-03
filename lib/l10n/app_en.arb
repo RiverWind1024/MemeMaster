@@ -1,16 +1,12 @@
 {
   "@@locale": "en",
-
   "appTitle": "MemeMaster",
-
   "tabGallery": "Gallery",
   "tabSearch": "Search",
   "tabSettings": "Settings",
-
   "downloadingClipboardImage": "Downloading clipboard image...",
   "clipboardImageDownloadFailed": "Failed to download clipboard image",
   "clipboardImageAlreadyImported": "Clipboard image already imported",
-
   "scanMeme": "Scan Memes",
   "selectDirectoryToScan": "Select directory to scan",
   "scanningDirectory": "Scanning directory...",
@@ -43,7 +39,7 @@
   "downloaded": "Downloaded",
   "loadModel": "Load",
   "deleteModel": "Delete",
-  "downloadFailed": "Download failed",
+  "downloadFailed": "Download failed: {error}",
   "download": "Download",
   "modelDownloadComplete": "{name} download complete",
   "downloadFailedWithError": "Download failed: {error}",
@@ -53,7 +49,6 @@
   "cancel": "Cancel",
   "modelLoaded": "Model loaded",
   "modelDeleted": "{id} deleted",
-
   "aiTagsAndDescription": "AI Tags & Description",
   "analysisMode": "Analysis Mode",
   "modeOff": "Off",
@@ -89,8 +84,13 @@
   "modelFileLoaded": "Model file loaded",
   "invalidGgufFile": "Please select a .gguf model file",
   "invalidGgufFileDetail": "The selected file \"{filename}\" is not in GGUF format and cannot be used for local inference.",
-  "@invalidGgufFileDetail": { "placeholders": { "filename": { "type": "String" } } },
-
+  "@invalidGgufFileDetail": {
+    "placeholders": {
+      "filename": {
+        "type": "String"
+      }
+    }
+  },
   "settings": "Settings",
   "appearance": "Appearance",
   "themeMode": "Theme Mode",
@@ -127,7 +127,6 @@
   "lightThemeSubtitle": "Always use light theme",
   "darkThemeSubtitle": "Always use dark theme",
   "systemThemeSubtitle": "Follow system setting",
-
   "s3Sync": "S3 Cloud Sync",
   "s3StorageStatsFailed": "Failed to get S3 storage stats, check configuration",
   "setClearPassword": "Set Clear Password",
@@ -168,7 +167,6 @@
   "deleteAllBucketFiles": "Delete all files in bucket",
   "s3Config": "S3 Configuration",
   "save": "Save",
-
   "logViewer": "Run Logs",
   "logCopied": "Logs copied to clipboard",
   "logExported": "Log exported",
@@ -176,7 +174,6 @@
   "logSearchHint": "Search logs (matches message / tag / level)",
   "logNoMatch": "No matching logs",
   "logFilteredCount": "{count}/{total}",
-
   "importComplete": "Import Complete",
   "importImages": "Import Images",
   "importCountImages": "Import {count} images",
@@ -185,7 +182,6 @@
   "done": "Done",
   "importFailed": "Import failed: {error}",
   "cannotLoadImage": "Cannot load image",
-
   "importFromAlbum": "Select from Album",
   "selectedCount": "{count} selected",
   "clear": "Clear",
@@ -194,7 +190,6 @@
   "errorLabel": "Error:",
   "selectFileFailed": "Failed to select file: {error}",
   "importSuccessCountImages": "Successfully imported {count} images",
-
   "addedToAnalysisQueue": "Added to analysis queue",
   "reanalysisFailed": "Re-analysis failed: {error}",
   "confirmDeleteTitle": "Confirm Delete",
@@ -239,7 +234,6 @@
   "ocrRecognition": "OCR Recognition",
   "ocrWordCount": "{count} words",
   "noOcrText": "No text recognized",
-
   "receiveShare": "Receive Shared",
   "importingProgress": "Importing {processed}/{total} images...",
   "deduplicating": "SHA256 deduplicating",
@@ -248,7 +242,6 @@
   "importSkipped": "Skipped (existing): {count}",
   "importErrors": "Errors: {count}",
   "viewGallery": "View Gallery",
-
   "searchFailed": "Search failed: {error}",
   "search": "Search",
   "reset": "Reset",
@@ -265,10 +258,8 @@
   "searchLevelColorKeyword": "L2 Keyword+Color",
   "searchLevelColorOnly": "L1 Color Only",
   "searchLevelBrowse": "L0 Browse",
-
   "customColor": "Custom Color",
-  "confirm": "OK",
-
+  "confirm": "Confirm",
   "colorRed": "Red",
   "colorDeepOrange": "Deep Orange",
   "colorOrange": "Orange",
@@ -289,7 +280,6 @@
   "colorBlueGrey": "Blue Grey",
   "colorBlack": "Black",
   "colorWhite": "White",
-
   "confirmDeleteSelected": "Are you sure you want to delete {count} selected images?\nImage files and all analysis data will be removed.",
   "deletedCountImages": "Deleted {count} images",
   "noAlbumsCreateFirst": "No albums yet, create one first",
@@ -327,7 +317,6 @@
   "importResultTitle": "Import Result",
   "existingFiles": "Existing files:",
   "ok": "OK",
-
   "exportMemes": "Export Memes",
   "export": "Export",
   "exportFileName": "File name",
@@ -337,39 +326,30 @@
   "importMemePack": "Import Meme Pack",
   "importMemePackResult": "Import complete: {success} success, {skipped} skipped, {errors} failed",
   "importMemePackFailed": "Import failed: {error}",
-
   "aiChatTest": "AI Chat",
   "aiChatWelcome": "Start chatting with AI",
   "aiChatHint": "Send a message to test AI response",
   "typeMessage": "Type a message...",
-
   "copiedToClipboard": "Copied to clipboard",
-
   "shareMeme": "Share meme",
-
   "s3NotConfigured": "S3 not configured",
   "cancelled": "Cancelled",
   "imageUploadFailed": "Image upload failed: {filename}: {error}",
   "syncFailed": "Sync failed: {error}",
   "passwordIncorrect": "Incorrect password",
   "noBackupOnS3": "No backup data found on S3",
-  "downloadFailed": "Download failed: {error}",
   "pleaseFullDownloadFirst": "Please perform a full download first",
   "incrementalSyncFailed": "Incremental sync failed: {error}",
-
   "language": "Language",
   "languageSystem": "System",
   "languageChinese": "中文",
   "languageEnglish": "English",
-
   "aiRecognition": "AI Recognition",
   "noAiTags": "No AI tags",
   "llmTagCount": "{count}",
   "descriptionLabel": "Description",
-
   "mmprojHint": "If your model supports image input (multimodal), it's recommended to also select the mmproj projection file.\n\nSkip if not needed",
   "uriReadFailed": "Cannot read URI",
-
   "userStatsTitle": "User Statistics",
   "todayStats": "Today",
   "recent7DayTrend": "7-Day Trend",
@@ -394,24 +374,60 @@
   "configExported": "Config exported",
   "configImportSuccess": "Config imported successfully",
   "configImportFailed": "Config import failed: {error}",
-  "@configImportFailed": { "placeholders": { "error": { "type": "String" } } },
-
+  "@configImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "@exportMemes": {},
   "@export": {},
   "@exportFileName": {},
   "@exporting": {},
-  "@exportSuccess": { "placeholders": { "path": { "type": "String" } } },
-  "@exportFailed": { "placeholders": { "error": { "type": "String" } } },
+  "@exportSuccess": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "@exportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "@importMemePack": {},
-  "@importMemePackResult": { "placeholders": { "success": { "type": "int" }, "skipped": { "type": "int" }, "errors": { "type": "int" } } },
-  "@importMemePackFailed": { "placeholders": { "error": { "type": "String" } } },
+  "@importMemePackResult": {
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      },
+      "errors": {
+        "type": "int"
+      }
+    }
+  },
+  "@importMemePackFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "reindexMemes": "Re-index all memes",
-  "@reindexMemes": { "description": "Reindex button" },
+  "@reindexMemes": {
+    "description": "Reindex button"
+  },
   "reindexDescription": "Check and enqueue missing analysis data",
   "@reindexDescription": {},
   "reindexStarted": "Reindex started, progress shown in gallery",
   "@reindexStarted": {},
-
   "overlayDragDropTitle": "Enable drag-to-import floating window",
   "@overlayDragDropTitle": {},
   "overlaySection": "Floating Window",
@@ -422,8 +438,6 @@
   "@overlayAutoStartTitle": {},
   "overlayAutoStartDescription": "Start the floating window automatically when the app opens",
   "@overlayAutoStartDescription": {},
-
-  "confirm": "Confirm",
   "@confirm": {},
   "reindexConfirmTitle": "Re-index all memes?",
   "@reindexConfirmTitle": {},
@@ -432,5 +446,71 @@
   "gpuDiagnoseConfirmTitle": "Run GPU acceleration diagnostic?",
   "@gpuDiagnoseConfirmTitle": {},
   "gpuDiagnoseConfirmBody": "This will check OpenCL and Vulkan support and write results to the log.",
-  "@gpuDiagnoseConfirmBody": {}
+  "@gpuDiagnoseConfirmBody": {},
+  "close": "Close",
+  "retry": "Retry",
+  "loadMore": "Load More",
+  "enabled": "Enabled",
+  "disabled": "Disabled",
+  "restoreDefaults": "Restore Defaults",
+  "cancelDownload": "Cancel Download",
+  "errorWithError": "Error: {error}",
+  "modelManagerSearchResult": "Search Results",
+  "modelManagerSelectFileToDownload": "Select File to Download",
+  "modelManagerFetchFileListFailed": "Failed to Fetch File List",
+  "modelManagerNoGgufFile": "No GGUF File Found",
+  "modelManagerNoGgufInRepo": "No .gguf file found in this model repository.",
+  "modelManagerDownloadCount": "{count} downloads",
+  "modelManagerPausedPct": "Paused {pct}%",
+  "modelManagerPctPaused": "{pct}% {status}",
+  "modelManagerPausedStatus": "(Paused)",
+  "modelManagerViewModelFiles": "View Model Files",
+  "modelManagerDeleteModelTooltip": "Delete Model",
+  "modelManagerModelFiles": "Model Files",
+  "modelManagerNoFilesInDirectory": "No files in this model directory",
+  "aiConfigLocalModelConfig": "Local Model Config",
+  "aiConfigGpuAppliedNext": "GPU settings changed, effective on next analysis",
+  "aiConfigGpuLayers": "GPU Layers",
+  "aiConfigAllLayers": "All (-1)",
+  "aiConfigCpuOnly": "CPU Only (0)",
+  "aiConfigLayerCount": "{n} layers",
+  "aiConfigContextAppliedNext": "Context length changed, effective on next analysis",
+  "aiConfigAdvanced": "Advanced Performance",
+  "flashAttnAuto": "Auto (decided by GPU)",
+  "kvF16": "F16 (high precision)",
+  "kvQ40": "Q4_0 (saves memory)",
+  "aiConfigUseMmap": "Use mmap loading",
+  "aiConfigMmapHint": "Memory-mapped file loading (recommended off on low-memory Android devices)",
+  "settingsDebugMenu": "Debug Menu",
+  "settingsColorExtraction": "Color Extraction Algorithm",
+  "settingsColorExtractionSubtitle": "Color parameter configuration",
+  "settingsGpuDiagnose": "GPU Acceleration Diagnostic",
+  "settingsGpuDiagnoseSubtitle": "Detect OpenCL (libOpenCL.so) and Vulkan (libvulkan.so) support",
+  "settingsGpuDiagnoseStarted": "Diagnostics started; results are written to the run log (OpenCLDiag tag, OpenCL + Vulkan)",
+  "settingsGpuDiagnoseDone": "Diagnostics complete, see results in Run Log",
+  "settingsGpuDiagnoseFailed": "Diagnostics failed: {error}",
+  "settingsExportChoice": "Choose Export Method",
+  "settingsExportToFile": "Save as File",
+  "settingsShare": "Share",
+  "settingsTesseractNotLoaded": "Tesseract FFI not loaded, check that the DLL is packaged correctly",
+  "settingsOcrStatus": "OCR Status",
+  "settingsOcrChecking": "Checking...",
+  "settingsOcrRedetect": "Re-detect",
+  "settingsOcrInstall": "Install",
+  "llmLlLoading": "Loading…",
+  "llmLlConfiguredAutoLoad": "Configured, auto-loads for analysis",
+  "llmLlWaitingLog": "Waiting for logs…",
+  "llmLlFileMissing": "Model file does not exist; check the model path or re-download",
+  "llmLlLoaded": "Model loaded successfully",
+  "llmLlSwitchToLocalFirst": "Switch to local model mode first",
+  "llmLlLoadFailed": "Model load failed: {error}",
+  "userStatsActivity": "Meme Activity · {heatmap}",
+  "userStatsDailyDetail": "Daily Detail",
+  "userStatsCumulativeTotal": "Cumulative Total",
+  "userStatsEdit": "Edit",
+  "galleryReindexing": "Re-indexing... {processed} processed, {enqueued} queued",
+  "galleryPleaseWait": "Please wait...",
+  "galleryDeleteFailed": "Delete failed: {error}",
+  "colorExtractionConfigTitle": "Color Extraction Algorithm Config",
+  "s3SyncFailed": "Sync failed: {error}"
 }
