@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mememaster/features/gallery/gallery_provider.dart';
 import 'package:mememaster/services/log_service.dart';
 import 'package:mememaster/services/shared_media_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 悬浮窗状态
 class OverlayState {
@@ -29,7 +31,10 @@ class OverlayState {
 
 /// 悬浮窗控制器
 class OverlayController extends StateNotifier<OverlayState> {
-  OverlayController() : super(const OverlayState()) {
+  final SharedPreferences _prefs;
+  static const _key = 'overlay_enabled';
+
+  OverlayController(this._prefs) : super(const OverlayState()) {
     _checkPermission();
   }
 
@@ -39,8 +44,9 @@ class OverlayController extends StateNotifier<OverlayState> {
   Future<void> _checkPermission() async {
     LogService.instance.info('Overlay', 'checking permission...');
     final hasPermission = await _handler.canDrawOverlays();
-    LogService.instance.info('Overlay', 'canDrawOverlays = $hasPermission');
-    state = state.copyWith(hasPermission: hasPermission);
+    final isActive = _prefs.getBool(_key) ?? false;
+    LogService.instance.info('Overlay', 'canDrawOverlays = $hasPermission, persisted isActive = $isActive');
+    state = state.copyWith(hasPermission: hasPermission, isActive: isActive);
   }
 
   /// 切换悬浮窗开关
@@ -55,6 +61,7 @@ class OverlayController extends StateNotifier<OverlayState> {
       if (state.isActive) {
         LogService.instance.info('Overlay', '-> stopping overlay');
         await _handler.stopOverlay();
+        await _prefs.setBool(_key, false);
         state = state.copyWith(isActive: false, isLoading: false);
       } else {
         if (!state.hasPermission) {
@@ -70,6 +77,7 @@ class OverlayController extends StateNotifier<OverlayState> {
         LogService.instance.info('Overlay', '-> starting overlay');
         final started = await _handler.startOverlay();
         LogService.instance.info('Overlay', '-> startOverlay returned: $started');
+        if (started) await _prefs.setBool(_key, true);
         state = state.copyWith(isActive: started, isLoading: false);
       }
     } catch (e, s) {
@@ -81,5 +89,5 @@ class OverlayController extends StateNotifier<OverlayState> {
 
 final overlayProvider =
     StateNotifierProvider<OverlayController, OverlayState>((ref) {
-  return OverlayController();
+  return OverlayController(ref.read(sharedPreferencesProvider));
 });
