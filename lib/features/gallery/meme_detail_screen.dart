@@ -94,7 +94,7 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('删除失败: $e')),
+            SnackBar(content: Text(S.of(context).galleryDeleteFailed(e.toString()))),
           );
         }
       }

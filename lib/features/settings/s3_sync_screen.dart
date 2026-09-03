@@ -58,7 +58,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
         errorMessage: '同步失败: $error',
       ));
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('同步失败: $error')),
+          SnackBar(content: Text(S.of(context).s3SyncFailed(error.toString()))),
       );
     });
   }

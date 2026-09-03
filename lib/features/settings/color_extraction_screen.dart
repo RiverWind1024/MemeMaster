@@ -12,7 +12,7 @@ class ColorExtractionScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text('颜色提取算法配置')),
+        appBar: AppBar(title: Text(S.of(context).colorExtractionConfigTitle)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: const [_ColorExtractionCard()],

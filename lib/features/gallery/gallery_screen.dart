@@ -193,7 +193,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       _exitSelectionMode();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败: $e')),
+          SnackBar(content: Text(S.of(context).galleryDeleteFailed(e.toString()))),
         );
       }
     }
@@ -1174,12 +1174,12 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         title: Text(S.of(context).importing),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
-            Text('请稍候...'),
+            Text(S.of(context).galleryPleaseWait),
           ],
         ),
       ),

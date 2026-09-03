@@ -46,7 +46,7 @@ class _UserStatsScreenState extends ConsumerState<UserStatsScreen> {
           const SizedBox(height: 24),
 
           // Meme 活跃度热度图
-          Text('Meme 活跃度 · ${s.heatmap}', style: theme.textTheme.titleSmall),
+          Text(S.of(context).userStatsActivity(s.heatmap), style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           ref.watch(rangeStatsProvider).when(
             loading: () => _cardLoading(),
@@ -63,7 +63,7 @@ class _UserStatsScreenState extends ConsumerState<UserStatsScreen> {
           const SizedBox(height: 24),
 
           // 每日明细趋势
-          Text('每日明细', style: theme.textTheme.titleSmall),
+          Text(S.of(context).userStatsDailyDetail, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           ref.watch(rangeStatsProvider).when(
             loading: () => _cardLoading(),
@@ -74,7 +74,7 @@ class _UserStatsScreenState extends ConsumerState<UserStatsScreen> {
           const SizedBox(height: 24),
 
           // 全部汇总（累计）
-          Text('累计总计', style: theme.textTheme.titleSmall),
+          Text(S.of(context).userStatsCumulativeTotal, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           ref.watch(totalStatsProvider).when(
             loading: () => _cardLoading(),
@@ -152,7 +152,7 @@ class _DateRangeSelector extends StatelessWidget {
                 style: theme.textTheme.bodyMedium,
               ),
               const Spacer(),
-              Text('修改', style: theme.textTheme.bodySmall?.copyWith(
+              Text(S.of(context).userStatsEdit, style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.primary,
               )),
               const SizedBox(width: 4),
