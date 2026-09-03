@@ -701,17 +701,21 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                   ),
                 ),
                 Positioned.fill(
-                  child: Listener(
-                    onPointerMove: (event) {
-                      if (_isDragSelecting) {
-                        _handleDragSelect(event.position);
-                      }
-                    },
-                    child: GestureDetector(
-                      onPanStart: (_) => _onDragStart(),
-                      onPanEnd: (_) => _onDragEnd(),
-                      onPanCancel: () => _onDragEnd(),
-                      behavior: HitTestBehavior.translucent,
+                  child: IgnorePointer(
+                    ignoring: !_isDragSelecting,
+                    child: Listener(
+                      onPointerDown: (event) {
+                        if (_selectionMode && !_isDragSelecting) {
+                          _onDragStart();
+                        }
+                      },
+                      onPointerMove: (event) {
+                        if (_isDragSelecting) {
+                          _handleDragSelect(event.position);
+                        }
+                      },
+                      onPointerUp: (_) => _onDragEnd(),
+                      onPointerCancel: (_) => _onDragEnd(),
                     ),
                   ),
                 ),
