@@ -218,10 +218,10 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             ref.watch(localLlmLoadingProvider)
-                                ? Text('正在加载…', style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange))
+                                ? Text(S.of(context).llmLlLoading, style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange))
                                 : ref.watch(localLlmLoadedProvider)
                                     ? Text(S.of(context).loaded, style: theme.textTheme.bodySmall)
-                                    : Text('已配置，分析时自动加载', style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange)),
+                                    : Text(S.of(context).llmLlConfiguredAutoLoad, style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange)),
                             // 显示 mmproj 状态（包括文件是否真实存在）
                             _MmprojStatusText(mmprojPath: localConfig.mmprojPath),
                           ],
@@ -263,7 +263,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                             padding: EdgeInsets.all(8),
                             children: [
                               if (_loadingLogs.isEmpty)
-                                Text('等待日志…',
+                                Text(S.of(context).llmLlWaitingLog,
                                     style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey))
                               else
                                 Text(_loadingLogs,
@@ -336,7 +336,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
       ref.read(localLlmLoadingProvider.notifier).state = false;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('模型文件不存在，请检查模型路径或重新下载')),
+          SnackBar(content: Text(S.of(context).llmLlFileMissing)),
         );
       }
       return;
@@ -373,14 +373,14 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
         debugPrint('[LoadModel] 模型加载成功');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('模型加载成功')),
+            SnackBar(content: Text(S.of(context).llmLlLoaded)),
           );
         }
       } else {
         debugPrint('[LoadModel] 当前 LLM 模式不是本地模式');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('请先切换到本地模型模式')),
+            SnackBar(content: Text(S.of(context).llmLlSwitchToLocalFirst)),
           );
         }
       }
@@ -389,7 +389,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
       ref.read(localLlmLoadedProvider.notifier).state = false;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('模型加载失败: $e')),
+            SnackBar(content: Text(S.of(context).llmLlLoadFailed(e.toString()))),
         );
       }
     } finally {
