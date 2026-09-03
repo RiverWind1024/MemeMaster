@@ -105,7 +105,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: const Text('GPU 加速诊断'),
                   subtitle: const Text('检测 OpenCL（libOpenCL.so）和 Vulkan（libvulkan.so）支持'),
                   trailing: const Icon(Icons.play_arrow),
-                  onTap: () => _runOpenCLDiagnostic(ctx, ref),
+                  onTap: () => showDialog<void>(
+                    context: ctx,
+                    builder: (dialogCtx) => AlertDialog(
+                      title: Text(S.of(dialogCtx).gpuDiagnoseConfirmTitle),
+                      content: Text(S.of(dialogCtx).gpuDiagnoseConfirmBody),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogCtx),
+                          child: Text(S.of(dialogCtx).cancel),
+                        ),
+                        FilledButton(
+                          onPressed: () {
+                            Navigator.pop(dialogCtx);
+                            _runOpenCLDiagnostic(ctx, ref);
+                          },
+                          child: Text(S.of(dialogCtx).confirm),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
