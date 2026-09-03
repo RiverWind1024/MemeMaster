@@ -35,6 +35,11 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   bool _radialOpen = false;
   final Set<String> _selectedIds = {};
   VoidCallback? _dragOverListener;
+  bool _isDragSelecting = false;
+  final Set<String> _visitedIds = {};
+  final GlobalKey _gridGlobalKey = GlobalKey();
+  double _scrollOffset = 0;
+  int _gridColumnCount = 0;
 
   @override
   void initState() {
@@ -92,6 +97,40 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         _selectedIds.add(memeId);
       }
     });
+  }
+
+  void _handleDragSelect(Offset globalPosition) {
+    if (!_isDragSelecting) return;
+    final gridBox =
+        _gridGlobalKey.currentContext?.findRenderObject() as RenderBox?;
+    if (gridBox == null) return;
+    final localPos = gridBox.globalToLocal(globalPosition);
+    final adjustedY = localPos.dy + _scrollOffset - 4;
+    final adjustedX = localPos.dx - 4;
+    if (adjustedX < 0 || adjustedY < 0) return;
+    final col = (adjustedX / 154).floor();
+    final row = (adjustedY / 154).floor();
+    if (row < 0 || col < 0) return;
+    final columns = _gridColumnCount;
+    if (columns <= 0) return;
+    final index = row * columns + col;
+    final memes = ref.read(memeListProvider).valueOrNull;
+    if (memes == null || index < 0 || index >= memes.length) return;
+    final id = memes[index].id;
+    if (!_visitedIds.contains(id)) {
+      _visitedIds.add(id);
+      _toggleSelection(id);
+    }
+  }
+
+  void _onDragStart() {
+    _isDragSelecting = true;
+    _visitedIds.clear();
+  }
+
+  void _onDragEnd() {
+    _isDragSelecting = false;
+    _visitedIds.clear();
   }
 
   void _exitSelectionMode() {
@@ -613,38 +652,73 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           );
         }
 
-        return RefreshIndicator(
-          onRefresh: () async {
-            ref.refresh(memeListProvider);
-            ref.refresh(memeCountProvider);
-            ref.refresh(albumsProvider);
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = (constraints.maxWidth / 154).floor().clamp(1, 10);
+            _gridColumnCount = columns;
+            return Stack(
+              children: [
+                NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is ScrollUpdateNotification) {
+                      _scrollOffset = notification.metrics.pixels;
+                    }
+                    if (_isDragSelecting) return true;
+                    return false;
+                  },
+                  child: RefreshIndicator(
+                    onRefresh: () async {
+                      ref.refresh(memeListProvider);
+                      ref.refresh(memeCountProvider);
+                      ref.refresh(albumsProvider);
+                    },
+                    child: GridView.builder(
+                      key: _gridGlobalKey,
+                      padding: const EdgeInsets.fromLTRB(4, 4, 4, 84),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        mainAxisSpacing: 4,
+                        crossAxisSpacing: 4,
+                      ),
+                      itemCount: memes.length,
+                      itemBuilder: (context, index) {
+                        final meme = memes[index];
+                        return _MemeGridTile(
+                          meme: meme,
+                          selectionMode: _selectionMode,
+                          selected: _selectedIds.contains(meme.id),
+                          onTap: () {
+                            if (_selectionMode) {
+                              _toggleSelection(meme.id);
+                            } else {
+                              context.pushNamed('meme-detail',
+                                  pathParameters: {'id': meme.id});
+                            }
+                          },
+                          onLongPress: () => _enterSelectionMode(meme.id),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Listener(
+                    onPointerMove: (event) {
+                      if (_isDragSelecting) {
+                        _handleDragSelect(event.position);
+                      }
+                    },
+                    child: GestureDetector(
+                      onPanStart: (_) => _onDragStart(),
+                      onPanEnd: (_) => _onDragEnd(),
+                      onPanCancel: () => _onDragEnd(),
+                      behavior: HitTestBehavior.translucent,
+                    ),
+                  ),
+                ),
+              ],
+            );
           },
-          child: GridView.builder(
-            padding: const EdgeInsets.fromLTRB(4, 4, 4, 84),
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 150,
-          mainAxisSpacing: 4,
-          crossAxisSpacing: 4,
-        ),
-            itemCount: memes.length,
-            itemBuilder: (context, index) {
-              final meme = memes[index];
-              return _MemeGridTile(
-                meme: meme,
-                selectionMode: _selectionMode,
-                selected: _selectedIds.contains(meme.id),
-                onTap: () {
-                  if (_selectionMode) {
-                    _toggleSelection(meme.id);
-                  } else {
-                    context.pushNamed('meme-detail',
-                        pathParameters: {'id': meme.id});
-                  }
-                },
-                onLongPress: () => _enterSelectionMode(meme.id),
-              );
-            },
-          ),
         );
       },
     );
