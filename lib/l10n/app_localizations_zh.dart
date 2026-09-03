@@ -488,41 +488,6 @@ class SZh extends S {
   String get error => '错误';
 
   @override
-  String get scheduledSync => '定时同步';
-
-  @override
-  String get autoSync => '定时自动同步';
-
-  @override
-  String syncIntervalSummary(String interval) {
-    return '每 $interval 同步一次';
-  }
-
-  @override
-  String get manualSyncOnly => '仅手动同步';
-
-  @override
-  String get syncInterval => '同步间隔';
-
-  @override
-  String get fiveMinutes => '5 分钟';
-
-  @override
-  String get fifteenMinutes => '15 分钟';
-
-  @override
-  String get thirtyMinutes => '30 分钟';
-
-  @override
-  String get oneHour => '1 小时';
-
-  @override
-  String get sixHours => '6 小时';
-
-  @override
-  String get oneDay => '1 天';
-
-  @override
   String get storageStatistics => '存储统计';
 
   @override
@@ -556,21 +521,6 @@ class SZh extends S {
 
   @override
   String get deleteAllBucketFiles => '删除 bucket 中所有文件';
-
-  @override
-  String intervalMinutes(int count) {
-    return '$count 分钟';
-  }
-
-  @override
-  String intervalHours(int count) {
-    return '$count 小时';
-  }
-
-  @override
-  String intervalDays(int count) {
-    return '$count 天';
-  }
 
   @override
   String get s3Config => 'S3 配置';
@@ -895,7 +845,7 @@ class SZh extends S {
   String get customColor => '自定义颜色';
 
   @override
-  String get confirm => '确定';
+  String get confirm => '确认';
 
   @override
   String get colorRed => '红';
@@ -1279,4 +1229,273 @@ class SZh extends S {
 
   @override
   String get reindexStarted => '重新索引已开始，进度显示在图库顶部';
+
+  @override
+  String get overlayDragDropTitle => '开启拖拽导入图片悬浮窗';
+
+  @override
+  String get overlaySection => '悬浮窗';
+
+  @override
+  String get overlayDragDropDescription => '在屏幕上显示悬浮窗，可将其他应用的图片拖入导入';
+
+  @override
+  String get overlayAutoStartTitle => '自动开启悬浮窗';
+
+  @override
+  String get overlayAutoStartDescription => '打开应用后自动启动悬浮窗，无需手动开启';
+
+  @override
+  String get reindexConfirmTitle => '重新索引所有表情？';
+
+  @override
+  String get reindexConfirmBody => '将重新扫描并分析所有图片，可能需要较长时间。';
+
+  @override
+  String get gpuDiagnoseConfirmTitle => '执行 GPU 加速诊断？';
+
+  @override
+  String get gpuDiagnoseConfirmBody => '将检测 OpenCL 与 Vulkan 支持，结果写入运行日志。';
+
+  @override
+  String get close => '关闭';
+
+  @override
+  String get retry => '重试';
+
+  @override
+  String get loadMore => '加载更多';
+
+  @override
+  String get enabled => '启用';
+
+  @override
+  String get disabled => '禁用';
+
+  @override
+  String get restoreDefaults => '恢复默认';
+
+  @override
+  String get cancelDownload => '取消下载';
+
+  @override
+  String errorWithError(String error) {
+    return '错误: $error';
+  }
+
+  @override
+  String get modelManagerSearchResult => '搜索结果';
+
+  @override
+  String get modelManagerSelectFileToDownload => '选择要下载的文件';
+
+  @override
+  String get modelManagerFetchFileListFailed => '获取文件列表失败';
+
+  @override
+  String get modelManagerNoGgufFile => '未找到 GGUF 文件';
+
+  @override
+  String get modelManagerNoGgufInRepo => '该模型仓库中没有找到 .gguf 文件。';
+
+  @override
+  String modelManagerDownloadCount(int count) {
+    return '$count 次下载';
+  }
+
+  @override
+  String modelManagerPausedPct(String pct) {
+    return '已暂停 $pct%';
+  }
+
+  @override
+  String modelManagerPctPaused(String pct, String status) {
+    return '$pct% $status';
+  }
+
+  @override
+  String get modelManagerPausedStatus => '（已暂停）';
+
+  @override
+  String get modelManagerViewModelFiles => '查看模型文件';
+
+  @override
+  String get modelManagerDeleteModelTooltip => '删除模型';
+
+  @override
+  String get modelManagerModelFiles => '模型文件';
+
+  @override
+  String get modelManagerNoFilesInDirectory => '该模型目录下没有文件';
+
+  @override
+  String get aiConfigLocalModelConfig => '本地模型配置';
+
+  @override
+  String get aiConfigGpuAppliedNext => 'GPU 设置已修改，下次分析时生效';
+
+  @override
+  String get aiConfigGpuLayers => 'GPU 层数';
+
+  @override
+  String get aiConfigAllLayers => '全部 (-1)';
+
+  @override
+  String get aiConfigCpuOnly => '仅 CPU (0)';
+
+  @override
+  String aiConfigLayerCount(int n) {
+    return '$n 层';
+  }
+
+  @override
+  String get aiConfigContextAppliedNext => '上下文长度已修改，下次分析时生效';
+
+  @override
+  String get aiConfigAdvanced => '高级性能配置';
+
+  @override
+  String get flashAttnAuto => '自动（根据 GPU 决定）';
+
+  @override
+  String get kvF16 => 'F16（精度高）';
+
+  @override
+  String get kvQ40 => 'Q4_0（省内存）';
+
+  @override
+  String get aiConfigUseMmap => '使用 mmap 加载';
+
+  @override
+  String get aiConfigMmapHint => '内存映射文件加载（Android 低内存设备建议关闭）';
+
+  @override
+  String get settingsDebugMenu => '调试菜单';
+
+  @override
+  String get settingsColorExtraction => '颜色提取算法';
+
+  @override
+  String get settingsColorExtractionSubtitle => '配色参数配置';
+
+  @override
+  String get settingsGpuDiagnose => 'GPU 加速诊断';
+
+  @override
+  String get settingsGpuDiagnoseSubtitle =>
+      '检测 OpenCL（libOpenCL.so）和 Vulkan（libvulkan.so）支持';
+
+  @override
+  String get settingsGpuDiagnoseStarted =>
+      '诊断已开始，结果会写入运行日志（OpenCLDiag 标签，含 OpenCL + Vulkan）';
+
+  @override
+  String get settingsGpuDiagnoseDone => '诊断完成，请到\"运行日志\"查看结果';
+
+  @override
+  String settingsGpuDiagnoseFailed(String error) {
+    return '诊断失败: $error';
+  }
+
+  @override
+  String get settingsExportChoice => '选择导出方式';
+
+  @override
+  String get settingsExportToFile => '保存为文件';
+
+  @override
+  String get settingsShare => '分享';
+
+  @override
+  String get settingsTesseractNotLoaded => 'Tesseract FFI 未加载，请检查 DLL 是否正确打包';
+
+  @override
+  String get settingsOcrStatus => 'OCR 状态';
+
+  @override
+  String get settingsOcrChecking => '检查中...';
+
+  @override
+  String get settingsOcrRedetect => '重新检测';
+
+  @override
+  String get settingsOcrInstall => '安装';
+
+  @override
+  String get llmLlLoading => '正在加载…';
+
+  @override
+  String get llmLlConfiguredAutoLoad => '已配置，分析时自动加载';
+
+  @override
+  String get llmLlWaitingLog => '等待日志…';
+
+  @override
+  String get llmLlFileMissing => '模型文件不存在，请检查模型路径或重新下载';
+
+  @override
+  String get llmLlLoaded => '模型加载成功';
+
+  @override
+  String get llmLlSwitchToLocalFirst => '请先切换到本地模型模式';
+
+  @override
+  String llmLlLoadFailed(String error) {
+    return '模型加载失败: $error';
+  }
+
+  @override
+  String userStatsActivity(String heatmap) {
+    return 'Meme 活跃度 · $heatmap';
+  }
+
+  @override
+  String get userStatsDailyDetail => '每日明细';
+
+  @override
+  String get userStatsCumulativeTotal => '累计总计';
+
+  @override
+  String get userStatsEdit => '修改';
+
+  @override
+  String galleryReindexing(int processed, int enqueued) {
+    return '重新索引中... 已处理 $processed 个，已入队 $enqueued 个';
+  }
+
+  @override
+  String get galleryPleaseWait => '请稍候...';
+
+  @override
+  String galleryDeleteFailed(String error) {
+    return '删除失败: $error';
+  }
+
+  @override
+  String get colorExtractionConfigTitle => '颜色提取算法配置';
+
+  @override
+  String s3SyncFailed(String error) {
+    return '同步失败: $error';
+  }
+
+  @override
+  String get modelManagerDownloadFailedLabel => '下载失败';
+
+  @override
+  String get modelManagerNoSearchResults => '未找到相关模型';
+
+  @override
+  String get modelManagerNoRecommended => '暂无推荐模型';
+
+  @override
+  String get modelManagerDownloadSource => '下载源';
+
+  @override
+  String get modelManagerSearchHint => '搜索模型 (例如: qwen, llama, moondream)';
+
+  @override
+  String modelManagerPagination(int page, int total, int count) {
+    return '第 $page 页 / 共 $total 页（$count 个结果）';
+  }
 }

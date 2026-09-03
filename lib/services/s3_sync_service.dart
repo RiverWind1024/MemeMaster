@@ -38,8 +38,6 @@ class S3SyncService {
   S3Config _config = const S3Config();
   Minio? _client;
   bool _cancelled = false;
-  bool _syncInProgress = false;
-  Timer? _periodicTimer;
 
   /// 清空密码在 S3SecretStore 中的键名
   static const clearPasswordKey = 's3_clear_password';
@@ -118,7 +116,6 @@ class S3SyncService {
       return;
     }
     _cancelled = false;
-    _syncInProgress = true;
 
     try {
       await _ensureBucket();
@@ -196,8 +193,6 @@ class S3SyncService {
         status: S3SyncStatus.error,
         errorMessage: '同步失败: $e',
       );
-    } finally {
-      _syncInProgress = false;
     }
   }
 
@@ -332,7 +327,6 @@ class S3SyncService {
       return;
     }
     _cancelled = false;
-    _syncInProgress = true;
 
     try {
       // 1. 拉取最新 snapshot
@@ -397,8 +391,6 @@ class S3SyncService {
         status: S3SyncStatus.error,
         errorMessage: '下载失败: $e',
       );
-    } finally {
-      _syncInProgress = false;
     }
   }
 
@@ -433,7 +425,6 @@ class S3SyncService {
       return;
     }
     _cancelled = false;
-    _syncInProgress = true;
 
     try {
       final lastSyncAt = await _syncStateDao.getLastSyncAt();
@@ -690,8 +681,6 @@ class S3SyncService {
         status: S3SyncStatus.error,
         errorMessage: '增量同步失败: $e',
       );
-    } finally {
-      _syncInProgress = false;
     }
   }
 
@@ -728,34 +717,10 @@ class S3SyncService {
     await _deleteRemoteImage(fileHash, filePath);
   }
 
-  // ---- 定时同步 ----
-
-  /// 启动定时同步
-  void startPeriodicSync(Duration interval) {
-    _periodicTimer?.cancel();
-    _log?.info('S3Sync', '定时同步已启动, 间隔: $interval');
-    _periodicTimer = Timer.periodic(interval, (_) async {
-      if (_syncInProgress) return;
-      final lastSyncAt = await _syncStateDao.getLastSyncAt();
-      if (lastSyncAt == null) return; // 从未同步过，不做自动
-      final hasChanges = await _memeRepo.hasChangesSince(lastSyncAt);
-      if (!hasChanges) return;
-      await for (final _ in incremental()) {
-        // 静默执行，不暴露进度到 UI
-      }
-    });
-  }
-
-  /// 停止定时同步
-  void stopPeriodicSync() {
-    _periodicTimer?.cancel();
-    _periodicTimer = null;
-    _log?.info('S3Sync', '定时同步已停止');
-  }
+  // ---- 资源释放 ----
 
   /// 释放资源（Provider 重建时调用）
   void dispose() {
-    stopPeriodicSync();
     _client = null;
   }
 }

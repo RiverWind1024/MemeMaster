@@ -979,72 +979,6 @@ abstract class S {
   /// **'错误'**
   String get error;
 
-  /// No description provided for @scheduledSync.
-  ///
-  /// In zh, this message translates to:
-  /// **'定时同步'**
-  String get scheduledSync;
-
-  /// No description provided for @autoSync.
-  ///
-  /// In zh, this message translates to:
-  /// **'定时自动同步'**
-  String get autoSync;
-
-  /// No description provided for @syncIntervalSummary.
-  ///
-  /// In zh, this message translates to:
-  /// **'每 {interval} 同步一次'**
-  String syncIntervalSummary(String interval);
-
-  /// No description provided for @manualSyncOnly.
-  ///
-  /// In zh, this message translates to:
-  /// **'仅手动同步'**
-  String get manualSyncOnly;
-
-  /// No description provided for @syncInterval.
-  ///
-  /// In zh, this message translates to:
-  /// **'同步间隔'**
-  String get syncInterval;
-
-  /// No description provided for @fiveMinutes.
-  ///
-  /// In zh, this message translates to:
-  /// **'5 分钟'**
-  String get fiveMinutes;
-
-  /// No description provided for @fifteenMinutes.
-  ///
-  /// In zh, this message translates to:
-  /// **'15 分钟'**
-  String get fifteenMinutes;
-
-  /// No description provided for @thirtyMinutes.
-  ///
-  /// In zh, this message translates to:
-  /// **'30 分钟'**
-  String get thirtyMinutes;
-
-  /// No description provided for @oneHour.
-  ///
-  /// In zh, this message translates to:
-  /// **'1 小时'**
-  String get oneHour;
-
-  /// No description provided for @sixHours.
-  ///
-  /// In zh, this message translates to:
-  /// **'6 小时'**
-  String get sixHours;
-
-  /// No description provided for @oneDay.
-  ///
-  /// In zh, this message translates to:
-  /// **'1 天'**
-  String get oneDay;
-
   /// No description provided for @storageStatistics.
   ///
   /// In zh, this message translates to:
@@ -1110,24 +1044,6 @@ abstract class S {
   /// In zh, this message translates to:
   /// **'删除 bucket 中所有文件'**
   String get deleteAllBucketFiles;
-
-  /// No description provided for @intervalMinutes.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count} 分钟'**
-  String intervalMinutes(int count);
-
-  /// No description provided for @intervalHours.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count} 小时'**
-  String intervalHours(int count);
-
-  /// No description provided for @intervalDays.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count} 天'**
-  String intervalDays(int count);
 
   /// No description provided for @s3Config.
   ///
@@ -1696,7 +1612,7 @@ abstract class S {
   /// No description provided for @confirm.
   ///
   /// In zh, this message translates to:
-  /// **'确定'**
+  /// **'确认'**
   String get confirm;
 
   /// No description provided for @colorRed.
@@ -2400,6 +2316,492 @@ abstract class S {
   /// In zh, this message translates to:
   /// **'重新索引已开始，进度显示在图库顶部'**
   String get reindexStarted;
+
+  /// No description provided for @overlayDragDropTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启拖拽导入图片悬浮窗'**
+  String get overlayDragDropTitle;
+
+  /// No description provided for @overlaySection.
+  ///
+  /// In zh, this message translates to:
+  /// **'悬浮窗'**
+  String get overlaySection;
+
+  /// No description provided for @overlayDragDropDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'在屏幕上显示悬浮窗，可将其他应用的图片拖入导入'**
+  String get overlayDragDropDescription;
+
+  /// No description provided for @overlayAutoStartTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动开启悬浮窗'**
+  String get overlayAutoStartTitle;
+
+  /// No description provided for @overlayAutoStartDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开应用后自动启动悬浮窗，无需手动开启'**
+  String get overlayAutoStartDescription;
+
+  /// No description provided for @reindexConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新索引所有表情？'**
+  String get reindexConfirmTitle;
+
+  /// No description provided for @reindexConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'将重新扫描并分析所有图片，可能需要较长时间。'**
+  String get reindexConfirmBody;
+
+  /// No description provided for @gpuDiagnoseConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行 GPU 加速诊断？'**
+  String get gpuDiagnoseConfirmTitle;
+
+  /// No description provided for @gpuDiagnoseConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'将检测 OpenCL 与 Vulkan 支持，结果写入运行日志。'**
+  String get gpuDiagnoseConfirmBody;
+
+  /// No description provided for @close.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get close;
+
+  /// No description provided for @retry.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试'**
+  String get retry;
+
+  /// No description provided for @loadMore.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载更多'**
+  String get loadMore;
+
+  /// No description provided for @enabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用'**
+  String get enabled;
+
+  /// No description provided for @disabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'禁用'**
+  String get disabled;
+
+  /// No description provided for @restoreDefaults.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复默认'**
+  String get restoreDefaults;
+
+  /// No description provided for @cancelDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消下载'**
+  String get cancelDownload;
+
+  /// No description provided for @errorWithError.
+  ///
+  /// In zh, this message translates to:
+  /// **'错误: {error}'**
+  String errorWithError(String error);
+
+  /// No description provided for @modelManagerSearchResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索结果'**
+  String get modelManagerSearchResult;
+
+  /// No description provided for @modelManagerSelectFileToDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择要下载的文件'**
+  String get modelManagerSelectFileToDownload;
+
+  /// No description provided for @modelManagerFetchFileListFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'获取文件列表失败'**
+  String get modelManagerFetchFileListFailed;
+
+  /// No description provided for @modelManagerNoGgufFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到 GGUF 文件'**
+  String get modelManagerNoGgufFile;
+
+  /// No description provided for @modelManagerNoGgufInRepo.
+  ///
+  /// In zh, this message translates to:
+  /// **'该模型仓库中没有找到 .gguf 文件。'**
+  String get modelManagerNoGgufInRepo;
+
+  /// No description provided for @modelManagerDownloadCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 次下载'**
+  String modelManagerDownloadCount(int count);
+
+  /// No description provided for @modelManagerPausedPct.
+  ///
+  /// In zh, this message translates to:
+  /// **'已暂停 {pct}%'**
+  String modelManagerPausedPct(String pct);
+
+  /// No description provided for @modelManagerPctPaused.
+  ///
+  /// In zh, this message translates to:
+  /// **'{pct}% {status}'**
+  String modelManagerPctPaused(String pct, String status);
+
+  /// No description provided for @modelManagerPausedStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'（已暂停）'**
+  String get modelManagerPausedStatus;
+
+  /// No description provided for @modelManagerViewModelFiles.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看模型文件'**
+  String get modelManagerViewModelFiles;
+
+  /// No description provided for @modelManagerDeleteModelTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除模型'**
+  String get modelManagerDeleteModelTooltip;
+
+  /// No description provided for @modelManagerModelFiles.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型文件'**
+  String get modelManagerModelFiles;
+
+  /// No description provided for @modelManagerNoFilesInDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'该模型目录下没有文件'**
+  String get modelManagerNoFilesInDirectory;
+
+  /// No description provided for @aiConfigLocalModelConfig.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地模型配置'**
+  String get aiConfigLocalModelConfig;
+
+  /// No description provided for @aiConfigGpuAppliedNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'GPU 设置已修改，下次分析时生效'**
+  String get aiConfigGpuAppliedNext;
+
+  /// No description provided for @aiConfigGpuLayers.
+  ///
+  /// In zh, this message translates to:
+  /// **'GPU 层数'**
+  String get aiConfigGpuLayers;
+
+  /// No description provided for @aiConfigAllLayers.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部 (-1)'**
+  String get aiConfigAllLayers;
+
+  /// No description provided for @aiConfigCpuOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅 CPU (0)'**
+  String get aiConfigCpuOnly;
+
+  /// No description provided for @aiConfigLayerCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 层'**
+  String aiConfigLayerCount(int n);
+
+  /// No description provided for @aiConfigContextAppliedNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'上下文长度已修改，下次分析时生效'**
+  String get aiConfigContextAppliedNext;
+
+  /// No description provided for @aiConfigAdvanced.
+  ///
+  /// In zh, this message translates to:
+  /// **'高级性能配置'**
+  String get aiConfigAdvanced;
+
+  /// No description provided for @flashAttnAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动（根据 GPU 决定）'**
+  String get flashAttnAuto;
+
+  /// No description provided for @kvF16.
+  ///
+  /// In zh, this message translates to:
+  /// **'F16（精度高）'**
+  String get kvF16;
+
+  /// No description provided for @kvQ40.
+  ///
+  /// In zh, this message translates to:
+  /// **'Q4_0（省内存）'**
+  String get kvQ40;
+
+  /// No description provided for @aiConfigUseMmap.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用 mmap 加载'**
+  String get aiConfigUseMmap;
+
+  /// No description provided for @aiConfigMmapHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存映射文件加载（Android 低内存设备建议关闭）'**
+  String get aiConfigMmapHint;
+
+  /// No description provided for @settingsDebugMenu.
+  ///
+  /// In zh, this message translates to:
+  /// **'调试菜单'**
+  String get settingsDebugMenu;
+
+  /// No description provided for @settingsColorExtraction.
+  ///
+  /// In zh, this message translates to:
+  /// **'颜色提取算法'**
+  String get settingsColorExtraction;
+
+  /// No description provided for @settingsColorExtractionSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'配色参数配置'**
+  String get settingsColorExtractionSubtitle;
+
+  /// No description provided for @settingsGpuDiagnose.
+  ///
+  /// In zh, this message translates to:
+  /// **'GPU 加速诊断'**
+  String get settingsGpuDiagnose;
+
+  /// No description provided for @settingsGpuDiagnoseSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'检测 OpenCL（libOpenCL.so）和 Vulkan（libvulkan.so）支持'**
+  String get settingsGpuDiagnoseSubtitle;
+
+  /// No description provided for @settingsGpuDiagnoseStarted.
+  ///
+  /// In zh, this message translates to:
+  /// **'诊断已开始，结果会写入运行日志（OpenCLDiag 标签，含 OpenCL + Vulkan）'**
+  String get settingsGpuDiagnoseStarted;
+
+  /// No description provided for @settingsGpuDiagnoseDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'诊断完成，请到\"运行日志\"查看结果'**
+  String get settingsGpuDiagnoseDone;
+
+  /// No description provided for @settingsGpuDiagnoseFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'诊断失败: {error}'**
+  String settingsGpuDiagnoseFailed(String error);
+
+  /// No description provided for @settingsExportChoice.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择导出方式'**
+  String get settingsExportChoice;
+
+  /// No description provided for @settingsExportToFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存为文件'**
+  String get settingsExportToFile;
+
+  /// No description provided for @settingsShare.
+  ///
+  /// In zh, this message translates to:
+  /// **'分享'**
+  String get settingsShare;
+
+  /// No description provided for @settingsTesseractNotLoaded.
+  ///
+  /// In zh, this message translates to:
+  /// **'Tesseract FFI 未加载，请检查 DLL 是否正确打包'**
+  String get settingsTesseractNotLoaded;
+
+  /// No description provided for @settingsOcrStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'OCR 状态'**
+  String get settingsOcrStatus;
+
+  /// No description provided for @settingsOcrChecking.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查中...'**
+  String get settingsOcrChecking;
+
+  /// No description provided for @settingsOcrRedetect.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新检测'**
+  String get settingsOcrRedetect;
+
+  /// No description provided for @settingsOcrInstall.
+  ///
+  /// In zh, this message translates to:
+  /// **'安装'**
+  String get settingsOcrInstall;
+
+  /// No description provided for @llmLlLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在加载…'**
+  String get llmLlLoading;
+
+  /// No description provided for @llmLlConfiguredAutoLoad.
+  ///
+  /// In zh, this message translates to:
+  /// **'已配置，分析时自动加载'**
+  String get llmLlConfiguredAutoLoad;
+
+  /// No description provided for @llmLlWaitingLog.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待日志…'**
+  String get llmLlWaitingLog;
+
+  /// No description provided for @llmLlFileMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型文件不存在，请检查模型路径或重新下载'**
+  String get llmLlFileMissing;
+
+  /// No description provided for @llmLlLoaded.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型加载成功'**
+  String get llmLlLoaded;
+
+  /// No description provided for @llmLlSwitchToLocalFirst.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先切换到本地模型模式'**
+  String get llmLlSwitchToLocalFirst;
+
+  /// No description provided for @llmLlLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型加载失败: {error}'**
+  String llmLlLoadFailed(String error);
+
+  /// No description provided for @userStatsActivity.
+  ///
+  /// In zh, this message translates to:
+  /// **'Meme 活跃度 · {heatmap}'**
+  String userStatsActivity(String heatmap);
+
+  /// No description provided for @userStatsDailyDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'每日明细'**
+  String get userStatsDailyDetail;
+
+  /// No description provided for @userStatsCumulativeTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'累计总计'**
+  String get userStatsCumulativeTotal;
+
+  /// No description provided for @userStatsEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'修改'**
+  String get userStatsEdit;
+
+  /// No description provided for @galleryReindexing.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新索引中... 已处理 {processed} 个，已入队 {enqueued} 个'**
+  String galleryReindexing(int processed, int enqueued);
+
+  /// No description provided for @galleryPleaseWait.
+  ///
+  /// In zh, this message translates to:
+  /// **'请稍候...'**
+  String get galleryPleaseWait;
+
+  /// No description provided for @galleryDeleteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除失败: {error}'**
+  String galleryDeleteFailed(String error);
+
+  /// No description provided for @colorExtractionConfigTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'颜色提取算法配置'**
+  String get colorExtractionConfigTitle;
+
+  /// No description provided for @s3SyncFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步失败: {error}'**
+  String s3SyncFailed(String error);
+
+  /// No description provided for @modelManagerDownloadFailedLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载失败'**
+  String get modelManagerDownloadFailedLabel;
+
+  /// No description provided for @modelManagerNoSearchResults.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到相关模型'**
+  String get modelManagerNoSearchResults;
+
+  /// No description provided for @modelManagerNoRecommended.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无推荐模型'**
+  String get modelManagerNoRecommended;
+
+  /// No description provided for @modelManagerDownloadSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载源'**
+  String get modelManagerDownloadSource;
+
+  /// No description provided for @modelManagerSearchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索模型 (例如: qwen, llama, moondream)'**
+  String get modelManagerSearchHint;
+
+  /// No description provided for @modelManagerPagination.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {page} 页 / 共 {total} 页（{count} 个结果）'**
+  String modelManagerPagination(int page, int total, int count);
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

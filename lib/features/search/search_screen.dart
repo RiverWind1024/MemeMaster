@@ -259,8 +259,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
       body: Column(
         children: [
-          if (_level != SearchLevel.browse)
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [Spacer(), _SearchLevelBadge(level: _level)])),
           const SizedBox(height: 8),
           Expanded(child: _buildResults(theme, colorScheme)),
         ],
@@ -297,7 +295,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ));
     }
     return Column(children: [
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [Text(s.foundResults(_results!.length), style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.outline))])),
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(
+        children: [
+          Text(s.foundResults(_results!.length), style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.outline)),
+          const Spacer(),
+          if (_level != SearchLevel.browse) _SearchLevelBadge(level: _level),
+        ],
+      )),
       const SizedBox(height: 4),
       Expanded(child: GridView.builder(
         padding: const EdgeInsets.fromLTRB(4, 4, 4, 84),

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mememaster/features/gallery/gallery_provider.dart';
 import 'package:mememaster/services/log_service.dart';
 import 'package:mememaster/services/shared_media_handler.dart';
 

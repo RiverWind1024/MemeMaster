@@ -94,7 +94,7 @@ class _MemeDetailScreenState extends ConsumerState<MemeDetailScreen> {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('删除失败: $e')),
+            SnackBar(content: Text(S.of(context).galleryDeleteFailed(e.toString()))),
           );
         }
       }
@@ -411,11 +411,34 @@ class _OcrChip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final repo = ref.read(memeRepositoryProvider);
 
-    return FutureBuilder<List<TagEntry>>(
-      future: repo.getTags(memeId),
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        repo.getById(memeId),
+        repo.getTags(memeId),
+      ]),
       builder: (context, snapshot) {
-        final hasResult =
-            snapshot.data?.any((t) => t.source == 'ocr') ?? false;
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+        final meme = snapshot.data![0] as Meme?;
+        final tags = snapshot.data![1] as List<TagEntry>;
+
+        if (meme == null) {
+          return const SizedBox.shrink();
+        }
+
+        // analysisStatus == done 即认为已识别（可能无文字所以无标签）
+        if (meme.ocrAnalysisStatus == 'done') {
+          return Row(children: [
+            const Icon(Icons.text_fields, size: 14, color: Colors.blue),
+            const SizedBox(width: 6),
+            Text(S.of(context).ocrRecognized,
+                style: const TextStyle(fontSize: 13, color: Colors.blue)),
+          ]);
+        }
+
+        // 已发起识别（running/pending）但未完成
+        final hasResult = tags.any((t) => t.source == 'ocr');
         if (hasResult) {
           return Row(children: [
             const Icon(Icons.text_fields, size: 14, color: Colors.blue),
@@ -449,11 +472,34 @@ class _AiChip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final repo = ref.read(memeRepositoryProvider);
 
-    return FutureBuilder<List<TagEntry>>(
-      future: repo.getTags(memeId),
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        repo.getById(memeId),
+        repo.getTags(memeId),
+      ]),
       builder: (context, snapshot) {
-        final hasResult =
-            snapshot.data?.any((t) => t.source == 'llm') ?? false;
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+        final meme = snapshot.data![0] as Meme?;
+        final tags = snapshot.data![1] as List<TagEntry>;
+
+        if (meme == null) {
+          return const SizedBox.shrink();
+        }
+
+        // analysisStatus == done 即认为已识别（可能无标签）
+        if (meme.aiAnalysisStatus == 'done') {
+          return Row(children: [
+            const Icon(Icons.auto_awesome, size: 14, color: Colors.purple),
+            const SizedBox(width: 6),
+            Text(S.of(context).aiRecognized,
+                style: const TextStyle(fontSize: 13, color: Colors.purple)),
+          ]);
+        }
+
+        // 有 LLM 标签（分析中或已有结果）
+        final hasResult = tags.any((t) => t.source == 'llm');
         if (hasResult) {
           return Row(children: [
             const Icon(Icons.auto_awesome, size: 14, color: Colors.purple),

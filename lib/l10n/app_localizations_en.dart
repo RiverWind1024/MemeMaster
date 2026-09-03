@@ -500,41 +500,6 @@ class SEn extends S {
   String get error => 'Error';
 
   @override
-  String get scheduledSync => 'Scheduled Sync';
-
-  @override
-  String get autoSync => 'Auto Sync';
-
-  @override
-  String syncIntervalSummary(String interval) {
-    return 'Sync every $interval';
-  }
-
-  @override
-  String get manualSyncOnly => 'Manual sync only';
-
-  @override
-  String get syncInterval => 'Sync Interval';
-
-  @override
-  String get fiveMinutes => '5 minutes';
-
-  @override
-  String get fifteenMinutes => '15 minutes';
-
-  @override
-  String get thirtyMinutes => '30 minutes';
-
-  @override
-  String get oneHour => '1 hour';
-
-  @override
-  String get sixHours => '6 hours';
-
-  @override
-  String get oneDay => '1 day';
-
-  @override
   String get storageStatistics => 'Storage Statistics';
 
   @override
@@ -568,21 +533,6 @@ class SEn extends S {
 
   @override
   String get deleteAllBucketFiles => 'Delete all files in bucket';
-
-  @override
-  String intervalMinutes(int count) {
-    return '$count min';
-  }
-
-  @override
-  String intervalHours(int count) {
-    return '$count hr';
-  }
-
-  @override
-  String intervalDays(int count) {
-    return '$count day(s)';
-  }
 
   @override
   String get s3Config => 'S3 Configuration';
@@ -909,7 +859,7 @@ class SEn extends S {
   String get customColor => 'Custom Color';
 
   @override
-  String get confirm => 'OK';
+  String get confirm => 'Confirm';
 
   @override
   String get colorRed => 'Red';
@@ -1296,4 +1246,286 @@ class SEn extends S {
 
   @override
   String get reindexStarted => 'Reindex started, progress shown in gallery';
+
+  @override
+  String get overlayDragDropTitle => 'Enable drag-to-import floating window';
+
+  @override
+  String get overlaySection => 'Floating Window';
+
+  @override
+  String get overlayDragDropDescription =>
+      'Show a floating window to drag images in from other apps';
+
+  @override
+  String get overlayAutoStartTitle => 'Auto-start floating window';
+
+  @override
+  String get overlayAutoStartDescription =>
+      'Start the floating window automatically when the app opens';
+
+  @override
+  String get reindexConfirmTitle => 'Re-index all memes?';
+
+  @override
+  String get reindexConfirmBody =>
+      'This will rescan and analyze all images and may take a while.';
+
+  @override
+  String get gpuDiagnoseConfirmTitle => 'Run GPU acceleration diagnostic?';
+
+  @override
+  String get gpuDiagnoseConfirmBody =>
+      'This will check OpenCL and Vulkan support and write results to the log.';
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String get retry => 'Retry';
+
+  @override
+  String get loadMore => 'Load More';
+
+  @override
+  String get enabled => 'Enabled';
+
+  @override
+  String get disabled => 'Disabled';
+
+  @override
+  String get restoreDefaults => 'Restore Defaults';
+
+  @override
+  String get cancelDownload => 'Cancel Download';
+
+  @override
+  String errorWithError(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get modelManagerSearchResult => 'Search Results';
+
+  @override
+  String get modelManagerSelectFileToDownload => 'Select File to Download';
+
+  @override
+  String get modelManagerFetchFileListFailed => 'Failed to Fetch File List';
+
+  @override
+  String get modelManagerNoGgufFile => 'No GGUF File Found';
+
+  @override
+  String get modelManagerNoGgufInRepo =>
+      'No .gguf file found in this model repository.';
+
+  @override
+  String modelManagerDownloadCount(int count) {
+    return '$count downloads';
+  }
+
+  @override
+  String modelManagerPausedPct(String pct) {
+    return 'Paused $pct%';
+  }
+
+  @override
+  String modelManagerPctPaused(String pct, String status) {
+    return '$pct% $status';
+  }
+
+  @override
+  String get modelManagerPausedStatus => '(Paused)';
+
+  @override
+  String get modelManagerViewModelFiles => 'View Model Files';
+
+  @override
+  String get modelManagerDeleteModelTooltip => 'Delete Model';
+
+  @override
+  String get modelManagerModelFiles => 'Model Files';
+
+  @override
+  String get modelManagerNoFilesInDirectory =>
+      'No files in this model directory';
+
+  @override
+  String get aiConfigLocalModelConfig => 'Local Model Config';
+
+  @override
+  String get aiConfigGpuAppliedNext =>
+      'GPU settings changed, effective on next analysis';
+
+  @override
+  String get aiConfigGpuLayers => 'GPU Layers';
+
+  @override
+  String get aiConfigAllLayers => 'All (-1)';
+
+  @override
+  String get aiConfigCpuOnly => 'CPU Only (0)';
+
+  @override
+  String aiConfigLayerCount(int n) {
+    return '$n layers';
+  }
+
+  @override
+  String get aiConfigContextAppliedNext =>
+      'Context length changed, effective on next analysis';
+
+  @override
+  String get aiConfigAdvanced => 'Advanced Performance';
+
+  @override
+  String get flashAttnAuto => 'Auto (decided by GPU)';
+
+  @override
+  String get kvF16 => 'F16 (high precision)';
+
+  @override
+  String get kvQ40 => 'Q4_0 (saves memory)';
+
+  @override
+  String get aiConfigUseMmap => 'Use mmap loading';
+
+  @override
+  String get aiConfigMmapHint =>
+      'Memory-mapped file loading (recommended off on low-memory Android devices)';
+
+  @override
+  String get settingsDebugMenu => 'Debug Menu';
+
+  @override
+  String get settingsColorExtraction => 'Color Extraction Algorithm';
+
+  @override
+  String get settingsColorExtractionSubtitle => 'Color parameter configuration';
+
+  @override
+  String get settingsGpuDiagnose => 'GPU Acceleration Diagnostic';
+
+  @override
+  String get settingsGpuDiagnoseSubtitle =>
+      'Detect OpenCL (libOpenCL.so) and Vulkan (libvulkan.so) support';
+
+  @override
+  String get settingsGpuDiagnoseStarted =>
+      'Diagnostics started; results are written to the run log (OpenCLDiag tag, OpenCL + Vulkan)';
+
+  @override
+  String get settingsGpuDiagnoseDone =>
+      'Diagnostics complete, see results in Run Log';
+
+  @override
+  String settingsGpuDiagnoseFailed(String error) {
+    return 'Diagnostics failed: $error';
+  }
+
+  @override
+  String get settingsExportChoice => 'Choose Export Method';
+
+  @override
+  String get settingsExportToFile => 'Save as File';
+
+  @override
+  String get settingsShare => 'Share';
+
+  @override
+  String get settingsTesseractNotLoaded =>
+      'Tesseract FFI not loaded, check that the DLL is packaged correctly';
+
+  @override
+  String get settingsOcrStatus => 'OCR Status';
+
+  @override
+  String get settingsOcrChecking => 'Checking...';
+
+  @override
+  String get settingsOcrRedetect => 'Re-detect';
+
+  @override
+  String get settingsOcrInstall => 'Install';
+
+  @override
+  String get llmLlLoading => 'Loading…';
+
+  @override
+  String get llmLlConfiguredAutoLoad => 'Configured, auto-loads for analysis';
+
+  @override
+  String get llmLlWaitingLog => 'Waiting for logs…';
+
+  @override
+  String get llmLlFileMissing =>
+      'Model file does not exist; check the model path or re-download';
+
+  @override
+  String get llmLlLoaded => 'Model loaded successfully';
+
+  @override
+  String get llmLlSwitchToLocalFirst => 'Switch to local model mode first';
+
+  @override
+  String llmLlLoadFailed(String error) {
+    return 'Model load failed: $error';
+  }
+
+  @override
+  String userStatsActivity(String heatmap) {
+    return 'Meme Activity · $heatmap';
+  }
+
+  @override
+  String get userStatsDailyDetail => 'Daily Detail';
+
+  @override
+  String get userStatsCumulativeTotal => 'Cumulative Total';
+
+  @override
+  String get userStatsEdit => 'Edit';
+
+  @override
+  String galleryReindexing(int processed, int enqueued) {
+    return 'Re-indexing... $processed processed, $enqueued queued';
+  }
+
+  @override
+  String get galleryPleaseWait => 'Please wait...';
+
+  @override
+  String galleryDeleteFailed(String error) {
+    return 'Delete failed: $error';
+  }
+
+  @override
+  String get colorExtractionConfigTitle => 'Color Extraction Algorithm Config';
+
+  @override
+  String s3SyncFailed(String error) {
+    return 'Sync failed: $error';
+  }
+
+  @override
+  String get modelManagerDownloadFailedLabel => 'Download Failed';
+
+  @override
+  String get modelManagerNoSearchResults => 'No matching models found';
+
+  @override
+  String get modelManagerNoRecommended => 'No recommended models';
+
+  @override
+  String get modelManagerDownloadSource => 'Download Source';
+
+  @override
+  String get modelManagerSearchHint =>
+      'Search models (e.g.: qwen, llama, moondream)';
+
+  @override
+  String modelManagerPagination(int page, int total, int count) {
+    return 'Page $page of $total ($count results)';
+  }
 }

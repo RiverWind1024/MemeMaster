@@ -278,7 +278,7 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                                 isRemote,
                                 config.copyWith(clearSystemPrompt: true),
                               ),
-                              child: const Text('恢复默认'),
+                              child: Text(S.of(context).restoreDefaults),
                             ),
                           ],
                         ),
@@ -332,7 +332,7 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                                 isRemote,
                                 config.copyWith(clearUserPrompt: true),
                               ),
-                              child: const Text('恢复默认'),
+                              child: Text(S.of(context).restoreDefaults),
                             ),
                           ],
                         ),
@@ -366,7 +366,7 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                 // ===== 本地模型配置（仅本地模式） =====
                 if (isLocal) ...[
                   const SizedBox(height: 16),
-                  Text('本地模型配置', style: theme.textTheme.titleMedium),
+                  Text(S.of(context).aiConfigLocalModelConfig, style: theme.textTheme.titleMedium),
                   const SizedBox(height: 8),
                   Card(
                     child: Padding(
@@ -385,8 +385,8 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                               );
                               if (ref.read(localLlmLoadedProvider)) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('GPU 设置已修改，下次分析时生效'),
+                                  SnackBar(
+                                    content: Text(S.of(context).aiConfigGpuAppliedNext),
                                     duration: Duration(seconds: 3),
                                   ),
                                 );
@@ -400,7 +400,7 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                             ListTile(
                               contentPadding: EdgeInsets.zero,
                               leading: const Icon(Icons.layers),
-                              title: const Text('GPU 层数'),
+                              title: Text(S.of(context).aiConfigGpuLayers),
                               subtitle: Text(
                                 ref.watch(localLlmConfigProvider).nGpuLayers == -1
                                     ? '全部层 (-1)'
@@ -413,15 +413,15 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                                   value: ref.watch(localLlmConfigProvider).nGpuLayers,
                                   underline: const SizedBox(),
                                   isExpanded: true,
-                                  items: const [
-                                    DropdownMenuItem(value: -1, child: Text('全部 (-1)')),
-                                    DropdownMenuItem(value: 0, child: Text('仅 CPU (0)')),
-                                    DropdownMenuItem(value: 4, child: Text('4 层')),
-                                    DropdownMenuItem(value: 8, child: Text('8 层')),
-                                    DropdownMenuItem(value: 12, child: Text('12 层')),
-                                    DropdownMenuItem(value: 16, child: Text('16 层')),
-                                    DropdownMenuItem(value: 20, child: Text('20 层')),
-                                    DropdownMenuItem(value: 24, child: Text('24 层')),
+                                  items: [
+                                    DropdownMenuItem(value: -1, child: Text(S.of(context).aiConfigAllLayers)),
+                                    DropdownMenuItem(value: 0, child: Text(S.of(context).aiConfigCpuOnly)),
+                                    DropdownMenuItem(value: 4, child: Text(S.of(context).aiConfigLayerCount(4))),
+                                    DropdownMenuItem(value: 8, child: Text(S.of(context).aiConfigLayerCount(8))),
+                                    DropdownMenuItem(value: 12, child: Text(S.of(context).aiConfigLayerCount(12))),
+                                    DropdownMenuItem(value: 16, child: Text(S.of(context).aiConfigLayerCount(16))),
+                                    DropdownMenuItem(value: 20, child: Text(S.of(context).aiConfigLayerCount(20))),
+                                    DropdownMenuItem(value: 24, child: Text(S.of(context).aiConfigLayerCount(24))),
                                   ],
                                   onChanged: (v) {
                                     if (v != null) {
@@ -453,8 +453,8 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                                   );
                                   if (ref.read(localLlmLoadedProvider)) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('上下文长度已修改，下次分析时生效'),
+                                      SnackBar(
+                                        content: Text(S.of(context).aiConfigContextAppliedNext),
                                         duration: Duration(seconds: 3),
                                       ),
                                     );
@@ -469,7 +469,7 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                   ),
                   const SizedBox(height: 8),
                   // 高级性能配置
-                  Text('高级性能配置', style: theme.textTheme.titleMedium),
+                  Text(S.of(context).aiConfigAdvanced, style: theme.textTheme.titleMedium),
                   const SizedBox(height: 8),
                   Card(
                     child: Padding(
@@ -486,9 +486,9 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                             ),
                             items: [
-                              DropdownMenuItem(value: FlashAttnMode.auto, child: Text('自动（根据 GPU 决定）')),
-                              DropdownMenuItem(value: FlashAttnMode.enabled, child: Text('启用')),
-                              DropdownMenuItem(value: FlashAttnMode.disabled, child: Text('禁用')),
+                              DropdownMenuItem(value: FlashAttnMode.auto, child: Text(S.of(context).flashAttnAuto)),
+                              DropdownMenuItem(value: FlashAttnMode.enabled, child: Text(S.of(context).enabled)),
+                              DropdownMenuItem(value: FlashAttnMode.disabled, child: Text(S.of(context).disabled)),
                             ],
                             onChanged: (v) {
                               if (v != null) ref.read(localLlmConfigProvider.notifier).update(
@@ -506,8 +506,8 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                             ),
                             items: [
-                              DropdownMenuItem(value: KvCacheType.f16, child: Text('F16（精度高）')),
-                              DropdownMenuItem(value: KvCacheType.q4_0, child: Text('Q4_0（省内存）')),
+                              DropdownMenuItem(value: KvCacheType.f16, child: Text(S.of(context).kvF16)),
+                              DropdownMenuItem(value: KvCacheType.q4_0, child: Text(S.of(context).kvQ40)),
                             ],
                             onChanged: (v) {
                               if (v != null) ref.read(localLlmConfigProvider.notifier).update(
@@ -527,8 +527,8 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                           // use_mmap
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text('使用 mmap 加载'),
-                            subtitle: Text('内存映射文件加载（Android 低内存设备建议关闭）',
+                            title: Text(S.of(context).aiConfigUseMmap),
+                            subtitle: Text(S.of(context).aiConfigMmapHint,
                                 style: theme.textTheme.bodySmall),
                             value: ref.watch(localLlmConfigProvider).useMmap,
                             onChanged: (v) => ref.read(localLlmConfigProvider.notifier).update(

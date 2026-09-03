@@ -1,34 +1,65 @@
 {
   "@@locale": "zh",
-
   "appTitle": "MemeMaster",
-  "@appTitle": { "description": "应用标题" },
-
+  "@appTitle": {
+    "description": "应用标题"
+  },
   "tabGallery": "图库",
   "tabSearch": "搜索",
   "tabSettings": "设置",
-
   "downloadingClipboardImage": "正在下载剪贴板中的图片...",
   "clipboardImageDownloadFailed": "剪贴板图片下载失败",
   "clipboardImageAlreadyImported": "剪贴板图片已导入过",
-
   "scanMeme": "扫描 Meme",
   "selectDirectoryToScan": "选择要扫描的目录",
   "scanningDirectory": "正在扫描目录...",
   "scanningProgress": "扫描中 {completed}/{total}",
-  "@scanningProgress": { "placeholders": { "completed": { "type": "int" }, "total": { "type": "int" } } },
+  "@scanningProgress": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "hasText": "有文字",
   "noText": "无文字",
   "detectedMemes": "检测到 {count} 张 Meme",
-  "@detectedMemes": { "placeholders": { "count": { "type": "int" } } },
+  "@detectedMemes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "matchScore": "匹配度 {score}%",
-  "@matchScore": { "placeholders": { "score": { "type": "int" } } },
+  "@matchScore": {
+    "placeholders": {
+      "score": {
+        "type": "int"
+      }
+    }
+  },
   "charCount": "{count}字",
-  "@charCount": { "placeholders": { "count": { "type": "int" } } },
+  "@charCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "remove": "移除",
   "importing": "导入中...",
   "importCountMeme": "导入 {count} 张 Meme",
-  "@importCountMeme": { "placeholders": { "count": { "type": "int" } } },
+  "@importCountMeme": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noMemeDetected": "未检测到 Meme",
   "selectScanDirectory": "选择扫描目录",
   "directoryDownloads": "下载",
@@ -38,13 +69,33 @@
   "directoryStorage": "全部存储",
   "selectDirectoryEllipsis": "选择目录…",
   "selectDirectoryFailed": "选择目录失败: {error}",
-  "@selectDirectoryFailed": { "placeholders": { "error": { "type": "String" } } },
+  "@selectDirectoryFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noImagesInDirectory": "该目录未找到图片文件",
   "importSuccessWithSkip": "成功导入 {success} 张 Meme{skip}",
-  "@importSuccessWithSkip": { "placeholders": { "success": { "type": "int" }, "skip": { "type": "String" } } },
+  "@importSuccessWithSkip": {
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "skip": {
+        "type": "String"
+      }
+    }
+  },
   "skippedCount": "，跳过 {count} 张",
-  "@skippedCount": { "placeholders": { "count": { "type": "int" } } },
-
+  "@skippedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "modelManager": "模型管理",
   "recommendedModels": "推荐模型",
   "noRecommendedModels": "该源暂无推荐模型",
@@ -53,21 +104,44 @@
   "downloaded": "已下载",
   "loadModel": "加载",
   "deleteModel": "删除",
-  "downloadFailed": "下载失败",
+  "downloadFailed": "下载失败: {error}",
   "download": "下载",
   "modelDownloadComplete": "{name} 下载完成",
-  "@modelDownloadComplete": { "placeholders": { "name": { "type": "String" } } },
+  "@modelDownloadComplete": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "downloadFailedWithError": "下载失败: {error}",
-  "@downloadFailedWithError": { "placeholders": { "error": { "type": "String" } } },
+  "@downloadFailedWithError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "modelLoadedSwitchToLocal": "模型已加载，请切换至本地模式使用",
   "confirmDelete": "确认删除",
   "confirmDeleteModel": "确定要删除 {name} 吗？",
-  "@confirmDeleteModel": { "placeholders": { "name": { "type": "String" } } },
+  "@confirmDeleteModel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "cancel": "取消",
   "modelLoaded": "模型已加载",
   "modelDeleted": "{id} 已删除",
-  "@modelDeleted": { "placeholders": { "id": { "type": "String" } } },
-
+  "@modelDeleted": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
   "aiTagsAndDescription": "AI 标签与描述",
   "analysisMode": "分析模式",
   "modeOff": "关闭",
@@ -103,8 +177,13 @@
   "modelFileLoaded": "模型文件已加载",
   "invalidGgufFile": "请选择 .gguf 格式的模型文件",
   "invalidGgufFileDetail": "所选文件「{filename}」不是 GGUF 格式，无法用于本地推理。",
-  "@invalidGgufFileDetail": { "placeholders": { "filename": { "type": "String" } } },
-
+  "@invalidGgufFileDetail": {
+    "placeholders": {
+      "filename": {
+        "type": "String"
+      }
+    }
+  },
   "settings": "设置",
   "appearance": "外观",
   "themeMode": "主题模式",
@@ -118,7 +197,13 @@
   "aiConfig": "AI 配置",
   "llmOff": "已关闭",
   "llmRemote": "远程 ({model})",
-  "@llmRemote": { "placeholders": { "model": { "type": "String" } } },
+  "@llmRemote": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
   "llmLocal": "本地模型",
   "sync": "同步",
   "storage": "存储",
@@ -127,7 +212,13 @@
   "debug": "调试",
   "runLogs": "运行日志",
   "logCount": "共 {count} 条",
-  "@logCount": { "placeholders": { "count": { "type": "int" } } },
+  "@logCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "about": "关于",
   "s3CloudSync": "S3 云同步",
   "notConfigured": "未配置",
@@ -135,7 +226,13 @@
   "methodKmeans": "K-means 聚类",
   "maxDominantColors": "最大主色调数",
   "colorCount": "{n} 色",
-  "@colorCount": { "placeholders": { "n": { "type": "int" } } },
+  "@colorCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "minRatio": "最小占比",
   "colorMergeThreshold": "颜色合并阈值",
   "initialClusterK": "初始聚类数 (K)",
@@ -144,7 +241,6 @@
   "lightThemeSubtitle": "始终使用浅色主题",
   "darkThemeSubtitle": "始终使用深色主题",
   "systemThemeSubtitle": "跟随系统设置自动切换",
-
   "s3Sync": "S3 云同步",
   "s3StorageStatsFailed": "获取 S3 存储统计失败，请检查配置",
   "setClearPassword": "设置清空密码",
@@ -159,7 +255,13 @@
   "confirmClear": "确认清空",
   "s3DataCleared": "S3 数据已清空",
   "clearFailed": "清空失败: {error}",
-  "@clearFailed": { "placeholders": { "error": { "type": "String" } } },
+  "@clearFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "config": "配置",
   "s3Connection": "S3 连接",
   "connectionTest": "连接测试",
@@ -173,22 +275,19 @@
   "uploading": "上传中",
   "downloading": "下载中",
   "error": "错误",
-  "scheduledSync": "定时同步",
-  "autoSync": "定时自动同步",
-  "syncIntervalSummary": "每 {interval} 同步一次",
-  "@syncIntervalSummary": { "placeholders": { "interval": { "type": "String" } } },
-  "manualSyncOnly": "仅手动同步",
-  "syncInterval": "同步间隔",
-  "fiveMinutes": "5 分钟",
-  "fifteenMinutes": "15 分钟",
-  "thirtyMinutes": "30 分钟",
-  "oneHour": "1 小时",
-  "sixHours": "6 小时",
-  "oneDay": "1 天",
   "storageStatistics": "存储统计",
   "s3Storage": "S3 存储",
   "storageStatsDetail": "{size} · {count} 个文件",
-  "@storageStatsDetail": { "placeholders": { "size": { "type": "String" }, "count": { "type": "int" } } },
+  "@storageStatsDetail": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "calculating": "统计中...",
   "clickToRefresh": "点击右侧按钮刷新",
   "refresh": "刷新",
@@ -197,15 +296,8 @@
   "neverSynced": "从未同步",
   "clearS3DataShort": "清空 S3 数据",
   "deleteAllBucketFiles": "删除 bucket 中所有文件",
-  "intervalMinutes": "{count} 分钟",
-  "@intervalMinutes": { "placeholders": { "count": { "type": "int" } } },
-  "intervalHours": "{count} 小时",
-  "@intervalHours": { "placeholders": { "count": { "type": "int" } } },
-  "intervalDays": "{count} 天",
-  "@intervalDays": { "placeholders": { "count": { "type": "int" } } },
   "s3Config": "S3 配置",
   "save": "保存",
-
   "logViewer": "运行日志",
   "logCopied": "日志已复制到剪贴板",
   "logExported": "日志已导出",
@@ -213,39 +305,102 @@
   "logSearchHint": "搜索日志 (支持 message / tag / level)",
   "logNoMatch": "无匹配日志",
   "logFilteredCount": "{count}/{total} 条",
-
   "importComplete": "导入完成",
   "importImages": "导入图片",
   "importCountImages": "导入 {count} 张图片",
-  "@importCountImages": { "placeholders": { "count": { "type": "int" } } },
+  "@importCountImages": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "importSuccessCount": "成功 {count} 张{skip}",
-  "@importSuccessCount": { "placeholders": { "count": { "type": "int" }, "skip": { "type": "String" } } },
+  "@importSuccessCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "skip": {
+        "type": "String"
+      }
+    }
+  },
   "skippedExisting": "，跳过（已存在）{count} 张",
-  "@skippedExisting": { "placeholders": { "count": { "type": "int" } } },
+  "@skippedExisting": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "done": "完成",
   "importFailed": "导入失败: {error}",
-  "@importFailed": { "placeholders": { "error": { "type": "String" } } },
+  "@importFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "cannotLoadImage": "无法加载图片",
-
   "importFromAlbum": "从相册选择",
   "selectedCount": "已选 {count} 张",
-  "@selectedCount": { "placeholders": { "count": { "type": "int" } } },
+  "@selectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "clear": "清空",
   "importDone": "导入完成",
   "importResultSummary": "成功: {success}  跳过: {skipped}",
-  "@importResultSummary": { "placeholders": { "success": { "type": "int" }, "skipped": { "type": "int" } } },
+  "@importResultSummary": {
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
   "errorLabel": "错误:",
   "selectFileFailed": "选择文件失败: {error}",
-  "@selectFileFailed": { "placeholders": { "error": { "type": "String" } } },
+  "@selectFileFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "importSuccessCountImages": "成功导入 {count} 张图片",
-  "@importSuccessCountImages": { "placeholders": { "count": { "type": "int" } } },
-
+  "@importSuccessCountImages": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "addedToAnalysisQueue": "已加入分析队列，即将开始分析",
   "reanalysisFailed": "重新分析失败: {error}",
-  "@reanalysisFailed": { "placeholders": { "error": { "type": "String" } } },
+  "@reanalysisFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "confirmDeleteTitle": "确认删除",
   "confirmDeleteMeme": "确定要删除「{filename}」吗？\n图片文件和所有分析数据都会被移除。",
-  "@confirmDeleteMeme": { "placeholders": { "filename": { "type": "String" } } },
+  "@confirmDeleteMeme": {
+    "placeholders": {
+      "filename": {
+        "type": "String"
+      }
+    }
+  },
   "delete": "删除",
   "loading": "加载中...",
   "loadFailed": "加载失败",
@@ -278,33 +433,82 @@
   "extractingDominantColors": "正在提取主色调...",
   "deleteTag": "删除标签",
   "confirmDeleteTag": "确定删除标签「{content}」吗？",
-  "@confirmDeleteTag": { "placeholders": { "content": { "type": "String" } } },
+  "@confirmDeleteTag": {
+    "placeholders": {
+      "content": {
+        "type": "String"
+      }
+    }
+  },
   "customTags": "自定义标签",
   "tagCount": "{count} 个",
-  "@tagCount": { "placeholders": { "count": { "type": "int" } } },
+  "@tagCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noCustomTags": "暂无自定义标签",
   "inputTag": "输入标签",
   "add": "添加",
   "ocrRecognition": "OCR 识别",
   "ocrWordCount": "{count} 词",
-  "@ocrWordCount": { "placeholders": { "count": { "type": "int" } } },
+  "@ocrWordCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noOcrText": "暂未识别到文字",
-
   "receiveShare": "接收分享",
   "importingProgress": "正在导入 {processed}/{total} 张图片...",
-  "@importingProgress": { "placeholders": { "processed": { "type": "int" }, "total": { "type": "int" } } },
+  "@importingProgress": {
+    "placeholders": {
+      "processed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "deduplicating": "SHA256 去重中",
   "importCompleteTitle": "导入完成",
   "importSuccess": "成功: {count}",
-  "@importSuccess": { "placeholders": { "count": { "type": "int" } } },
+  "@importSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "importSkipped": "跳过（已存在）: {count}",
-  "@importSkipped": { "placeholders": { "count": { "type": "int" } } },
+  "@importSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "importErrors": "错误: {count}",
-  "@importErrors": { "placeholders": { "count": { "type": "int" } } },
+  "@importErrors": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "viewGallery": "查看图库",
-
   "searchFailed": "搜索失败: {error}",
-  "@searchFailed": { "placeholders": { "error": { "type": "String" } } },
+  "@searchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "search": "搜索",
   "reset": "重置",
   "searchHint": "搜索图片（语义/关键词）...",
@@ -316,15 +520,19 @@
   "noMatchingImages": "没有找到匹配的图片",
   "tryOtherKeywords": "试试其他关键词或颜色",
   "foundResults": "找到 {count} 个结果",
-  "@foundResults": { "placeholders": { "count": { "type": "int" } } },
+  "@foundResults": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "searchLevelFull": "L3 全功能",
   "searchLevelColorKeyword": "L2 关键词+颜色",
   "searchLevelColorOnly": "L1 仅颜色",
   "searchLevelBrowse": "L0 浏览",
-
   "customColor": "自定义颜色",
-  "confirm": "确定",
-
+  "confirm": "确认",
   "colorRed": "红",
   "colorDeepOrange": "深橙",
   "colorOrange": "橙",
@@ -345,22 +553,48 @@
   "colorBlueGrey": "蓝灰",
   "colorBlack": "黑",
   "colorWhite": "白",
-
   "confirmDeleteSelected": "确定要删除选中的 {count} 张图片吗？\n图片文件和所有分析数据都会被移除。",
-  "@confirmDeleteSelected": { "placeholders": { "count": { "type": "int" } } },
+  "@confirmDeleteSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "deletedCountImages": "已删除 {count} 张图片",
-  "@deletedCountImages": { "placeholders": { "count": { "type": "int" } } },
+  "@deletedCountImages": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noAlbumsCreateFirst": "还没有相册，请先创建",
   "selectAlbum": "选择相册",
   "addedToAlbum": "已将 {count} 张图片添加到「{albumName}」",
-  "@addedToAlbum": { "placeholders": { "count": { "type": "int" }, "albumName": { "type": "String" } } },
+  "@addedToAlbum": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "albumName": {
+        "type": "String"
+      }
+    }
+  },
   "newAlbum": "新建相册",
   "albumName": "相册名称",
   "create": "创建",
   "releaseToImport": "松开导入图片",
   "allImages": "全部图片",
   "selectedItems": "已选择 {count} 项",
-  "@selectedItems": { "placeholders": { "count": { "type": "int" } } },
+  "@selectedItems": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "selectAll": "全选",
   "deselectAll": "取消全选",
   "selected": "已选择",
@@ -368,11 +602,32 @@
   "copy": "复制",
   "addToAlbum": "添加到相册",
   "analyzingProgress": "正在分析{running}剩余 {total} 张…",
-  "@analyzingProgress": { "placeholders": { "running": { "type": "String" }, "total": { "type": "int" } } },
+  "@analyzingProgress": {
+    "placeholders": {
+      "running": {
+        "type": "String"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "analyzingRunning": "({count} 进行中)",
-  "@analyzingRunning": { "placeholders": { "count": { "type": "int" } } },
+  "@analyzingRunning": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "loadFailedWithError": "加载失败: {error}",
-  "@loadFailedWithError": { "placeholders": { "error": { "type": "String" } } },
+  "@loadFailedWithError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noMemesYet": "还没有任何 Meme",
   "tapToImport": "点击右下角按钮导入图片",
   "scanFolder": "扫描文件夹",
@@ -390,7 +645,6 @@
   "importResultTitle": "导入结果",
   "existingFiles": "已存在的文件:",
   "ok": "确定",
-
   "exportMemes": "导出表情包",
   "export": "导出",
   "exportFileName": "文件名",
@@ -400,44 +654,68 @@
   "importMemePack": "导入表情包",
   "importMemePackResult": "导入完成: 成功 {success}, 跳过 {skipped}, 失败 {errors}",
   "importMemePackFailed": "导入失败: {error}",
-
   "aiChatTest": "AI 对话",
   "aiChatWelcome": "开始与 AI 对话",
   "aiChatHint": "发送消息测试 AI 回复",
   "typeMessage": "输入消息...",
-
   "copiedToClipboard": "已复制到剪贴板",
-
   "shareMeme": "分享表情包",
-
   "s3NotConfigured": "S3 未配置",
   "cancelled": "已取消",
   "imageUploadFailed": "图片上传失败: {filename}: {error}",
-  "@imageUploadFailed": { "placeholders": { "filename": { "type": "String" }, "error": { "type": "String" } } },
+  "@imageUploadFailed": {
+    "placeholders": {
+      "filename": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "syncFailed": "同步失败: {error}",
-  "@syncFailed": { "placeholders": { "error": { "type": "String" } } },
+  "@syncFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "passwordIncorrect": "密码错误",
   "noBackupOnS3": "S3 上没有找到备份数据",
-  "downloadFailed": "下载失败: {error}",
-  "@downloadFailed": { "placeholders": { "error": { "type": "String" } } },
+  "@downloadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "pleaseFullDownloadFirst": "请先执行全量下载",
   "incrementalSyncFailed": "增量同步失败: {error}",
-  "@incrementalSyncFailed": { "placeholders": { "error": { "type": "String" } } },
-
+  "@incrementalSyncFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "language": "语言",
   "languageSystem": "跟随系统",
   "languageChinese": "中文",
   "languageEnglish": "English",
-
   "aiRecognition": "AI 识别",
   "noAiTags": "暂无 AI 标签",
   "llmTagCount": "{count} 个",
-  "@llmTagCount": { "placeholders": { "count": { "type": "int" } } },
+  "@llmTagCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "descriptionLabel": "描述",
-
   "mmprojHint": "如果你的模型支持图片输入（多模态），建议同时选择 mmproj 投影文件。\n\n不需要请点「跳过」",
   "uriReadFailed": "无法读取 URI",
-
   "userStatsTitle": "用户统计",
   "todayStats": "今日统计",
   "recent7DayTrend": "近 7 天趋势",
@@ -462,21 +740,305 @@
   "configExported": "配置已导出",
   "configImportSuccess": "配置导入成功",
   "configImportFailed": "配置导入失败: {error}",
-  "@configImportFailed": { "placeholders": { "error": { "type": "String" } } },
-
+  "@configImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "@exportMemes": {},
   "@export": {},
   "@exportFileName": {},
   "@exporting": {},
-  "@exportSuccess": { "placeholders": { "path": { "type": "String" } } },
-  "@exportFailed": { "placeholders": { "error": { "type": "String" } } },
+  "@exportSuccess": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "@exportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "@importMemePack": {},
-  "@importMemePackResult": { "placeholders": { "success": { "type": "int" }, "skipped": { "type": "int" }, "errors": { "type": "int" } } },
-  "@importMemePackFailed": { "placeholders": { "error": { "type": "String" } } },
+  "@importMemePackResult": {
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      },
+      "errors": {
+        "type": "int"
+      }
+    }
+  },
+  "@importMemePackFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "reindexMemes": "重新索引所有表情",
-  "@reindexMemes": { "description": "重新索引按钮" },
+  "@reindexMemes": {
+    "description": "重新索引按钮"
+  },
   "reindexDescription": "检查并补充缺失的分析数据",
   "@reindexDescription": {},
   "reindexStarted": "重新索引已开始，进度显示在图库顶部",
-  "@reindexStarted": {}
+  "@reindexStarted": {},
+  "overlayDragDropTitle": "开启拖拽导入图片悬浮窗",
+  "@overlayDragDropTitle": {},
+  "overlaySection": "悬浮窗",
+  "@overlaySection": {},
+  "overlayDragDropDescription": "在屏幕上显示悬浮窗，可将其他应用的图片拖入导入",
+  "@overlayDragDropDescription": {},
+  "overlayAutoStartTitle": "自动开启悬浮窗",
+  "@overlayAutoStartTitle": {},
+  "overlayAutoStartDescription": "打开应用后自动启动悬浮窗，无需手动开启",
+  "@overlayAutoStartDescription": {},
+  "@confirm": {},
+  "reindexConfirmTitle": "重新索引所有表情？",
+  "@reindexConfirmTitle": {},
+  "reindexConfirmBody": "将重新扫描并分析所有图片，可能需要较长时间。",
+  "@reindexConfirmBody": {},
+  "gpuDiagnoseConfirmTitle": "执行 GPU 加速诊断？",
+  "@gpuDiagnoseConfirmTitle": {},
+  "gpuDiagnoseConfirmBody": "将检测 OpenCL 与 Vulkan 支持，结果写入运行日志。",
+  "@gpuDiagnoseConfirmBody": {},
+  "close": "关闭",
+  "@close": {},
+  "retry": "重试",
+  "@retry": {},
+  "loadMore": "加载更多",
+  "@loadMore": {},
+  "enabled": "启用",
+  "@enabled": {},
+  "disabled": "禁用",
+  "@disabled": {},
+  "restoreDefaults": "恢复默认",
+  "@restoreDefaults": {},
+  "cancelDownload": "取消下载",
+  "@cancelDownload": {},
+  "errorWithError": "错误: {error}",
+  "@errorWithError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "modelManagerSearchResult": "搜索结果",
+  "@modelManagerSearchResult": {},
+  "modelManagerSelectFileToDownload": "选择要下载的文件",
+  "@modelManagerSelectFileToDownload": {},
+  "modelManagerFetchFileListFailed": "获取文件列表失败",
+  "@modelManagerFetchFileListFailed": {},
+  "modelManagerNoGgufFile": "未找到 GGUF 文件",
+  "@modelManagerNoGgufFile": {},
+  "modelManagerNoGgufInRepo": "该模型仓库中没有找到 .gguf 文件。",
+  "@modelManagerNoGgufInRepo": {},
+  "modelManagerDownloadCount": "{count} 次下载",
+  "@modelManagerDownloadCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "modelManagerPausedPct": "已暂停 {pct}%",
+  "@modelManagerPausedPct": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "modelManagerPctPaused": "{pct}% {status}",
+  "@modelManagerPctPaused": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "modelManagerPausedStatus": "（已暂停）",
+  "@modelManagerPausedStatus": {},
+  "modelManagerViewModelFiles": "查看模型文件",
+  "@modelManagerViewModelFiles": {},
+  "modelManagerDeleteModelTooltip": "删除模型",
+  "@modelManagerDeleteModelTooltip": {},
+  "modelManagerModelFiles": "模型文件",
+  "@modelManagerModelFiles": {},
+  "modelManagerNoFilesInDirectory": "该模型目录下没有文件",
+  "@modelManagerNoFilesInDirectory": {},
+  "aiConfigLocalModelConfig": "本地模型配置",
+  "@aiConfigLocalModelConfig": {},
+  "aiConfigGpuAppliedNext": "GPU 设置已修改，下次分析时生效",
+  "@aiConfigGpuAppliedNext": {},
+  "aiConfigGpuLayers": "GPU 层数",
+  "@aiConfigGpuLayers": {},
+  "aiConfigAllLayers": "全部 (-1)",
+  "@aiConfigAllLayers": {},
+  "aiConfigCpuOnly": "仅 CPU (0)",
+  "@aiConfigCpuOnly": {},
+  "aiConfigLayerCount": "{n} 层",
+  "@aiConfigLayerCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "aiConfigContextAppliedNext": "上下文长度已修改，下次分析时生效",
+  "@aiConfigContextAppliedNext": {},
+  "aiConfigAdvanced": "高级性能配置",
+  "@aiConfigAdvanced": {},
+  "flashAttnAuto": "自动（根据 GPU 决定）",
+  "@flashAttnAuto": {},
+  "kvF16": "F16（精度高）",
+  "@kvF16": {},
+  "kvQ40": "Q4_0（省内存）",
+  "@kvQ40": {},
+  "aiConfigUseMmap": "使用 mmap 加载",
+  "@aiConfigUseMmap": {},
+  "aiConfigMmapHint": "内存映射文件加载（Android 低内存设备建议关闭）",
+  "@aiConfigMmapHint": {},
+  "settingsDebugMenu": "调试菜单",
+  "@settingsDebugMenu": {},
+  "settingsColorExtraction": "颜色提取算法",
+  "@settingsColorExtraction": {},
+  "settingsColorExtractionSubtitle": "配色参数配置",
+  "@settingsColorExtractionSubtitle": {},
+  "settingsGpuDiagnose": "GPU 加速诊断",
+  "@settingsGpuDiagnose": {},
+  "settingsGpuDiagnoseSubtitle": "检测 OpenCL（libOpenCL.so）和 Vulkan（libvulkan.so）支持",
+  "@settingsGpuDiagnoseSubtitle": {},
+  "settingsGpuDiagnoseStarted": "诊断已开始，结果会写入运行日志（OpenCLDiag 标签，含 OpenCL + Vulkan）",
+  "@settingsGpuDiagnoseStarted": {},
+  "settingsGpuDiagnoseDone": "诊断完成，请到\"运行日志\"查看结果",
+  "@settingsGpuDiagnoseDone": {},
+  "settingsGpuDiagnoseFailed": "诊断失败: {error}",
+  "@settingsGpuDiagnoseFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsExportChoice": "选择导出方式",
+  "@settingsExportChoice": {},
+  "settingsExportToFile": "保存为文件",
+  "@settingsExportToFile": {},
+  "settingsShare": "分享",
+  "@settingsShare": {},
+  "settingsTesseractNotLoaded": "Tesseract FFI 未加载，请检查 DLL 是否正确打包",
+  "@settingsTesseractNotLoaded": {},
+  "settingsOcrStatus": "OCR 状态",
+  "@settingsOcrStatus": {},
+  "settingsOcrChecking": "检查中...",
+  "@settingsOcrChecking": {},
+  "settingsOcrRedetect": "重新检测",
+  "@settingsOcrRedetect": {},
+  "settingsOcrInstall": "安装",
+  "@settingsOcrInstall": {},
+  "llmLlLoading": "正在加载…",
+  "@llmLlLoading": {},
+  "llmLlConfiguredAutoLoad": "已配置，分析时自动加载",
+  "@llmLlConfiguredAutoLoad": {},
+  "llmLlWaitingLog": "等待日志…",
+  "@llmLlWaitingLog": {},
+  "llmLlFileMissing": "模型文件不存在，请检查模型路径或重新下载",
+  "@llmLlFileMissing": {},
+  "llmLlLoaded": "模型加载成功",
+  "@llmLlLoaded": {},
+  "llmLlSwitchToLocalFirst": "请先切换到本地模型模式",
+  "@llmLlSwitchToLocalFirst": {},
+  "llmLlLoadFailed": "模型加载失败: {error}",
+  "@llmLlLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "userStatsActivity": "Meme 活跃度 · {heatmap}",
+  "@userStatsActivity": {
+    "placeholders": {
+      "heatmap": {
+        "type": "String"
+      }
+    }
+  },
+  "userStatsDailyDetail": "每日明细",
+  "@userStatsDailyDetail": {},
+  "userStatsCumulativeTotal": "累计总计",
+  "@userStatsCumulativeTotal": {},
+  "userStatsEdit": "修改",
+  "@userStatsEdit": {},
+  "galleryReindexing": "重新索引中... 已处理 {processed} 个，已入队 {enqueued} 个",
+  "@galleryReindexing": {
+    "placeholders": {
+      "processed": {
+        "type": "int"
+      },
+      "enqueued": {
+        "type": "int"
+      }
+    }
+  },
+  "galleryPleaseWait": "请稍候...",
+  "@galleryPleaseWait": {},
+  "galleryDeleteFailed": "删除失败: {error}",
+  "@galleryDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "colorExtractionConfigTitle": "颜色提取算法配置",
+  "@colorExtractionConfigTitle": {},
+  "s3SyncFailed": "同步失败: {error}",
+  "@s3SyncFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "modelManagerDownloadFailedLabel": "下载失败",
+  "@modelManagerDownloadFailedLabel": {},
+  "modelManagerNoSearchResults": "未找到相关模型",
+  "@modelManagerNoSearchResults": {},
+  "modelManagerNoRecommended": "暂无推荐模型",
+  "@modelManagerNoRecommended": {},
+  "modelManagerDownloadSource": "下载源",
+  "@modelManagerDownloadSource": {},
+  "modelManagerSearchHint": "搜索模型 (例如: qwen, llama, moondream)",
+  "@modelManagerSearchHint": {},
+  "modelManagerPagination": "第 {page} 页 / 共 {total} 页（{count} 个结果）",
+  "@modelManagerPagination": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

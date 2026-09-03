@@ -87,7 +87,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('搜索失败: $e')),
+          SnackBar(content: Text(S.of(context).searchFailed(e.toString()))),
         );
       }
     } finally {
@@ -124,12 +124,12 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
 
           // 2. 搜索结果或推荐模型
           if (hasSearch) ...[
-            Text('搜索结果', style: theme.textTheme.titleMedium),
+            Text(S.of(context).modelManagerSearchResult, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             if (isSearching)
               const Center(child: CircularProgressIndicator())
             else if (searchResults.isEmpty)
-              _buildEmptyCard('未找到相关模型')
+              _buildEmptyCard(S.of(context).modelManagerNoSearchResults)
             else ...[
               ...searchResults.map((model) => _SearchResultCard(
                     model: model,
@@ -139,7 +139,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
               _buildPaginationSection(theme),
             ],
           ] else ...[
-            Text('推荐模型', style: theme.textTheme.titleMedium),
+            Text(S.of(context).recommendedModels, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             ..._buildRecommendedModels(source),
           ],
@@ -174,8 +174,8 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
                 Expanded(
                   child: DropdownButtonFormField<DownloadSource>(
                     value: source,
-                    decoration: const InputDecoration(
-                      labelText: '下载源',
+                    decoration: InputDecoration(
+                      labelText: S.of(context).modelManagerDownloadSource,
                       border: OutlineInputBorder(),
                     ),
                     items: [
@@ -203,7 +203,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: '搜索模型 (例如: qwen, llama, moondream)',
+                hintText: S.of(context).modelManagerSearchHint,
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: hasSearch
                     ? IconButton(
@@ -228,7 +228,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.search),
-                    label: const Text('搜索'),
+                    label: Text(S.of(context).search),
                   ),
                 ),
               ],
@@ -246,7 +246,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
     final downloadStates = ref.watch(downloadStatesProvider);
 
     if (models.isEmpty) {
-      return [_buildEmptyCard('暂无推荐模型')];
+      return [_buildEmptyCard(S.of(context).modelManagerNoRecommended)];
     }
 
     return models.map((model) {
@@ -279,7 +279,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (downloading.isNotEmpty) ...[
-          Text('下载中', style: theme.textTheme.titleMedium),
+          Text(S.of(context).downloading, style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           ...downloading.map((entry) => _DownloadingCard(
                 modelId: entry.key,
@@ -288,7 +288,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
           const SizedBox(height: 16),
         ],
         if (failed.isNotEmpty) ...[
-          Text('下载失败', style: theme.textTheme.titleMedium?.copyWith(
+          Text(S.of(context).modelManagerDownloadFailedLabel, style: theme.textTheme.titleMedium?.copyWith(
             color: theme.colorScheme.error,
           )),
           const SizedBox(height: 8),
@@ -309,10 +309,10 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('已下载', style: theme.textTheme.titleMedium),
+        Text(S.of(context).downloaded, style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         if (downloaded.isEmpty)
-          _buildEmptyCard('暂无已下载的模型')
+          _buildEmptyCard(S.of(context).noDownloadedModels)
         else
           ...downloaded.map((d) => _DownloadedModelCard(model: d)),
       ],
@@ -363,12 +363,12 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('未找到 GGUF 文件'),
-            content: const Text('该模型仓库中没有找到 .gguf 文件。'),
+            title: Text(S.of(context).modelManagerNoGgufFile),
+            content: Text(S.of(context).modelManagerNoGgufInRepo),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('确定'),
+                child: Text(S.of(context).ok),
               ),
             ],
           ),
@@ -382,7 +382,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: Text('选择要下载的文件'),
+          title: Text(S.of(context).modelManagerSelectFileToDownload),
           content: SizedBox(
             width: double.infinity,
             child: ConstrainedBox(
@@ -415,12 +415,12 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('获取文件列表失败'),
-          content: Text('错误: $e'),
+          title: Text(S.of(context).modelManagerFetchFileListFailed),
+            content: Text(S.of(context).errorWithError(e.toString())),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('确定'),
+              child: Text(S.of(context).ok),
             ),
           ],
         ),
@@ -469,14 +469,14 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
       onComplete: (id) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${model.name} ${isMmproj ? "mmproj" : "gguf"} 下载完成')),
+            SnackBar(content: Text(S.of(context).modelDownloadComplete('${model.name} ${isMmproj ? "mmproj" : "gguf"}'))),
           );
         }
       },
       onError: (id, e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('下载失败: $e')),
+            SnackBar(content: Text(S.of(context).downloadFailed(e.toString()))),
           );
         }
       },
@@ -507,7 +507,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
         children: [
           // 页码信息
           Text(
-            '第 $currentPage 页 / 共 $totalPages 页（$totalCount 个结果）',
+            S.of(context).modelManagerPagination(currentPage, totalPages, totalCount),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -519,7 +519,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
                 : OutlinedButton.icon(
                     onPressed: () => _performSearch(page: currentPage + 1),
                     icon: const Icon(Icons.expand_more, size: 18),
-                    label: const Text('加载更多'),
+                    label: Text(S.of(context).loadMore),
                   ),
         ],
       ),
@@ -561,7 +561,7 @@ class _SearchResultCard extends StatelessWidget {
                 Expanded(
                   child: Text(model.name, style: theme.textTheme.titleSmall),
                 ),
-                Text('${model.downloads} 次下载', style: theme.textTheme.bodySmall),
+                Text(S.of(context).modelManagerDownloadCount(model.downloads), style: theme.textTheme.bodySmall),
               ],
             ),
             const SizedBox(height: 4),
@@ -609,7 +609,7 @@ class _SearchResultCard extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: onDownload,
                   icon: const Icon(Icons.download, size: 18),
-                  label: const Text('下载'),
+                  label: Text(S.of(context).download),
                 ),
               ],
             ),
@@ -663,14 +663,14 @@ class _ModelCard extends ConsumerWidget {
             ] else if (status == DownloadStatus.paused) ...[
               LinearProgressIndicator(value: progress),
               const SizedBox(height: 4),
-              Text('已暂停 ${(progress * 100).toStringAsFixed(2)}%', style: theme.textTheme.bodySmall),
+              Text(S.of(context).modelManagerPausedPct('${(progress * 100).toStringAsFixed(2)}%'), style: theme.textTheme.bodySmall),
             ] else if (isDownloaded) ...[
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   const Icon(Icons.check_circle, size: 16, color: Colors.green),
                   const SizedBox(width: 4),
-                  Text('已下载', style: theme.textTheme.bodySmall?.copyWith(color: Colors.green)),
+                  Text(S.of(context).downloaded, style: theme.textTheme.bodySmall?.copyWith(color: Colors.green)),
                 ],
               ),
             ] else ...[
@@ -680,7 +680,7 @@ class _ModelCard extends ConsumerWidget {
                   FilledButton.icon(
                     onPressed: () => _startDownload(ref),
                     icon: const Icon(Icons.download, size: 18),
-                    label: const Text('下载'),
+                    label: Text(S.of(context).download),
                   ),
                 ],
               ),
@@ -736,7 +736,7 @@ class _DownloadingCard extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${(state.progress * 100).toStringAsFixed(1)}% ${isPaused ? "(已暂停)" : ""}'),
+                Text(S.of(context).modelManagerPctPaused('${(state.progress * 100).toStringAsFixed(1)}%', isPaused ? S.of(context).modelManagerPausedStatus : '')),
                 Row(
                   children: [
                     if (isPaused)
@@ -751,7 +751,7 @@ class _DownloadingCard extends ConsumerWidget {
                       ),
                     IconButton(
                       icon: const Icon(Icons.close),
-                      tooltip: '取消下载',
+                      tooltip: S.of(context).cancelDownload,
                       onPressed: () =>
                           ref.read(downloadStatesProvider.notifier).cancelDownload(modelId),
                     ),
@@ -816,12 +816,12 @@ class _FailedDownloadCard extends ConsumerWidget {
                   onPressed: () =>
                       ref.read(downloadStatesProvider.notifier).retryDownload(modelId),
                   icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('重试'),
+                    label: Text(S.of(context).retry),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.close, size: 18),
-                  tooltip: '取消下载',
+                  tooltip: S.of(context).cancelDownload,
                   onPressed: () =>
                       ref.read(downloadStatesProvider.notifier).cancelDownload(modelId),
                 ),
@@ -873,8 +873,8 @@ class _DownloadedModelCard extends ConsumerWidget {
                     color: Colors.green.withAlpha(30),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text(
-                    '已加载',
+                    child: Text(
+                      S.of(context).loaded,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: Colors.green.shade700,
                       fontSize: 10,
@@ -908,13 +908,13 @@ class _DownloadedModelCard extends ConsumerWidget {
             // 文件夹按钮：弹 in-app 文件列表（避免第三方文件管理器跳转到无关目录）
             IconButton(
               icon: const Icon(Icons.folder_open),
-              tooltip: '查看模型文件',
+                      tooltip: S.of(context).modelManagerViewModelFiles,
               onPressed: () => _showModelFilesDialog(context, ref),
             ),
             // 删除按钮
             IconButton(
               icon: const Icon(Icons.delete_outline),
-              tooltip: '删除模型',
+                      tooltip: S.of(context).modelManagerDeleteModelTooltip,
               onPressed: () async {
                 await ref.read(modelManagerProvider).deleteModel(model.id);
                 // 从已启用列表中移除
@@ -948,7 +948,7 @@ class _DownloadedModelCard extends ConsumerWidget {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('模型文件'),
+          title: Text(S.of(context).modelManagerModelFiles),
         content: SizedBox(
           width: double.maxFinite,
           child: Column(
@@ -963,9 +963,9 @@ class _DownloadedModelCard extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               if (files.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Text('该模型目录下没有文件'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(S.of(context).modelManagerNoFilesInDirectory),
                 )
               else
                 ConstrainedBox(
@@ -1005,7 +1005,7 @@ class _DownloadedModelCard extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('关闭'),
+            child: Text(S.of(context).close),
           ),
         ],
       ),

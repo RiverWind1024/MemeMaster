@@ -14,6 +14,7 @@ import '../../services/opencl_diagnostic.dart';
 import '../../services/s3_config.dart';
 import '../../core/llm/config.dart';
 import '../gallery/gallery_provider.dart';
+import '../overlay/overlay_controller.dart';
 import '../../l10n/app_localizations.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -55,14 +56,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context,
       MaterialPageRoute(
         builder: (ctx) => Scaffold(
-          appBar: AppBar(title: const Text('调试菜单')),
+          appBar: AppBar(title: Text(S.of(context).settingsDebugMenu)),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.bar_chart),
-                  title: const Text('用户统计'),
+                  title: Text(S.of(context).userStatsTitle),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.pushNamed('user-stats'),
                 ),
@@ -70,8 +71,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.palette_outlined),
-                  title: const Text('颜色提取算法'),
-                  subtitle: const Text('配色参数配置'),
+                  title: Text(S.of(context).settingsColorExtraction),
+                  subtitle: Text(S.of(context).settingsColorExtractionSubtitle),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.pushNamed('color-extraction'),
                 ),
@@ -90,9 +91,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   return Card(
                     child: ListTile(
                       leading: const Icon(Icons.article_outlined),
-                      title: const Text('运行日志'),
+                      title: Text(S.of(context).runLogs),
                       trailing: const Icon(Icons.chevron_right),
-                      subtitle: Text('共 $count 条'),
+                      subtitle: Text(S.of(context).logCount(count)),
                       onTap: () => context.pushNamed('logs'),
                     ),
                   );
@@ -101,10 +102,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.medical_services_outlined),
-                  title: const Text('GPU 加速诊断'),
-                  subtitle: const Text('检测 OpenCL（libOpenCL.so）和 Vulkan（libvulkan.so）支持'),
+                  title: Text(S.of(context).settingsGpuDiagnose),
+                  subtitle: Text(S.of(context).settingsGpuDiagnoseSubtitle),
                   trailing: const Icon(Icons.play_arrow),
-                  onTap: () => _runOpenCLDiagnostic(ctx, ref),
+                  onTap: () => showDialog<void>(
+                    context: ctx,
+                    builder: (dialogCtx) => AlertDialog(
+                      title: Text(S.of(dialogCtx).gpuDiagnoseConfirmTitle),
+                      content: Text(S.of(dialogCtx).gpuDiagnoseConfirmBody),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogCtx),
+                          child: Text(S.of(dialogCtx).cancel),
+                        ),
+                        FilledButton(
+                          onPressed: () {
+                            Navigator.pop(dialogCtx);
+                            _runOpenCLDiagnostic(ctx, ref);
+                          },
+                          child: Text(S.of(dialogCtx).confirm),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -121,8 +141,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     // 立即显示一个 SnackBar 反馈
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('诊断已开始，结果会写入运行日志（OpenCLDiag 标签，含 OpenCL + Vulkan）'),
+      SnackBar(
+        content: Text(S.of(context).settingsGpuDiagnoseStarted),
         duration: Duration(seconds: 2),
       ),
     );
@@ -133,8 +153,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         await OpenCLDiagnostic.runAll(log);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('诊断完成，请到"运行日志"查看结果'),
+            SnackBar(
+              content: Text(S.of(context).settingsGpuDiagnoseDone),
               duration: Duration(seconds: 3),
             ),
           );
@@ -143,7 +163,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         log.error('Settings', 'GPU 诊断失败: $e');
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('诊断失败: $e')),
+            SnackBar(content: Text(S.of(context).settingsGpuDiagnoseFailed(e.toString()))),
           );
         }
       }
@@ -151,6 +171,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _startReindex(BuildContext context, WidgetRef ref) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(S.of(ctx).reindexConfirmTitle),
+        content: Text(S.of(ctx).reindexConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(S.of(ctx).cancel),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _runReindex(context, ref);
+            },
+            child: Text(S.of(ctx).confirm),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _runReindex(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(reindexStateProvider.notifier);
     notifier.startReindex();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -193,15 +236,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text(s.exportConfig),
-          content: const Text('选择导出方式'),
+          content: Text(S.of(context).settingsExportChoice),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'file'),
-              child: const Text('保存为文件'),
+              child: Text(S.of(context).settingsExportToFile),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'share'),
-              child: const Text('分享'),
+              child: Text(S.of(context).shareMeme),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -437,17 +480,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 24),
 
           // 悬浮窗
-          Text('悬浮窗', style: theme.textTheme.titleSmall),
+          Text(S.of(context).overlaySection, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Card(
-            child: SwitchListTile(
-              title: const Text('自动开启悬浮窗'),
-              subtitle: const Text('打开应用后自动启动悬浮窗，无需手动开启'),
-              value: ref.watch(autoOverlayEnabledProvider),
-              secondary: const Icon(Icons.picture_in_picture_alt),
-              onChanged: (value) {
-                ref.read(autoOverlayEnabledProvider.notifier).setEnabled(value);
-              },
+            child: Column(
+              children: [
+                Consumer(
+                  builder: (_, ref, __) {
+                    final overlayState = ref.watch(overlayProvider);
+                    return SwitchListTile(
+                      title: Text(S.of(context).overlayDragDropTitle),
+                      subtitle: Text(S.of(context).overlayDragDropDescription),
+                      value: overlayState.isActive,
+                      secondary: const Icon(Icons.picture_in_picture_alt),
+                      onChanged: (_) async {
+                        await ref.read(overlayProvider.notifier).toggle();
+                      },
+                    );
+                  },
+                ),
+                SwitchListTile(
+                  title: Text(S.of(context).overlayAutoStartTitle),
+                  subtitle: Text(S.of(context).overlayAutoStartDescription),
+                  value: ref.watch(autoOverlayEnabledProvider),
+                  secondary: const Icon(Icons.auto_mode),
+                  onChanged: (value) async {
+                    ref.read(autoOverlayEnabledProvider.notifier).setEnabled(value);
+                    // 开自动 -> 若尚未开启悬浮窗则一并打开
+                    if (value) {
+                      final controller = ref.read(overlayProvider.notifier);
+                      if (!controller.state.isActive) {
+                        await controller.toggle();
+                      }
+                    }
+                  },
+                ),
+              ],
             ),
           ),
 
@@ -675,8 +743,8 @@ Future<void> _onOcrToggle(bool value, WidgetRef ref, BuildContext ctx) async {
       log.error('OCR', 'Windows Tesseract FFI 未加载');
       if (ctx.mounted) {
         ScaffoldMessenger.of(ctx).showSnackBar(
-          const SnackBar(
-            content: Text('Tesseract FFI 未加载，请检查 DLL 是否正确打包'),
+          SnackBar(
+            content: Text(S.of(ctx).settingsTesseractNotLoaded),
             duration: Duration(seconds: 5),
           ),
         );
@@ -759,8 +827,8 @@ class _LinuxOcrStatusCardState extends ConsumerState<_LinuxOcrStatusCard> {
             height: 24,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          title: const Text('OCR 状态'),
-          subtitle: const Text('检查中...'),
+          title: Text(S.of(context).settingsOcrStatus),
+          subtitle: Text(S.of(context).settingsOcrChecking),
         ),
       );
     }
@@ -783,12 +851,12 @@ class _LinuxOcrStatusCardState extends ConsumerState<_LinuxOcrStatusCard> {
         trailing: installed
             ? IconButton(
                 icon: const Icon(Icons.refresh),
-                tooltip: '重新检测',
+                tooltip: S.of(context).settingsOcrRedetect,
                 onPressed: _checkStatus,
               )
             : FilledButton.tonal(
                 onPressed: widget.onInstall,
-                child: const Text('安装'),
+                child: Text(S.of(context).settingsOcrInstall),
               ),
       ),
     );
