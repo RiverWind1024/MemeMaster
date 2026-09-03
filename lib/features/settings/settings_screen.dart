@@ -14,6 +14,7 @@ import '../../services/opencl_diagnostic.dart';
 import '../../services/s3_config.dart';
 import '../../core/llm/config.dart';
 import '../gallery/gallery_provider.dart';
+import '../overlay/overlay_controller.dart';
 import '../../l10n/app_localizations.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -437,17 +438,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 24),
 
           // 悬浮窗
-          Text('悬浮窗', style: theme.textTheme.titleSmall),
+          Text(S.of(context).overlaySection, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Card(
-            child: SwitchListTile(
-              title: const Text('自动开启悬浮窗'),
-              subtitle: const Text('打开应用后自动启动悬浮窗，无需手动开启'),
-              value: ref.watch(autoOverlayEnabledProvider),
-              secondary: const Icon(Icons.picture_in_picture_alt),
-              onChanged: (value) {
-                ref.read(autoOverlayEnabledProvider.notifier).setEnabled(value);
-              },
+            child: Column(
+              children: [
+                Consumer(
+                  builder: (_, ref, __) {
+                    final overlayState = ref.watch(overlayProvider);
+                    return SwitchListTile(
+                      title: Text(S.of(context).overlayDragDropTitle),
+                      subtitle: Text(S.of(context).overlayDragDropDescription),
+                      value: overlayState.isActive,
+                      secondary: const Icon(Icons.picture_in_picture_alt),
+                      onChanged: (_) async {
+                        await ref.read(overlayProvider.notifier).toggle();
+                      },
+                    );
+                  },
+                ),
+                SwitchListTile(
+                  title: Text(S.of(context).overlayAutoStartTitle),
+                  subtitle: Text(S.of(context).overlayAutoStartDescription),
+                  value: ref.watch(autoOverlayEnabledProvider),
+                  secondary: const Icon(Icons.auto_mode),
+                  onChanged: (value) async {
+                    ref.read(autoOverlayEnabledProvider.notifier).setEnabled(value);
+                    // 开自动 -> 若尚未开启悬浮窗则一并打开
+                    if (value) {
+                      final controller = ref.read(overlayProvider.notifier);
+                      if (!controller.state.isActive) {
+                        await controller.toggle();
+                      }
+                    }
+                  },
+                ),
+              ],
             ),
           ),
 

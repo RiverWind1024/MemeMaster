@@ -1696,7 +1696,7 @@ abstract class S {
   /// No description provided for @confirm.
   ///
   /// In zh, this message translates to:
-  /// **'确定'**
+  /// **'确认'**
   String get confirm;
 
   /// No description provided for @colorRed.
@@ -2400,6 +2400,60 @@ abstract class S {
   /// In zh, this message translates to:
   /// **'重新索引已开始，进度显示在图库顶部'**
   String get reindexStarted;
+
+  /// No description provided for @overlayDragDropTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启拖拽导入图片悬浮窗'**
+  String get overlayDragDropTitle;
+
+  /// No description provided for @overlaySection.
+  ///
+  /// In zh, this message translates to:
+  /// **'悬浮窗'**
+  String get overlaySection;
+
+  /// No description provided for @overlayDragDropDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'在屏幕上显示悬浮窗，可将其他应用的图片拖入导入'**
+  String get overlayDragDropDescription;
+
+  /// No description provided for @overlayAutoStartTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动开启悬浮窗'**
+  String get overlayAutoStartTitle;
+
+  /// No description provided for @overlayAutoStartDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开应用后自动启动悬浮窗，无需手动开启'**
+  String get overlayAutoStartDescription;
+
+  /// No description provided for @reindexConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新索引所有表情？'**
+  String get reindexConfirmTitle;
+
+  /// No description provided for @reindexConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'将重新扫描并分析所有图片，可能需要较长时间。'**
+  String get reindexConfirmBody;
+
+  /// No description provided for @gpuDiagnoseConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行 GPU 加速诊断？'**
+  String get gpuDiagnoseConfirmTitle;
+
+  /// No description provided for @gpuDiagnoseConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'将检测 OpenCL 与 Vulkan 支持，结果写入运行日志。'**
+  String get gpuDiagnoseConfirmBody;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

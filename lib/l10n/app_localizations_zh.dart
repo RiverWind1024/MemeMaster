@@ -895,7 +895,7 @@ class SZh extends S {
   String get customColor => '自定义颜色';
 
   @override
-  String get confirm => '确定';
+  String get confirm => '确认';
 
   @override
   String get colorRed => '红';
@@ -1279,4 +1279,31 @@ class SZh extends S {
 
   @override
   String get reindexStarted => '重新索引已开始，进度显示在图库顶部';
+
+  @override
+  String get overlayDragDropTitle => '开启拖拽导入图片悬浮窗';
+
+  @override
+  String get overlaySection => '悬浮窗';
+
+  @override
+  String get overlayDragDropDescription => '在屏幕上显示悬浮窗，可将其他应用的图片拖入导入';
+
+  @override
+  String get overlayAutoStartTitle => '自动开启悬浮窗';
+
+  @override
+  String get overlayAutoStartDescription => '打开应用后自动启动悬浮窗，无需手动开启';
+
+  @override
+  String get reindexConfirmTitle => '重新索引所有表情？';
+
+  @override
+  String get reindexConfirmBody => '将重新扫描并分析所有图片，可能需要较长时间。';
+
+  @override
+  String get gpuDiagnoseConfirmTitle => '执行 GPU 加速诊断？';
+
+  @override
+  String get gpuDiagnoseConfirmBody => '将检测 OpenCL 与 Vulkan 支持，结果写入运行日志。';
 }

@@ -16,7 +16,6 @@ import '../../services/import_service.dart';
 import '../../services/meme_export_service.dart';
 import '../../services/meme_import_service.dart';
 import '../../services/shared_media_handler.dart';
-import '../overlay/overlay_toggle_button.dart';
 import 'gallery_provider.dart';
 import '../../l10n/app_localizations.dart';
 
@@ -402,7 +401,6 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                       ),
                     ),
                   ),
-                  const OverlayToggleButton(),
                 ],
               ),
             ),

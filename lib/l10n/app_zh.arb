@@ -478,5 +478,27 @@
   "reindexDescription": "检查并补充缺失的分析数据",
   "@reindexDescription": {},
   "reindexStarted": "重新索引已开始，进度显示在图库顶部",
-  "@reindexStarted": {}
+  "@reindexStarted": {},
+
+  "overlayDragDropTitle": "开启拖拽导入图片悬浮窗",
+  "@overlayDragDropTitle": {},
+  "overlaySection": "悬浮窗",
+  "@overlaySection": {},
+  "overlayDragDropDescription": "在屏幕上显示悬浮窗，可将其他应用的图片拖入导入",
+  "@overlayDragDropDescription": {},
+  "overlayAutoStartTitle": "自动开启悬浮窗",
+  "@overlayAutoStartTitle": {},
+  "overlayAutoStartDescription": "打开应用后自动启动悬浮窗，无需手动开启",
+  "@overlayAutoStartDescription": {},
+
+  "confirm": "确认",
+  "@confirm": {},
+  "reindexConfirmTitle": "重新索引所有表情？",
+  "@reindexConfirmTitle": {},
+  "reindexConfirmBody": "将重新扫描并分析所有图片，可能需要较长时间。",
+  "@reindexConfirmBody": {},
+  "gpuDiagnoseConfirmTitle": "执行 GPU 加速诊断？",
+  "@gpuDiagnoseConfirmTitle": {},
+  "gpuDiagnoseConfirmBody": "将检测 OpenCL 与 Vulkan 支持，结果写入运行日志。",
+  "@gpuDiagnoseConfirmBody": {}
 }

@@ -424,5 +424,27 @@
   "reindexDescription": "Check and enqueue missing analysis data",
   "@reindexDescription": {},
   "reindexStarted": "Reindex started, progress shown in gallery",
-  "@reindexStarted": {}
+  "@reindexStarted": {},
+
+  "overlayDragDropTitle": "Enable drag-to-import floating window",
+  "@overlayDragDropTitle": {},
+  "overlaySection": "Floating Window",
+  "@overlaySection": {},
+  "overlayDragDropDescription": "Show a floating window to drag images in from other apps",
+  "@overlayDragDropDescription": {},
+  "overlayAutoStartTitle": "Auto-start floating window",
+  "@overlayAutoStartTitle": {},
+  "overlayAutoStartDescription": "Start the floating window automatically when the app opens",
+  "@overlayAutoStartDescription": {},
+
+  "confirm": "Confirm",
+  "@confirm": {},
+  "reindexConfirmTitle": "Re-index all memes?",
+  "@reindexConfirmTitle": {},
+  "reindexConfirmBody": "This will rescan and analyze all images and may take a while.",
+  "@reindexConfirmBody": {},
+  "gpuDiagnoseConfirmTitle": "Run GPU acceleration diagnostic?",
+  "@gpuDiagnoseConfirmTitle": {},
+  "gpuDiagnoseConfirmBody": "This will check OpenCL and Vulkan support and write results to the log.",
+  "@gpuDiagnoseConfirmBody": {}
 }

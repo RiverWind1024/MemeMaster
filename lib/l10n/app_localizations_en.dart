@@ -909,7 +909,7 @@ class SEn extends S {
   String get customColor => 'Custom Color';
 
   @override
-  String get confirm => 'OK';
+  String get confirm => 'Confirm';
 
   @override
   String get colorRed => 'Red';
@@ -1296,4 +1296,35 @@ class SEn extends S {
 
   @override
   String get reindexStarted => 'Reindex started, progress shown in gallery';
+
+  @override
+  String get overlayDragDropTitle => 'Enable drag-to-import floating window';
+
+  @override
+  String get overlaySection => 'Floating Window';
+
+  @override
+  String get overlayDragDropDescription =>
+      'Show a floating window to drag images in from other apps';
+
+  @override
+  String get overlayAutoStartTitle => 'Auto-start floating window';
+
+  @override
+  String get overlayAutoStartDescription =>
+      'Start the floating window automatically when the app opens';
+
+  @override
+  String get reindexConfirmTitle => 'Re-index all memes?';
+
+  @override
+  String get reindexConfirmBody =>
+      'This will rescan and analyze all images and may take a while.';
+
+  @override
+  String get gpuDiagnoseConfirmTitle => 'Run GPU acceleration diagnostic?';
+
+  @override
+  String get gpuDiagnoseConfirmBody =>
+      'This will check OpenCL and Vulkan support and write results to the log.';
 }
