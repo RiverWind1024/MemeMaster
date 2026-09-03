@@ -654,8 +654,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
         return LayoutBuilder(
           builder: (context, constraints) {
-            final columns = (constraints.maxWidth / 154).floor().clamp(1, 10);
-            _gridColumnCount = columns;
+            _gridColumnCount = (constraints.maxWidth / 154).floor().clamp(1, 10);
             return Stack(
               children: [
                 NotificationListener<ScrollNotification>(
@@ -675,8 +674,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                     child: GridView.builder(
                       key: _gridGlobalKey,
                       padding: const EdgeInsets.fromLTRB(4, 4, 4, 84),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: columns,
+                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 150,
                         mainAxisSpacing: 4,
                         crossAxisSpacing: 4,
                       ),
