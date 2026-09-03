@@ -279,6 +279,17 @@ class MainActivity : FlutterActivity() {
         } catch (_: Exception) {}
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        // 应用/Activity 真正销毁（从最近任务划掉、进程结束）时停止悬浮窗前台服务
+        // 按 Home 键后台不会触发 onDestroy，悬浮窗仍保留供跨应用拖图
+        try {
+            OverlayService.stop(this)
+        } catch (e: Exception) {
+            android.util.Log.w(tag, "stop overlay on destroy failed", e)
+        }
+    }
+
     private val tag = "ShareImport"
 
     private val nativeDropListener = View.OnDragListener { _, event ->
