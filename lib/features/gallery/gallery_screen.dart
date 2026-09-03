@@ -450,7 +450,6 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final allSelected = _selectedIds.length == memes.length && memes.isNotEmpty;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 68),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -462,34 +461,29 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           ),
         ],
       ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            // 左侧：选中数量
-            Text(
-              '${S.of(context).selected} ${_selectedIds.length} ${S.of(context).items}',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface,
-              ),
+      child: Row(
+        children: [
+          Text(
+            '${S.of(context).selected} ${_selectedIds.length} ${S.of(context).items}',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
             ),
-            const Spacer(),
-            // 中间：全选/取消全选
-            TextButton.icon(
-              onPressed: _selectAll,
-              icon: Icon(
-                allSelected ? Icons.check_circle : Icons.check_circle_outline,
-                size: 20,
-              ),
-              label: Text(allSelected ? S.of(context).deselectAll : S.of(context).selectAll),
+          ),
+          const Spacer(),
+          TextButton.icon(
+            onPressed: _selectAll,
+            icon: Icon(
+              allSelected ? Icons.check_circle : Icons.check_circle_outline,
+              size: 20,
             ),
-            const SizedBox(width: 8),
-            // 右侧：取消选择
-            TextButton(
-              onPressed: _exitSelectionMode,
-              child: Text(S.of(context).cancel),
-            ),
-          ],
-        ),
+            label: Text(allSelected ? S.of(context).deselectAll : S.of(context).selectAll),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: _exitSelectionMode,
+            child: Text(S.of(context).cancel),
+          ),
+        ],
       ),
     );
   }
