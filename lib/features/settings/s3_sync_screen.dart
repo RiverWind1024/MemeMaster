@@ -431,81 +431,6 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
             const SizedBox(height: 16),
           ],
 
-          // ---- 定时自动同步 ----
-          if (isConfigured) ...[
-            Text(S.of(context).scheduledSync, style: theme.textTheme.titleSmall),
-            const SizedBox(height: 8),
-            Card(
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    secondary: const Icon(Icons.timer),
-                    title: Text(S.of(context).autoSync),
-                    subtitle: Text(
-                      ref.watch(autoSyncEnabledProvider)
-                          ? S.of(context).syncIntervalSummary(_intervalLabel(ref.watch(autoSyncIntervalProvider)))
-                          : S.of(context).manualSyncOnly,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    value: ref.watch(autoSyncEnabledProvider),
-                    onChanged: (v) {
-                      ref.read(autoSyncEnabledProvider.notifier).setEnabled(v);
-                      final service = ref.read(s3SyncServiceProvider);
-                      if (v) {
-                        service.startPeriodicSync(
-                            ref.read(autoSyncIntervalProvider));
-                      } else {
-                        service.stopPeriodicSync();
-                      }
-                    },
-                  ),
-                  if (ref.watch(autoSyncEnabledProvider))
-                    ListTile(
-                      title: Text(S.of(context).syncInterval),
-                      trailing: DropdownButton<Duration>(
-                        value: ref.watch(autoSyncIntervalProvider),
-                        underline: const SizedBox(),
-                        items: [
-                          DropdownMenuItem(
-                            value: Duration(minutes: 5),
-                            child: Text(S.of(context).fiveMinutes),
-                          ),
-                          DropdownMenuItem(
-                            value: Duration(minutes: 15),
-                            child: Text(S.of(context).fifteenMinutes),
-                          ),
-                          DropdownMenuItem(
-                            value: Duration(minutes: 30),
-                            child: Text(S.of(context).thirtyMinutes),
-                          ),
-                          DropdownMenuItem(
-                            value: Duration(hours: 1),
-                            child: Text(S.of(context).oneHour),
-                          ),
-                          DropdownMenuItem(
-                            value: Duration(hours: 6),
-                            child: Text(S.of(context).sixHours),
-                          ),
-                          DropdownMenuItem(
-                            value: Duration(days: 1),
-                            child: Text(S.of(context).oneDay),
-                          ),
-                        ],
-                        onChanged: (v) {
-                          if (v == null) return;
-                          ref.read(autoSyncIntervalProvider.notifier).setInterval(v);
-                          final service = ref.read(s3SyncServiceProvider);
-                          service.stopPeriodicSync();
-                          service.startPeriodicSync(v);
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-
           // ---- 存储统计（手动触发） ----
           Text(S.of(context).storageStatistics, style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
@@ -626,12 +551,6 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
   }
 
   String _pad(int n) => n.toString().padLeft(2, '0');
-
-  String _intervalLabel(Duration d) {
-    if (d.inMinutes < 60) return S.of(context).intervalMinutes(d.inMinutes);
-    if (d.inHours < 24) return S.of(context).intervalHours(d.inHours);
-    return S.of(context).intervalDays(d.inDays);
-  }
 
   void _showConfigDialog(BuildContext context, WidgetRef ref, S3Config config) {
     final endpointCtl = TextEditingController(text: config.endpoint);

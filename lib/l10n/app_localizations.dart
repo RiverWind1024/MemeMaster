@@ -979,72 +979,6 @@ abstract class S {
   /// **'错误'**
   String get error;
 
-  /// No description provided for @scheduledSync.
-  ///
-  /// In zh, this message translates to:
-  /// **'定时同步'**
-  String get scheduledSync;
-
-  /// No description provided for @autoSync.
-  ///
-  /// In zh, this message translates to:
-  /// **'定时自动同步'**
-  String get autoSync;
-
-  /// No description provided for @syncIntervalSummary.
-  ///
-  /// In zh, this message translates to:
-  /// **'每 {interval} 同步一次'**
-  String syncIntervalSummary(String interval);
-
-  /// No description provided for @manualSyncOnly.
-  ///
-  /// In zh, this message translates to:
-  /// **'仅手动同步'**
-  String get manualSyncOnly;
-
-  /// No description provided for @syncInterval.
-  ///
-  /// In zh, this message translates to:
-  /// **'同步间隔'**
-  String get syncInterval;
-
-  /// No description provided for @fiveMinutes.
-  ///
-  /// In zh, this message translates to:
-  /// **'5 分钟'**
-  String get fiveMinutes;
-
-  /// No description provided for @fifteenMinutes.
-  ///
-  /// In zh, this message translates to:
-  /// **'15 分钟'**
-  String get fifteenMinutes;
-
-  /// No description provided for @thirtyMinutes.
-  ///
-  /// In zh, this message translates to:
-  /// **'30 分钟'**
-  String get thirtyMinutes;
-
-  /// No description provided for @oneHour.
-  ///
-  /// In zh, this message translates to:
-  /// **'1 小时'**
-  String get oneHour;
-
-  /// No description provided for @sixHours.
-  ///
-  /// In zh, this message translates to:
-  /// **'6 小时'**
-  String get sixHours;
-
-  /// No description provided for @oneDay.
-  ///
-  /// In zh, this message translates to:
-  /// **'1 天'**
-  String get oneDay;
-
   /// No description provided for @storageStatistics.
   ///
   /// In zh, this message translates to:
@@ -1110,24 +1044,6 @@ abstract class S {
   /// In zh, this message translates to:
   /// **'删除 bucket 中所有文件'**
   String get deleteAllBucketFiles;
-
-  /// No description provided for @intervalMinutes.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count} 分钟'**
-  String intervalMinutes(int count);
-
-  /// No description provided for @intervalHours.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count} 小时'**
-  String intervalHours(int count);
-
-  /// No description provided for @intervalDays.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count} 天'**
-  String intervalDays(int count);
 
   /// No description provided for @s3Config.
   ///

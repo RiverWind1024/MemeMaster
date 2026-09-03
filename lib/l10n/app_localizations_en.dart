@@ -500,41 +500,6 @@ class SEn extends S {
   String get error => 'Error';
 
   @override
-  String get scheduledSync => 'Scheduled Sync';
-
-  @override
-  String get autoSync => 'Auto Sync';
-
-  @override
-  String syncIntervalSummary(String interval) {
-    return 'Sync every $interval';
-  }
-
-  @override
-  String get manualSyncOnly => 'Manual sync only';
-
-  @override
-  String get syncInterval => 'Sync Interval';
-
-  @override
-  String get fiveMinutes => '5 minutes';
-
-  @override
-  String get fifteenMinutes => '15 minutes';
-
-  @override
-  String get thirtyMinutes => '30 minutes';
-
-  @override
-  String get oneHour => '1 hour';
-
-  @override
-  String get sixHours => '6 hours';
-
-  @override
-  String get oneDay => '1 day';
-
-  @override
   String get storageStatistics => 'Storage Statistics';
 
   @override
@@ -568,21 +533,6 @@ class SEn extends S {
 
   @override
   String get deleteAllBucketFiles => 'Delete all files in bucket';
-
-  @override
-  String intervalMinutes(int count) {
-    return '$count min';
-  }
-
-  @override
-  String intervalHours(int count) {
-    return '$count hr';
-  }
-
-  @override
-  String intervalDays(int count) {
-    return '$count day(s)';
-  }
 
   @override
   String get s3Config => 'S3 Configuration';

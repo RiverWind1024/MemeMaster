@@ -1128,55 +1128,6 @@ class AutoOverlayEnabledNotifier extends Notifier<bool> {
 final autoOverlayEnabledProvider =
     NotifierProvider<AutoOverlayEnabledNotifier, bool>(AutoOverlayEnabledNotifier.new);
 
-// ---- 定时同步 ----
-
-class AutoSyncEnabledNotifier extends Notifier<bool> {
-  @override
-  bool build() {
-    try {
-      return ref.read(sharedPreferencesProvider).getBool('auto_sync_enabled') ?? false;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  void setEnabled(bool value) {
-    state = value;
-    try {
-      ref.read(sharedPreferencesProvider).setBool('auto_sync_enabled', value);
-    } catch (_) {}
-  }
-}
-
-final autoSyncEnabledProvider =
-    NotifierProvider<AutoSyncEnabledNotifier, bool>(AutoSyncEnabledNotifier.new);
-
-class AutoSyncIntervalNotifier extends Notifier<Duration> {
-  @override
-  Duration build() {
-    try {
-      final minutes = ref.read(sharedPreferencesProvider).getInt('auto_sync_interval_minutes');
-      if (minutes != null) return Duration(minutes: minutes);
-    } catch (_) {}
-    return const Duration(hours: 1);
-  }
-
-  void setInterval(Duration interval) {
-    state = interval;
-    try {
-      ref.read(sharedPreferencesProvider).setInt(
-        'auto_sync_interval_minutes',
-        interval.inMinutes,
-      );
-    } catch (_) {}
-  }
-}
-
-final autoSyncIntervalProvider =
-    NotifierProvider<AutoSyncIntervalNotifier, Duration>(
-  AutoSyncIntervalNotifier.new,
-);
-
 // ---- 分析进度 ----
 
 class AnalysisProgress {

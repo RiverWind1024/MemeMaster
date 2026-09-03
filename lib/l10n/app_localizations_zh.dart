@@ -488,41 +488,6 @@ class SZh extends S {
   String get error => '错误';
 
   @override
-  String get scheduledSync => '定时同步';
-
-  @override
-  String get autoSync => '定时自动同步';
-
-  @override
-  String syncIntervalSummary(String interval) {
-    return '每 $interval 同步一次';
-  }
-
-  @override
-  String get manualSyncOnly => '仅手动同步';
-
-  @override
-  String get syncInterval => '同步间隔';
-
-  @override
-  String get fiveMinutes => '5 分钟';
-
-  @override
-  String get fifteenMinutes => '15 分钟';
-
-  @override
-  String get thirtyMinutes => '30 分钟';
-
-  @override
-  String get oneHour => '1 小时';
-
-  @override
-  String get sixHours => '6 小时';
-
-  @override
-  String get oneDay => '1 天';
-
-  @override
   String get storageStatistics => '存储统计';
 
   @override
@@ -556,21 +521,6 @@ class SZh extends S {
 
   @override
   String get deleteAllBucketFiles => '删除 bucket 中所有文件';
-
-  @override
-  String intervalMinutes(int count) {
-    return '$count 分钟';
-  }
-
-  @override
-  String intervalHours(int count) {
-    return '$count 小时';
-  }
-
-  @override
-  String intervalDays(int count) {
-    return '$count 天';
-  }
 
   @override
   String get s3Config => 'S3 配置';
