@@ -123,14 +123,41 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     }
   }
 
-  void _onDragStart() {
-    _isDragSelecting = true;
-    _visitedIds.clear();
+  Offset? _dragStartPos;
+
+  void _onPointerDown(Offset globalPos) {
+    if (!_selectionMode) return;
+    _dragStartPos = globalPos;
   }
 
-  void _onDragEnd() {
+  void _onPointerMove(Offset globalPos) {
+    if (!_selectionMode || _dragStartPos == null) return;
+
+    final dx = (globalPos - _dragStartPos!).dx.abs();
+    final dy = (globalPos - _dragStartPos!).dy.abs();
+
+    // First move: determine primary direction
+    if (!_isDragSelecting && (dx > 10 || dy > 10)) {
+      if (dx > dy) {
+        // Horizontal → enter drag-select mode
+        _isDragSelecting = true;
+        _visitedIds.clear();
+      } else {
+        // Vertical → don't enter drag-select, let grid scroll
+        _dragStartPos = null;
+        return;
+      }
+    }
+
+    if (_isDragSelecting) {
+      _handleDragSelect(globalPos);
+    }
+  }
+
+  void _onPointerUp() {
     _isDragSelecting = false;
     _visitedIds.clear();
+    _dragStartPos = null;
   }
 
   void _exitSelectionMode() {
@@ -662,7 +689,6 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                     if (notification is ScrollUpdateNotification) {
                       _scrollOffset = notification.metrics.pixels;
                     }
-                    if (_isDragSelecting) return true;
                     return false;
                   },
                   child: RefreshIndicator(
@@ -701,22 +727,12 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                   ),
                 ),
                 Positioned.fill(
-                  child: IgnorePointer(
-                    ignoring: !_isDragSelecting,
-                    child: Listener(
-                      onPointerDown: (event) {
-                        if (_selectionMode && !_isDragSelecting) {
-                          _onDragStart();
-                        }
-                      },
-                      onPointerMove: (event) {
-                        if (_isDragSelecting) {
-                          _handleDragSelect(event.position);
-                        }
-                      },
-                      onPointerUp: (_) => _onDragEnd(),
-                      onPointerCancel: (_) => _onDragEnd(),
-                    ),
+                  child: Listener(
+                    onPointerDown: (event) => _onPointerDown(event.position),
+                    onPointerMove: (event) => _onPointerMove(event.position),
+                    onPointerUp: (_) => _onPointerUp(),
+                    onPointerCancel: (_) => _onPointerUp(),
+                    behavior: HitTestBehavior.translucent,
                   ),
                 ),
               ],
