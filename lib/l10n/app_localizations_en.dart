@@ -1507,4 +1507,25 @@ class SEn extends S {
   String s3SyncFailed(String error) {
     return 'Sync failed: $error';
   }
+
+  @override
+  String get modelManagerDownloadFailedLabel => 'Download Failed';
+
+  @override
+  String get modelManagerNoSearchResults => 'No matching models found';
+
+  @override
+  String get modelManagerNoRecommended => 'No recommended models';
+
+  @override
+  String get modelManagerDownloadSource => 'Download Source';
+
+  @override
+  String get modelManagerSearchHint =>
+      'Search models (e.g.: qwen, llama, moondream)';
+
+  @override
+  String modelManagerPagination(int page, int total, int count) {
+    return 'Page $page of $total ($count results)';
+  }
 }

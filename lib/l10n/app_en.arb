@@ -512,5 +512,11 @@
   "galleryPleaseWait": "Please wait...",
   "galleryDeleteFailed": "Delete failed: {error}",
   "colorExtractionConfigTitle": "Color Extraction Algorithm Config",
-  "s3SyncFailed": "Sync failed: {error}"
+  "s3SyncFailed": "Sync failed: {error}",
+  "modelManagerDownloadFailedLabel": "Download Failed",
+  "modelManagerNoSearchResults": "No matching models found",
+  "modelManagerNoRecommended": "No recommended models",
+  "modelManagerDownloadSource": "Download Source",
+  "modelManagerSearchHint": "Search models (e.g.: qwen, llama, moondream)",
+  "modelManagerPagination": "Page {page} of {total} ({count} results)"
 }

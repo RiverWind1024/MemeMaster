@@ -1016,5 +1016,29 @@
         "type": "String"
       }
     }
+  },
+  "modelManagerDownloadFailedLabel": "下载失败",
+  "@modelManagerDownloadFailedLabel": {},
+  "modelManagerNoSearchResults": "未找到相关模型",
+  "@modelManagerNoSearchResults": {},
+  "modelManagerNoRecommended": "暂无推荐模型",
+  "@modelManagerNoRecommended": {},
+  "modelManagerDownloadSource": "下载源",
+  "@modelManagerDownloadSource": {},
+  "modelManagerSearchHint": "搜索模型 (例如: qwen, llama, moondream)",
+  "@modelManagerSearchHint": {},
+  "modelManagerPagination": "第 {page} 页 / 共 {total} 页（{count} 个结果）",
+  "@modelManagerPagination": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

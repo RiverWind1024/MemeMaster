@@ -1478,4 +1478,24 @@ class SZh extends S {
   String s3SyncFailed(String error) {
     return '同步失败: $error';
   }
+
+  @override
+  String get modelManagerDownloadFailedLabel => '下载失败';
+
+  @override
+  String get modelManagerNoSearchResults => '未找到相关模型';
+
+  @override
+  String get modelManagerNoRecommended => '暂无推荐模型';
+
+  @override
+  String get modelManagerDownloadSource => '下载源';
+
+  @override
+  String get modelManagerSearchHint => '搜索模型 (例如: qwen, llama, moondream)';
+
+  @override
+  String modelManagerPagination(int page, int total, int count) {
+    return '第 $page 页 / 共 $total 页（$count 个结果）';
+  }
 }

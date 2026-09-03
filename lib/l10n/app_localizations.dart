@@ -2766,6 +2766,42 @@ abstract class S {
   /// In zh, this message translates to:
   /// **'同步失败: {error}'**
   String s3SyncFailed(String error);
+
+  /// No description provided for @modelManagerDownloadFailedLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载失败'**
+  String get modelManagerDownloadFailedLabel;
+
+  /// No description provided for @modelManagerNoSearchResults.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到相关模型'**
+  String get modelManagerNoSearchResults;
+
+  /// No description provided for @modelManagerNoRecommended.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无推荐模型'**
+  String get modelManagerNoRecommended;
+
+  /// No description provided for @modelManagerDownloadSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载源'**
+  String get modelManagerDownloadSource;
+
+  /// No description provided for @modelManagerSearchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索模型 (例如: qwen, llama, moondream)'**
+  String get modelManagerSearchHint;
+
+  /// No description provided for @modelManagerPagination.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {page} 页 / 共 {total} 页（{count} 个结果）'**
+  String modelManagerPagination(int page, int total, int count);
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {
