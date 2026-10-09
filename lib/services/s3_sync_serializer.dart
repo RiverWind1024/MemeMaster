@@ -229,6 +229,9 @@ class S3SyncSerializer {
       // 1. 清空所有关联表（FK 顺序：先子表再父表）
       await _db.delete(_db.syncStateTable).go();
       await _db.delete(_db.analysisQueueTable).go();
+      await _db.delete(_db.colorAnalysisQueueTable).go();
+      await _db.delete(_db.ocrAnalysisQueueTable).go();
+      await _db.delete(_db.aiAnalysisQueueTable).go();
       await _db.delete(_db.memeAlbumsTable).go();
       await _db.delete(_db.colorsTable).go();
       await _db.delete(_db.tagsTable).go();
