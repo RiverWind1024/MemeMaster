@@ -426,6 +426,9 @@ jobs:
 
       - name: Setup Android SDK and NDK
         uses: android-actions/setup-android@v3
+        with:
+          # 跳过已废弃的 tools 包（cmdline-tools 16+ 仓库中已移除，默认值会导致失败）
+          packages: 'platform-tools'
 
       # Pre-fetch gradle distribution to avoid timeout during gradlew run
       - name: Setup Gradle
