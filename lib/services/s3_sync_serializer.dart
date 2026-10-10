@@ -11,11 +11,13 @@ class MemeSyncData {
   final Meme meme;
   final List<TagEntry> tags;
   final List<ColorEntry> colors;
+  final List<String> albumIds;
 
   MemeSyncData({
     required this.meme,
     required this.tags,
     required this.colors,
+    this.albumIds = const [],
   });
 
   Map<String, dynamic> toJson() => {
@@ -57,6 +59,7 @@ class MemeSyncData {
                   'ratio': c.ratio,
                 })
             .toList(),
+        'albumIds': albumIds,
       };
 
   factory MemeSyncData.fromJson(Map<String, dynamic> json) {
@@ -105,6 +108,7 @@ class MemeSyncData {
                   ))
               .toList() ??
           [],
+      albumIds: (json['albumIds'] as List?)?.cast<String>() ?? const [],
     );
   }
 }
