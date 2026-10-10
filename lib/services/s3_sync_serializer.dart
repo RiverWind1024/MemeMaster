@@ -167,6 +167,7 @@ class FullSyncData {
                 sortOrder: a['sortOrder'] as int,
                 isDefault: a['isDefault'] as int,
                 createdAt: a['createdAt'] as int,
+                updatedAt: a['updatedAt'] as int? ?? (a['createdAt'] as int),
               ))
           .toList(),
       memeAlbums: (json['memeAlbums'] as List)
