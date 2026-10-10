@@ -7,6 +7,7 @@ import '../core/database/daos/sync_state_dao.dart';
 import 'log_service.dart';
 import 'object_store.dart';
 import 's3_config.dart';
+import 's3_keys.dart';
 import 's3_manifest.dart';
 import 's3_secret_store.dart';
 import 's3_sync_engine.dart';
@@ -38,6 +39,10 @@ class SyncStats {
 ///
 /// 实现与 S3 兼容存储的双向同步（图片 + 元数据），实际同步逻辑委托给
 /// [SyncEngine]；本类只负责配置/客户端管理、连通性测试、统计与清空。
+///
+/// 引擎只有一个双向 LWW 入口：[incremental]。[uploadAll] / [downloadAll]
+/// 只是为了兼容旧调用点而保留的别名，**它们并不做单向推送/拉取**，
+/// 调用方（尤其是 CLI）必须显式告知用户这一点。
 class S3SyncService {
   final ObjectStore _store;
   final SyncEngine _engine;
@@ -46,14 +51,9 @@ class S3SyncService {
   final LogService? _log;
   S3Config _config = const S3Config();
   Minio? _client;
-  bool _cancelled = false;
 
   /// 清空密码在 S3SecretStore 中的键名
   static const clearPasswordKey = 's3_clear_password';
-
-  /// manifest 与 blob 前缀常量
-  static const _manifestKey = 'sync/manifest.json';
-  static const _blobPrefix = 'blobs/';
 
   S3SyncService({
     required ObjectStore store,
@@ -114,6 +114,9 @@ class S3SyncService {
   // ---- 同步 ----
 
   /// 双向增量同步：委托 [SyncEngine.sync]（三阶段 LWW）。
+  ///
+  /// 引擎无法在运行中中断，因此这里**不提供取消**：UI 上也不展示取消按钮，
+  /// 避免出现一个点了没反应的控件。
   Stream<S3SyncProgress> incremental() async* {
     if (!isConfigured) {
       yield const S3SyncProgress(
@@ -122,7 +125,6 @@ class S3SyncService {
       );
       return;
     }
-    _cancelled = false;
     yield const S3SyncProgress(
       status: S3SyncStatus.uploading,
       completed: 0,
@@ -130,13 +132,6 @@ class S3SyncService {
     );
     try {
       await _ensureBucket();
-      if (_cancelled) {
-        yield const S3SyncProgress(
-          status: S3SyncStatus.idle,
-          errorMessage: '已取消',
-        );
-        return;
-      }
       final r = await _engine.sync();
       yield S3SyncProgress(
         status: S3SyncStatus.idle,
@@ -144,7 +139,7 @@ class S3SyncService {
         total: 1,
         summary: '完成：推送 ${r.pushed} / 拉取 ${r.pulled} / 删除 ${r.deleted} / '
             '上传图片 ${r.imagesUploaded} / 下载图片 ${r.imagesDownloaded} / '
-            '失败 ${r.failed}',
+            '缺图 ${r.imagesMissing} / 失败 ${r.failed}',
       );
     } catch (e) {
       _log?.error('S3 增量同步失败', e.toString());
@@ -165,15 +160,6 @@ class S3SyncService {
   /// 引擎为双向 LWW 同步，无法只做单向拉取，因此与 [incremental] 等价。
   Stream<S3SyncProgress> downloadAll() => incremental();
 
-  // ---- 取消 ----
-
-  /// 请求取消。
-  ///
-  /// 注意：当前实现无法中断已经开始的 [SyncEngine.sync]；保留此方法以兼容 UI。
-  void cancel() {
-    _cancelled = true;
-  }
-
   // ---- 存储统计 ----
 
   /// 遍历 S3 bucket 统计存储用量与图片分项。
@@ -183,65 +169,56 @@ class S3SyncService {
   /// 并从同一份 key 集合派生 blob 集合，避免两次列举漂移。
   /// 若 manifest 缺失或不可读，无法确定引用集，此时将 `orphanImages`
   /// 保守地记为 `0`（不臆断全部 blob 为孤儿）。
+  ///
+  /// 网络/权限等错误会直接抛出，交由 UI 显示失败态——绝不返回一份
+  /// 「看起来正常」的零值统计，那会让用户以为统计成功。
   Future<SyncStats> getStorageStats() async {
     if (!isConfigured) {
       throw StateError('S3 未配置');
     }
-    int totalBytes = 0;
-    int objectCount = 0;
-    try {
-      final listing = await _store.listWithSizes('');
-      for (final size in listing.values) {
-        totalBytes += size;
-      }
-      objectCount = listing.length;
+    final listing = await _store.listWithSizes('');
+    var totalBytes = 0;
+    for (final size in listing.values) {
+      totalBytes += size;
+    }
+    final objectCount = listing.length;
 
-      final blobHashes = listing.keys
-          .where((k) => k.startsWith(_blobPrefix))
-          .map((k) => k.substring(_blobPrefix.length))
-          .toSet();
-      final metaFiles = objectCount - blobHashes.length;
+    final blobHashes = listing.keys
+        .where((k) => k.startsWith(kBlobPrefix))
+        .map((k) => k.substring(kBlobPrefix.length))
+        .toSet();
+    final metaFiles = objectCount - blobHashes.length;
 
-      final referenced = await _referencedHashes();
-      if (referenced == null) {
-        // manifest 缺失/不可读：不报告孤儿，避免误导用户误删。
-        _log?.warning('S3', 'manifest 缺失或不可读，孤儿图片统计记为 0');
-        return SyncStats(
-          totalBytes: totalBytes,
-          objectCount: objectCount,
-          referencedImages: 0,
-          orphanImages: 0,
-          metaFiles: metaFiles,
-        );
-      }
-
-      return SyncStats(
-        totalBytes: totalBytes,
-        objectCount: objectCount,
-        referencedImages: referenced.length,
-        orphanImages: blobHashes.difference(referenced).length,
-        metaFiles: metaFiles,
-      );
-    } catch (e) {
-      _log?.warning('S3', '获取存储统计失败: $e');
-      // 网络错误时返回当前统计值（可能是部分结果）
+    final referenced = await _referencedHashes();
+    if (referenced == null) {
+      // manifest 缺失/不可读：不报告孤儿，避免误导用户误删。
+      _log?.warning('S3', 'manifest 缺失或不可读，孤儿图片统计记为 0');
       return SyncStats(
         totalBytes: totalBytes,
         objectCount: objectCount,
         referencedImages: 0,
         orphanImages: 0,
-        metaFiles: objectCount,
+        metaFiles: metaFiles,
       );
     }
+
+    return SyncStats(
+      totalBytes: totalBytes,
+      objectCount: objectCount,
+      referencedImages: referenced.length,
+      orphanImages: blobHashes.difference(referenced).length,
+      metaFiles: metaFiles,
+    );
   }
 
   /// 读取 manifest 中被引用的图片哈希集合。
   ///
-  /// 返回 `null` 表示 manifest 缺失或不可读（无法确定引用集）。注意
-  /// [MinioObjectStore.getBytes] 会把任意 [MinioS3Error]（含瞬时 503）
-  /// 一律转为 `null`，因此调用方必须把 `null` 当作「无法确定」而非「无引用」。
+  /// 返回 `null` 表示 manifest 对象不存在（无法确定引用集）。
+  /// [MinioObjectStore.getBytes] 只把真正的 not-found 转成 `null`，
+  /// 瞬时 5xx 会直接抛出，因此调用方把 `null` 理解为「没有 manifest」
+  /// 是安全的，但不能把它理解成「没有引用」。
   Future<Set<String>?> _referencedHashes() async {
-    final bytes = await _store.getBytes(_manifestKey);
+    final bytes = await _store.getBytes(kManifestKey);
     if (bytes == null) return null;
     final manifest = Manifest.fromJson(
         jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>);
@@ -253,46 +230,79 @@ class S3SyncService {
 
   // ---- 孤儿清理 ----
 
+  /// 清理被阻止的原因（`null` 表示允许清理）。
+  ///
+  /// 空 manifest + 遗留 v1 键 = 该 bucket 还没完成 v1 → v2 迁移。
+  /// 此时 manifest 里的 `referenced` 必然是空集，若继续清理会把**整个
+  /// 遗留图库**（`memes/`、`data/`、`snapshot-v1.json`）连同所有 `blobs/*`
+  /// 一并删掉。全新安装（本地图库为空 → 首轮同步写出空 manifest）点一下
+  /// 「清理孤儿」就会触发，因此必须拒绝。
+  ///
+  /// 已知限制：删除操作不记录墓碑，若删除的实体在 manifest 中还有条目，
+  /// 清理后其他设备的删除无法再传播（见 UI 与 CLI 帮助中的说明）。
+  Future<String?> cleanupBlockedReason() async {
+    if (!isConfigured) return 'S3 未配置';
+    final referenced = await _referencedHashes();
+    if (referenced == null) {
+      return 'manifest 缺失或不可读，无法确定哪些图片仍被引用，已跳过清理';
+    }
+    // manifest 里一条实体都没有，但遗留 v1 键还在 → 尚未迁移。
+    if (referenced.isEmpty && await _hasLegacyKeys()) {
+      return '检测到遗留的 v1 数据但 manifest 为空，请先完成一次同步迁移后再清理';
+    }
+    return null;
+  }
+
+  /// 是否仍存在 v1 遗留对象。
+  Future<bool> _hasLegacyKeys() async {
+    for (final key in kLegacyObjectKeys) {
+      if (await _store.exists(key)) return true;
+    }
+    for (final prefix in kLegacyPrefixes) {
+      if ((await _store.list(prefix)).isNotEmpty) return true;
+    }
+    return false;
+  }
+
   /// 删除未被 manifest 引用的 blobs 与遗留旧 key，返回删除数量。
   ///
-  /// 若 manifest 缺失或不可读，则**中止清理且不删除任何对象**，返回 `0`
-  /// （记录 warning）。这是有意的保守策略：无法确定引用集时绝不把
-  /// 「读不到 manifest」当作「没有引用」，否则会误删全部在用 blob。
+  /// 保守策略：无法确定引用集（manifest 缺失/不可读）或 bucket 尚未完成
+  /// v1 → v2 迁移时，一律**中止清理且不删除任何对象**，返回 `0`（记录 warning）。
+  /// 详见 [cleanupBlockedReason]。
   Future<int> cleanupOrphans() async {
     if (!isConfigured) {
       throw StateError('S3 未配置');
     }
-    final referenced = await _referencedHashes();
-    if (referenced == null) {
-      _log?.warning('S3', 'manifest 缺失或不可读，已中止孤儿清理（未删除任何对象）');
+    final blocked = await cleanupBlockedReason();
+    if (blocked != null) {
+      _log?.warning('S3', '已中止孤儿清理（未删除任何对象）：$blocked');
       return 0;
     }
+    // 上面的守卫刚刚确认过 manifest 可读；万一此刻读失败，宁可抛错也绝不
+    // 把空引用集当成「没有引用」。
+    final referenced = (await _referencedHashes())!;
     var removed = 0;
 
-    for (final key in await _store.list(_blobPrefix)) {
-      final hash = key.substring(_blobPrefix.length);
+    for (final key in await _store.list(kBlobPrefix)) {
+      final hash = key.substring(kBlobPrefix.length);
       if (!referenced.contains(hash)) {
         await _store.delete(key);
         removed++;
       }
     }
 
-    for (final legacy
-        in const ['snapshot-v1.json', 'data/memes.json', 'data/albums.json']) {
+    for (final legacy in kLegacyObjectKeys) {
       if (await _store.exists(legacy)) {
         await _store.delete(legacy);
         removed++;
       }
     }
 
-    for (final key in await _store.list('data/memes/')) {
-      await _store.delete(key);
-      removed++;
-    }
-
-    for (final key in await _store.list('memes/')) {
-      await _store.delete(key);
-      removed++;
+    for (final prefix in kLegacyPrefixes) {
+      for (final key in await _store.list(prefix)) {
+        await _store.delete(key);
+        removed++;
+      }
     }
 
     return removed;

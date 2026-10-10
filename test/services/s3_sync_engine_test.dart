@@ -27,6 +27,47 @@ class InMemorySecret implements S3SecretStore {
   }
 }
 
+/// 包装 [ObjectStore]，在读取指定 key 时抛出异常。
+///
+/// 用于模拟 S3 的瞬时故障（5xx / 503）：这些错误**不能**被当成
+/// 「对象不存在」，否则一次抖动就会让同步引擎把远端当成空库。
+class _ThrowingStore implements ObjectStore {
+  _ThrowingStore(this._inner, this.failOnGet);
+
+  final ObjectStore _inner;
+  final String failOnGet;
+
+  @override
+  Future<Uint8List?> getBytes(String key) async {
+    if (key == failOnGet) throw StateError('模拟的 S3 503 Service Unavailable');
+    return _inner.getBytes(key);
+  }
+
+  @override
+  Future<void> putBytes(String key, Uint8List bytes) => _inner.putBytes(key, bytes);
+
+  @override
+  Future<void> uploadFile(String key, String srcPath) =>
+      _inner.uploadFile(key, srcPath);
+
+  @override
+  Future<void> downloadToFile(String key, String destPath) =>
+      _inner.downloadToFile(key, destPath);
+
+  @override
+  Future<bool> exists(String key) => _inner.exists(key);
+
+  @override
+  Future<List<String>> list(String prefix) => _inner.list(prefix);
+
+  @override
+  Future<Map<String, int>> listWithSizes(String prefix) =>
+      _inner.listWithSizes(prefix);
+
+  @override
+  Future<void> delete(String key) => _inner.delete(key);
+}
+
 /// 一个逻辑「设备」：独立 DB + 存储目录 + 引擎，共享同一个 ObjectStore。
 class _Device {
   final Directory dir;
@@ -52,7 +93,7 @@ void main() {
   late _Device d1;
   late InMemoryObjectStore store;
 
-  Future<_Device> newDevice() async {
+  Future<_Device> newDevice({ObjectStore? storeOverride}) async {
     final dir = await Directory.systemTemp.createTemp('engine_');
     final db = AppDatabase.open('${dir.path}/t.db');
     final memeRepo = MemeRepository(
@@ -64,7 +105,7 @@ void main() {
     final albumRepo = AlbumRepository(db.albumDao);
     final storage = FileStorageService(basePath: '${dir.path}/memes');
     final engine = SyncEngine(
-      store: store,
+      store: storeOverride ?? store,
       memeRepo: memeRepo,
       albumRepo: albumRepo,
       db: db,
@@ -74,6 +115,11 @@ void main() {
     );
     return _Device(dir, db, memeRepo, albumRepo, storage, engine);
   }
+
+  /// 读取远端 manifest。
+  Future<Manifest> readManifest() async => Manifest.fromJson(
+      jsonDecode(utf8.decode((await store.getBytes('sync/manifest.json'))!))
+          as Map<String, dynamic>);
 
   /// 显式指定 id 插入 meme，并落一份真实图片文件。
   Future<Meme> insertMeme(
@@ -343,6 +389,196 @@ void main() {
       expect(totals['totalImported'], 1);
     } finally {
       await d2.dispose();
+    }
+  });
+
+  // ---- 读取失败必须与「远端为空」区分开（Critical 1）----
+
+  test('manifest 读取失败时整轮同步失败且不覆盖已有 manifest', () async {
+    await insertMeme(d1, 'm1', updatedAt: 1000, hash: 'h1');
+    await d1.engine.sync();
+    final before = await store.getBytes('sync/manifest.json');
+
+    final d2 = await newDevice(
+        storeOverride: _ThrowingStore(store, 'sync/manifest.json'));
+    try {
+      // 瞬时 5xx 绝不能退化成 Manifest.empty()。
+      await expectLater(d2.engine.sync(), throwsA(anything));
+      // 既不能写出只含本机条目的 manifest，也不能覆盖远端 manifest。
+      expect(await store.getBytes('sync/manifest.json'), before);
+    } finally {
+      await d2.dispose();
+    }
+  });
+
+  test('manifest 读取失败时首次同步不创建 manifest', () async {
+    await insertMeme(d1, 'm1');
+    final d2 = await newDevice(
+        storeOverride: _ThrowingStore(store, 'sync/manifest.json'));
+    try {
+      await expectLater(d2.engine.sync(), throwsA(anything));
+      expect(await store.exists('sync/manifest.json'), isFalse);
+    } finally {
+      await d2.dispose();
+    }
+  });
+
+  // ---- 拉取必须先落图再落库（Important 3）----
+
+  test('远端缺少图片 blob 时计入失败、不落库，下一轮补齐后重试成功', () async {
+    await insertMeme(d1, 'm1', updatedAt: 1000, hash: 'h1');
+    await d1.engine.sync();
+    // 只删 blob，manifest 与 meme json 仍在。
+    await store.delete('blobs/h1');
+
+    final d2 = await newDevice();
+    try {
+      final r = await d2.engine.sync();
+      expect(r.imagesMissing, 1);
+      expect(r.failed, greaterThanOrEqualTo(1));
+      // 关键：不能先落库，否则下一轮 LWW 守卫会永久跳过。
+      expect(await d2.db.memeDao.getById('m1'), isNull);
+
+      // 远端补回 blob 后，下一轮应能正常拉取。
+      await store.putBytes('blobs/h1', Uint8List.fromList([1, 2, 3]));
+      final r2 = await d2.engine.sync();
+      expect(r2.failed, 0);
+      expect(r2.pulled, greaterThanOrEqualTo(1));
+      expect(await d2.db.memeDao.getById('m1'), isNotNull);
+    } finally {
+      await d2.dispose();
+    }
+  });
+
+  // ---- 用户统计失败不得中断整轮（Important 5）----
+
+  test('用户统计对象损坏时只记录失败，整轮同步仍完成', () async {
+    await insertMeme(d1, 'm1', updatedAt: 1000, hash: 'h1');
+    await d1.engine.sync();
+
+    // manifest 声称远端用户统计更新，但对象本身是非法 JSON。
+    final m = await readManifest();
+    await store.putBytes(
+      'sync/manifest.json',
+      _bytes(Manifest(
+        schema: m.schema,
+        generatedAt: m.generatedAt,
+        lastWriter: m.lastWriter,
+        clock: m.clock,
+        memes: m.memes,
+        albums: m.albums,
+        userStatsUpdatedAt: 999999999,
+      ).toJson()),
+    );
+    await store.putBytes(
+        'sync/user_stats.json', Uint8List.fromList(utf8.encode('{not-json')));
+
+    final d2 = await newDevice();
+    try {
+      final r = await d2.engine.sync();
+      expect(r.failed, greaterThanOrEqualTo(1));
+      // 阶段 3 必须照常执行（否则用户统计会永久卡死整轮同步）。
+      expect(await d2.db.syncStateDao.getLastSyncAt(), isNotNull);
+      expect(await d2.db.memeDao.getById('m1'), isNotNull);
+    } finally {
+      await d2.dispose();
+    }
+  });
+
+  test('本地无用户统计行且本地时钟领先时对齐时钟，不再空转', () async {
+    await d1.db.syncStateDao
+        .set('user_stats_updated_at', '999999999');
+    final r = await d1.engine.sync();
+    expect(r.failed, 0);
+    expect(await store.exists('sync/user_stats.json'), isFalse);
+    expect(await d1.db.syncStateDao.get('user_stats_updated_at'), '0');
+  });
+
+  // ---- 默认相册不得重复（Important 6）----
+
+  test('全新设备首次同步后本地只有一个默认相册', () async {
+    await insertMeme(d1, 'm1');
+    await d1.engine.sync();
+
+    final d2 = await newDevice();
+    try {
+      await d2.engine.sync();
+      final defaults = await (d2.db.select(d2.db.albumsTable)
+            ..where((a) => a.isDefault.equals(1)))
+          .get();
+      expect(defaults.length, 1);
+      // getDefaultAlbum 用 getSingleOrNull，出现两个默认相册会直接抛错。
+      expect(await d2.db.albumDao.getDefaultAlbum(), isNotNull);
+    } finally {
+      await d2.dispose();
+    }
+  });
+
+  test('远端已有相册时全新设备不再推送自己的默认相册', () async {
+    await insertMeme(d1, 'm1');
+    await d1.engine.sync();
+
+    final d2 = await newDevice();
+    try {
+      await d2.engine.sync();
+      final m = await readManifest();
+      final localDefault = await d2.db.albumDao.getDefaultAlbum();
+      expect(m.albums.containsKey(localDefault!.id), isFalse);
+    } finally {
+      await d2.dispose();
+    }
+  });
+
+  // ---- 时钟写回（Important 9）----
+
+  test('写回的逻辑时钟等于本轮实际使用过的最大时间戳', () async {
+    // 删掉建库时自动插入的默认相册：它的 createdAt 是「当前时间」，
+    // 会把时钟顶到一个远大于测试用时间戳的值上。
+    final def = await d1.db.albumDao.getDefaultAlbum();
+    await d1.db.albumDao.delete(def!.id);
+
+    await insertMeme(d1, 'm1', updatedAt: 5000, hash: 'h1');
+    await insertMeme(d1, 'm2', updatedAt: 1000, hash: 'h2');
+    await d1.engine.sync();
+
+    // m1 的 5000 抬高远端时钟；把 m2 改到 1000 与 5000 之间，
+    // 迫使引擎使用 clock+1 兜底戳。
+    await d1.db.memeDao.touchUpdatedAt('m2', 2000);
+    await d1.engine.sync();
+
+    final m = await readManifest();
+    expect(m.memes['m2']!.updatedAt, 5001);
+    // 旧实现写回的是起始 clock(5000)，会依赖 maxUpdatedAt() 才能恢复。
+    expect(m.clock, 5001);
+    expect(await d1.db.syncStateDao.get('sync_clock'), '5001');
+  });
+
+  // ---- 幂等（Important 10）----
+
+  test('重复同步是幂等的：第二次 pushed/pulled/failed 全为 0', () async {
+    await insertMeme(d1, 'm1');
+    await d1.db.userStatsDao.incrementImported();
+    final r1 = await d1.engine.sync();
+    expect(r1.failed, 0);
+    expect(r1.pushed, greaterThan(0));
+    final before = await readManifest();
+
+    final r2 = await d1.engine.sync();
+    expect(r2.pushed, 0);
+    expect(r2.pulled, 0);
+    expect(r2.deleted, 0);
+    expect(r2.failed, 0);
+
+    final after = await readManifest();
+    expect(after.clock, before.clock);
+    expect(after.userStatsUpdatedAt, before.userStatsUpdatedAt);
+    expect(after.memes.length, before.memes.length);
+    expect(after.albums.length, before.albums.length);
+    for (final id in before.memes.keys) {
+      expect(after.memes[id]!.updatedAt, before.memes[id]!.updatedAt);
+    }
+    for (final id in before.albums.keys) {
+      expect(after.albums[id]!.updatedAt, before.albums[id]!.updatedAt);
     }
   });
 }

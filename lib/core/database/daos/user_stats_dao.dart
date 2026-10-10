@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../../services/s3_keys.dart';
 import '../database.dart';
 import '../tables/user_stats_table.dart';
 
@@ -93,7 +94,7 @@ class UserStatsDao {
   /// 标记用户统计已变更，用于 S3 同步的 LWW 时间戳。
   Future<void> _touchSync() async {
     await _db.syncStateDao.set(
-      'user_stats_updated_at',
+      kUserStatsClockKey,
       DateTime.now().millisecondsSinceEpoch.toString(),
     );
   }

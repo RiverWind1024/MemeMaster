@@ -34,7 +34,11 @@ class Manifest {
   final int schema;
   final int generatedAt;
   final String lastWriter;
-  final int clock;
+
+  /// 逻辑时钟；同步阶段会在阶段 3 推进到「本轮实际使用过的最大时间戳」，
+  /// 因此不是 final（与 [userStatsUpdatedAt] 同理）。
+  int clock;
+
   final Map<String, ManifestEntry> memes;
   final Map<String, ManifestEntry> albums;
 

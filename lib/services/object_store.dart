@@ -4,9 +4,24 @@ import 'dart:typed_data';
 import 'package:minio/io.dart';
 import 'package:minio/minio.dart';
 
+/// S3「对象确实不存在」的判定。
+///
+/// 只有真正的 not-found（404 / NoSuchKey / NoSuchBucket / NotFound）才算「不存在」；
+/// 其余错误（5xx、503、限流、网络抖动）必须抛出，绝不能当成「对象缺失」——
+/// 否则一次瞬时故障会被同步引擎当成「远端是空的」，进而重写 manifest、
+/// 制造大批孤儿 blob，最后被清理逻辑误删。
+bool isS3NotFound(MinioS3Error e) {
+  final status = e.response?.statusCode;
+  if (status != null) return status == 404;
+  final code = e.error?.code;
+  return code == 'NoSuchKey' ||
+      code == 'NoSuchBucket' ||
+      code == 'NotFound';
+}
+
 /// 对象存储抽象：把 S3 操作与同步逻辑解耦，便于单测（内存实现）。
 abstract class ObjectStore {
-  /// 读取字节；不存在返回 null。
+  /// 读取字节；对象不存在返回 `null`，其他错误抛出。
   Future<Uint8List?> getBytes(String key);
 
   /// 写入字节。
@@ -18,7 +33,7 @@ abstract class ObjectStore {
   /// 下载到本地文件。
   Future<void> downloadToFile(String key, String destPath);
 
-  /// key 是否存在。
+  /// key 是否存在；非 not-found 的错误抛出。
   Future<bool> exists(String key);
 
   /// 列出指定前缀下的所有 key。
@@ -91,8 +106,9 @@ class MinioObjectStore implements ObjectStore {
         builder.add(chunk);
       }
       return builder.takeBytes();
-    } on MinioS3Error {
-      return null;
+    } on MinioS3Error catch (e) {
+      if (isS3NotFound(e)) return null;
+      rethrow;
     }
   }
 
@@ -118,8 +134,9 @@ class MinioObjectStore implements ObjectStore {
     try {
       await _client().statObject(bucket, key);
       return true;
-    } on MinioS3Error {
-      return false;
+    } on MinioS3Error catch (e) {
+      if (isS3NotFound(e)) return false;
+      rethrow;
     }
   }
 
