@@ -81,6 +81,9 @@ void main() {
     String id, {
     int? updatedAt,
     String? hash,
+    String? customName,
+    int copyCount = 0,
+    String? source,
   }) async {
     final ts = updatedAt ?? DateTime.now().millisecondsSinceEpoch;
     final h = hash ?? 'hash_$id';
@@ -90,6 +93,7 @@ void main() {
       id: id,
       filename: '$id.jpg',
       filePath: rel,
+      customName: customName,
       fileSize: 3,
       mimeType: 'image/jpeg',
       width: 1,
@@ -99,7 +103,8 @@ void main() {
       ocrAnalysisStatus: 'pending',
       aiAnalysisStatus: 'pending',
       fileHash: h,
-      copyCount: 0,
+      copyCount: copyCount,
+      source: source,
       createdAt: ts,
       updatedAt: ts,
       importedAt: ts,
@@ -266,6 +271,59 @@ void main() {
       final tomb = await d2.db.memeDao.getByIdIncludingDeleted('m1');
       expect(tomb, isNotNull);
       expect(tomb!.deletedAt, isNotNull);
+    } finally {
+      await d2.dispose();
+    }
+  });
+
+  test('拉取保留 customName/copyCount/source', () async {
+    await insertMeme(
+      d1,
+      'm1',
+      customName: '我的图',
+      copyCount: 7,
+      source: 'wechat',
+    );
+    await d1.engine.sync();
+
+    final d2 = await newDevice();
+    try {
+      final r2 = await d2.engine.sync();
+      expect(r2.failed, 0);
+      final pulled = await d2.db.memeDao.getById('m1');
+      expect(pulled, isNotNull);
+      expect(pulled!.customName, '我的图');
+      expect(pulled.copyCount, 7);
+      expect(pulled.source, 'wechat');
+    } finally {
+      await d2.dispose();
+    }
+  });
+
+  test('拉取时忽略本地不存在的相册（不因外键整单回滚）', () async {
+    await insertMeme(d1, 'm1', updatedAt: 1000, hash: 'h1');
+    await d1.engine.sync();
+
+    // 在远端 meme json 里塞入一个 manifest 中并不存在的相册 id。
+    final data = MemeSyncData.fromJson(
+        jsonDecode(utf8.decode((await store.getBytes('sync/memes/m1.json'))!))
+            as Map<String, dynamic>);
+    await store.putBytes(
+      'sync/memes/m1.json',
+      _bytes(MemeSyncData(
+        meme: data.meme,
+        tags: data.tags,
+        colors: data.colors,
+        albumIds: const ['ghost-album'],
+      ).toJson()),
+    );
+
+    final d2 = await newDevice();
+    try {
+      final r2 = await d2.engine.sync();
+      expect(r2.failed, 0);
+      expect(await d2.db.memeDao.getById('m1'), isNotNull);
+      expect(await d2.albumRepo.getAlbumIdsByMeme('m1'), isEmpty);
     } finally {
       await d2.dispose();
     }

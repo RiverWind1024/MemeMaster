@@ -272,9 +272,17 @@ class SyncEngine {
         await _db.into(_db.colorsTable).insertOnConflictUpdate(c);
       }
       final now = DateTime.now().millisecondsSinceEpoch;
-      for (final albumId in data.albumIds) {
-        await _db.into(_db.memeAlbumsTable).insertOnConflictUpdate(
-            MemeAlbum(memeId: data.meme.id, albumId: albumId, addedAt: now));
+      if (data.albumIds.isNotEmpty) {
+        // 仅插入本地真实存在的相册，避免 album 尚未拉取时外键失败导致整个事务回滚。
+        final existingRows = await (_db.select(_db.albumsTable)
+              ..where((t) => t.id.isIn(data.albumIds)))
+            .get();
+        final existingIds = existingRows.map((a) => a.id).toSet();
+        for (final albumId in data.albumIds) {
+          if (!existingIds.contains(albumId)) continue;
+          await _db.into(_db.memeAlbumsTable).insertOnConflictUpdate(
+              MemeAlbum(memeId: data.meme.id, albumId: albumId, addedAt: now));
+        }
       }
     });
   }

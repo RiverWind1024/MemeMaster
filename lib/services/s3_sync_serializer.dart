@@ -24,6 +24,7 @@ class MemeSyncData {
         'id': meme.id,
         'filename': meme.filename,
         'filePath': meme.filePath,
+        'customName': meme.customName,
         'fileHash': meme.fileHash,
         'fileSize': meme.fileSize,
         'mimeType': meme.mimeType,
@@ -38,6 +39,8 @@ class MemeSyncData {
         'createdAt': meme.createdAt,
         'updatedAt': meme.updatedAt,
         'importedAt': meme.importedAt,
+        'copyCount': meme.copyCount,
+        'source': meme.source,
         'deletedAt': meme.deletedAt,
         'tags': tags
             .map((t) => {
@@ -68,6 +71,7 @@ class MemeSyncData {
         id: json['id'] as String,
         filename: json['filename'] as String,
         filePath: json['filePath'] as String,
+        customName: json['customName'] as String?,
         fileHash: json['fileHash'] as String,
         fileSize: json['fileSize'] as int,
         mimeType: json['mimeType'] as String,
