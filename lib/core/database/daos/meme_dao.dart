@@ -332,4 +332,21 @@ class MemeDao {
           ..orderBy([(t) => OrderingTerm.asc(t.updatedAt)]))
         .get();
   }
+
+  /// 获取所有 meme（含墓碑），供全量同步比对。
+  Future<List<Meme>> getAllIncludingDeleted() {
+    return _db.select(_db.memesTable).get();
+  }
+
+  /// 按 id 查询（含墓碑）。
+  Future<Meme?> getByIdIncludingDeleted(String id) {
+    return (_db.select(_db.memesTable)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+  }
+
+  /// 仅更新 updatedAt（用于子数据变更时 bump 父 meme）。
+  Future<void> touchUpdatedAt(String id, int ts) async {
+    await (_db.update(_db.memesTable)..where((t) => t.id.equals(id)))
+        .write(MemesTableCompanion(updatedAt: Value(ts)));
+  }
 }
