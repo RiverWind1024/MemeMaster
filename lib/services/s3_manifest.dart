@@ -37,9 +37,11 @@ class Manifest {
   final int clock;
   final Map<String, ManifestEntry> memes;
   final Map<String, ManifestEntry> albums;
-  final int? userStatsUpdatedAt;
 
-  const Manifest({
+  /// 用户统计最近一次更新时间；同步阶段会原地更新后写回 manifest。
+  int? userStatsUpdatedAt;
+
+  Manifest({
     required this.schema,
     required this.generatedAt,
     required this.lastWriter,
@@ -49,7 +51,7 @@ class Manifest {
     this.userStatsUpdatedAt,
   });
 
-  factory Manifest.empty() => const Manifest(
+  factory Manifest.empty() => Manifest(
         schema: currentSchema,
         generatedAt: 0,
         lastWriter: '',

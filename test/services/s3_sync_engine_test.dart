@@ -328,4 +328,21 @@ void main() {
       await d2.dispose();
     }
   });
+
+  test('用户统计：本地变更推送，其他设备拉取', () async {
+    await d1.db.userStatsDao.incrementImported();
+    final r1 = await d1.engine.sync();
+    expect(r1.failed, 0);
+    expect(await store.exists('sync/user_stats.json'), isTrue);
+
+    final d2 = await newDevice();
+    try {
+      final r2 = await d2.engine.sync();
+      expect(r2.failed, 0);
+      final totals = await d2.db.userStatsDao.getTotals();
+      expect(totals['totalImported'], 1);
+    } finally {
+      await d2.dispose();
+    }
+  });
 }

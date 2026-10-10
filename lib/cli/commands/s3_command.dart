@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:minio/minio.dart';
 
+import '../../services/object_store.dart';
 import '../../services/s3_config.dart';
 import '../../services/s3_secret_store.dart';
+import '../../services/s3_sync_engine.dart';
 import '../../services/s3_sync_service.dart';
-import '../../services/s3_sync_serializer.dart';
 import '../cli_context.dart';
 import 'command.dart';
 
@@ -68,20 +70,33 @@ class S3Command extends CliCommand {
   }
 
   S3SyncService _buildService(CliContext context) {
-    final service = S3SyncService(
+    final config = context.s3Config;
+    Minio client() => Minio(
+          endPoint: config.endpoint,
+          accessKey: config.accessKey,
+          secretKey: config.secretKey,
+          region: config.region,
+          useSSL: config.useSsl,
+          pathStyle: config.pathStyle,
+        );
+    final store = MinioObjectStore(client: client, bucket: config.bucket);
+    final secretStore = _InMemoryS3SecretStore();
+    final engine = SyncEngine(
+      store: store,
       memeRepo: context.memeRepo,
       albumRepo: context.albumRepo,
-      storage: context.storage,
-      syncStateDao: context.db.syncStateDao,
-      serializer: S3SyncSerializer(
-        memeRepo: context.memeRepo,
-        albumRepo: context.albumRepo,
-        db: context.db,
-      ),
-      secretStore: _InMemoryS3SecretStore(),
       db: context.db,
+      syncStateDao: context.db.syncStateDao,
+      secretStore: secretStore,
+      storage: context.storage,
     );
-    service.updateConfig(context.s3Config);
+    final service = S3SyncService(
+      store: store,
+      engine: engine,
+      syncStateDao: context.db.syncStateDao,
+      secretStore: secretStore,
+    );
+    service.updateConfig(config);
     return service;
   }
 
@@ -96,13 +111,15 @@ class S3Command extends CliCommand {
   Future<int> _consume(Stream<S3SyncProgress> stream, String label) async {
     var hadError = false;
     await for (final p in stream) {
-      if (p.errorMessage != null) {
+      if (p.status == S3SyncStatus.error) {
         stderr.writeln('错误: ${p.errorMessage}');
         hadError = true;
       } else if (p.status == S3SyncStatus.uploading ||
           p.status == S3SyncStatus.downloading) {
         final verb = p.status == S3SyncStatus.uploading ? '上传' : '下载';
         print('$verb ${p.completed}/${p.total}');
+      } else if (p.summary != null) {
+        print(p.summary);
       }
     }
     print('$label${hadError ? '完成（有错误）' : '完成'}');

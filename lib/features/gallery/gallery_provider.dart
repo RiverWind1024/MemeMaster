@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:minio/minio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/database/database.dart';
@@ -24,10 +25,11 @@ import '../../services/parallel_analysis_scheduler.dart';
 import '../../services/file_storage_service.dart';
 import '../../core/ocr/tesseract_bindings.dart';
 import '../../services/log_service.dart';
+import '../../services/object_store.dart';
 import '../../services/s3_config.dart';
 import '../../services/s3_secret_store_flutter.dart';
+import '../../services/s3_sync_engine.dart';
 import '../../services/s3_sync_service.dart';
-import '../../services/s3_sync_serializer.dart';
 import '../../services/import_service.dart';
 import '../../services/model_search_service.dart';
 import '../../services/search_service.dart';
@@ -930,24 +932,42 @@ final s3ConfigProvider =
 
 final s3SyncServiceProvider = Provider<S3SyncService>((ref) {
   final db = ref.read(databaseProvider);
-  final service = S3SyncService(
+  // watch 配置：bucket 等无法在 MinioObjectStore 建立后更改，配置变化时重建整个服务。
+  final initial = ref.watch(s3ConfigProvider).valueOrNull ?? const S3Config();
+
+  // 客户端工厂在每次调用时读取最新配置，使配置编辑即时生效。
+  Minio client() {
+    final config = ref.read(s3ConfigProvider).valueOrNull ?? const S3Config();
+    return Minio(
+      endPoint: config.endpoint,
+      accessKey: config.accessKey,
+      secretKey: config.secretKey,
+      region: config.region,
+      useSSL: config.useSsl,
+      pathStyle: config.pathStyle,
+    );
+  }
+
+  final store = MinioObjectStore(client: client, bucket: initial.bucket);
+  const secretStore = FlutterSecureStorageS3SecretStore();
+  final engine = SyncEngine(
+    store: store,
     memeRepo: ref.read(memeRepositoryProvider),
     albumRepo: ref.read(albumRepositoryProvider),
-    storage: ref.read(fileStorageServiceProvider),
-    syncStateDao: db.syncStateDao,
-    serializer: S3SyncSerializer(
-      memeRepo: ref.read(memeRepositoryProvider),
-      albumRepo: ref.read(albumRepositoryProvider),
-      db: db,
-    ),
-    secretStore: const FlutterSecureStorageS3SecretStore(),
     db: db,
+    syncStateDao: db.syncStateDao,
+    secretStore: secretStore,
+    storage: ref.read(fileStorageServiceProvider),
+  );
+  final service = S3SyncService(
+    store: store,
+    engine: engine,
+    syncStateDao: db.syncStateDao,
+    secretStore: secretStore,
     log: ref.read(logServiceProvider),
   );
-  final config = ref.read(s3ConfigProvider).valueOrNull;
-  if (config != null) {
-    service.updateConfig(config);
-  }
+  service.updateConfig(initial);
+  ref.onDispose(service.dispose);
   return service;
 });
 

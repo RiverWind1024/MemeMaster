@@ -18,9 +18,13 @@ const _manifestKey = 'sync/manifest.json';
 const _memePrefix = 'sync/memes/';
 const _albumPrefix = 'sync/albums/';
 const _blobPrefix = 'blobs/';
+const _userStatsKey = 'sync/user_stats.json';
 
 /// 本地逻辑时钟在 SyncStateDao 中的 key。
 const _clockKey = 'sync_clock';
+
+/// 本地用户统计变更时间在 SyncStateDao 中的 key。
+const _userStatsClockKey = 'user_stats_updated_at';
 
 /// 本地 deviceId 在 S3SecretStore 中的 key。
 const _deviceIdKey = 'device_id';
@@ -235,6 +239,9 @@ class SyncEngine {
       }
     }
 
+    // ---- 用户统计同步 ----
+    await _syncUserStats(remote, newManifest, result);
+
     // ---- 阶段 3：收敛 ----
     // newManifest.memes/albums 是可变 Map，阶段 1/2 已原地更新，直接写回即可。
     await _store.putBytes(_manifestKey, _encode(newManifest.toJson()));
@@ -244,6 +251,47 @@ class SyncEngine {
   }
 
   // ---- 辅助 ----
+
+  /// 用户统计的 LWW 同步。
+  ///
+  /// 本地时间戳来自 sync_state 的 `user_stats_updated_at`，远端时间戳来自
+  /// manifest 的 `userStatsUpdatedAt`。本地更新则推送，远端更新则拉取并落库。
+  Future<void> _syncUserStats(
+      Manifest remote, Manifest newManifest, SyncResult result) async {
+    final localTs =
+        int.tryParse(await _syncStateDao.get(_userStatsClockKey) ?? '') ?? 0;
+    final remoteTs = remote.userStatsUpdatedAt ?? 0;
+
+    if (localTs > remoteTs) {
+      final rows = await _db.userStatsDao.getAll();
+      if (rows.isNotEmpty) {
+        await _store.putBytes(
+          _userStatsKey,
+          _encode(<String, dynamic>{
+            'updatedAt': localTs,
+            'rows': rows.map((r) => r.toJson()).toList(),
+          }),
+        );
+        newManifest.userStatsUpdatedAt = localTs;
+        result.pushed++;
+      }
+    } else if (remoteTs > localTs) {
+      final bytes = await _store.getBytes(_userStatsKey);
+      if (bytes != null) {
+        final j = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
+        final rows = (j['rows'] as List?) ?? const [];
+        for (final r in rows) {
+          await _db
+              .into(_db.userStatsTable)
+              .insertOnConflictUpdate(
+                  UserStatsEntry.fromJson(r as Map<String, dynamic>));
+        }
+        await _syncStateDao.set(_userStatsClockKey, remoteTs.toString());
+        newManifest.userStatsUpdatedAt = remoteTs;
+        result.pulled++;
+      }
+    }
+  }
 
   Future<MemeSyncData> _buildMemeData(Meme meme) async {
     final tags = await _memeRepo.getTags(meme.id);
