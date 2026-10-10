@@ -288,6 +288,41 @@
       }
     }
   },
+  "syncNow": "立即同步",
+  "s3StatsReferenced": "已引用图片：{count}",
+  "@s3StatsReferenced": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "s3StatsOrphan": "未引用图片：{count}",
+  "@s3StatsOrphan": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "s3StatsMeta": "元数据文件：{count}",
+  "@s3StatsMeta": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cleanupOrphans": "清理未引用图片",
+  "cleanupOrphansDone": "已清理 {count} 个文件",
+  "@cleanupOrphansDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cleanupOrphansConfirmBody": "将删除 S3 上未被引用的图片与旧格式残留文件，确定继续？",
   "calculating": "统计中...",
   "clickToRefresh": "点击右侧按钮刷新",
   "refresh": "刷新",

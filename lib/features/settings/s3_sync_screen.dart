@@ -49,6 +49,10 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(progress.errorMessage!)),
           );
+        } else if (progress.summary != null && progress.summary!.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(progress.summary!)),
+          );
         }
       }
     }, onError: (error) {
@@ -96,6 +100,45 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
       }
     } finally {
       if (mounted) setState(() => _loadingStats = false);
+    }
+  }
+
+  Future<void> _cleanupOrphans() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(S.of(context).cleanupOrphans),
+        content: Text(S.of(context).cleanupOrphansConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
+            child: Text(S.of(context).cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
+            child: Text(S.of(context).confirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final removed =
+          await ref.read(s3SyncServiceProvider).cleanupOrphans();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(S.of(context).cleanupOrphansDone(removed))),
+      );
+      await _refreshStorageStats();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(S.of(context).s3SyncFailed(e.toString()))),
+      );
     }
   }
 
@@ -320,38 +363,12 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
               padding: const EdgeInsets.all(12),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _syncButton(
-                          label: S.of(context).fullUpload,
-                          icon: Icons.cloud_upload,
-                          enabled: isConfigured && !inProgress,
-                          onPressed: () => _startSync(
-                              () => ref.read(s3SyncServiceProvider).uploadAll()),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _syncButton(
-                          label: S.of(context).fullDownload,
-                          icon: Icons.cloud_download,
-                          enabled: isConfigured && !inProgress,
-                          onPressed: () => _startSync(() =>
-                              ref.read(s3SyncServiceProvider).downloadAll()),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _syncButton(
-                          label: S.of(context).incrementalSync,
-                          icon: Icons.sync,
-                          enabled: isConfigured && !inProgress,
-                          onPressed: () => _startSync(() =>
-                              ref.read(s3SyncServiceProvider).incremental()),
-                        ),
-                      ),
-                    ],
+                  _syncButton(
+                    label: S.of(context).syncNow,
+                    icon: Icons.sync,
+                    enabled: isConfigured && !inProgress,
+                    onPressed: () => _startSync(() =>
+                        ref.read(s3SyncServiceProvider).incremental()),
                   ),
                   if (inProgress)
                     Padding(
@@ -377,7 +394,9 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
           const SizedBox(height: 16),
 
           // ---- 进度 ----
-          if (inProgress || progress.status == S3SyncStatus.error) ...[
+          if (inProgress ||
+              progress.status == S3SyncStatus.error ||
+              (progress.summary != null && progress.summary!.isNotEmpty)) ...[
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -392,29 +411,38 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                           const Icon(Icons.cloud_upload, size: 18),
                         if (progress.status == S3SyncStatus.downloading)
                           const Icon(Icons.cloud_download, size: 18),
+                        if (progress.status == S3SyncStatus.idle &&
+                            progress.summary != null)
+                          const Icon(Icons.check_circle,
+                              color: Colors.green, size: 18),
                         const SizedBox(width: 8),
-                        Text(
-                          progress.status == S3SyncStatus.uploading
-                              ? S.of(context).uploading
-                              : progress.status == S3SyncStatus.downloading
-                                  ? S.of(context).downloading
-                                  : S.of(context).error,
-                          style: theme.textTheme.titleSmall,
-                        ),
+                        if (progress.status == S3SyncStatus.uploading ||
+                            progress.status == S3SyncStatus.downloading ||
+                            progress.status == S3SyncStatus.error)
+                          Text(
+                            progress.status == S3SyncStatus.uploading
+                                ? S.of(context).uploading
+                                : progress.status == S3SyncStatus.downloading
+                                    ? S.of(context).downloading
+                                    : S.of(context).error,
+                            style: theme.textTheme.titleSmall,
+                          ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    if (progress.total > 0) ...[
-                      LinearProgressIndicator(
-                        value: progress.fraction,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${progress.completed}/${progress.total}',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ] else
-                      const LinearProgressIndicator(),
+                    if (inProgress) ...[
+                      const SizedBox(height: 12),
+                      if (progress.total > 0) ...[
+                        LinearProgressIndicator(
+                          value: progress.fraction,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${progress.completed}/${progress.total}',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ] else
+                        const LinearProgressIndicator(),
+                    ],
                     if (progress.errorMessage != null) ...[
                       const SizedBox(height: 8),
                       Text(
@@ -422,6 +450,14 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: Colors.red,
                         ),
+                      ),
+                    ],
+                    if (progress.summary != null &&
+                        progress.summary!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        progress.summary!,
+                        style: theme.textTheme.bodySmall,
                       ),
                     ],
                   ],
@@ -437,31 +473,84 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
           Card(
             child: Column(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.cloud),
-                  title: Text(S.of(context).s3Storage),
-                  subtitle: Text(
-                    _storageStats != null
-                        ? S.of(context).storageStatsDetail(_formatBytes(_storageStats!.totalBytes), _storageStats!.objectCount)
-                        : _loadingStats
-                            ? S.of(context).calculating
-                            : S.of(context).clickToRefresh,
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  trailing: TextButton.icon(
-                    icon: _loadingStats
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.refresh, size: 18),
-                    label: Text(S.of(context).refresh),
-                    onPressed: isConfigured && !_loadingStats
-                        ? _refreshStorageStats
-                        : null,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Icon(Icons.cloud),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(S.of(context).s3Storage),
+                            const SizedBox(height: 4),
+                            Text(
+                              _storageStats != null
+                                  ? S.of(context).storageStatsDetail(
+                                      _formatBytes(_storageStats!.totalBytes),
+                                      _storageStats!.objectCount)
+                                  : _loadingStats
+                                      ? S.of(context).calculating
+                                      : S.of(context).clickToRefresh,
+                              style: theme.textTheme.bodySmall,
+                            ),
+                            if (_storageStats != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                S.of(context).s3StatsReferenced(
+                                    _storageStats!.referencedImages),
+                                style: theme.textTheme.bodySmall,
+                              ),
+                              Text(
+                                S.of(context).s3StatsOrphan(
+                                    _storageStats!.orphanImages),
+                                style: theme.textTheme.bodySmall,
+                              ),
+                              Text(
+                                S.of(context).s3StatsMeta(
+                                    _storageStats!.metaFiles),
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      TextButton.icon(
+                        icon: _loadingStats
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.refresh, size: 18),
+                        label: Text(S.of(context).refresh),
+                        onPressed: isConfigured && !_loadingStats
+                            ? _refreshStorageStats
+                            : null,
+                      ),
+                    ],
                   ),
                 ),
+                if (_storageStats != null) ...[
+                  const Divider(height: 1),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.cleaning_services, size: 18),
+                        label: Text(S.of(context).cleanupOrphans),
+                        onPressed: inProgress ? null : _cleanupOrphans,
+                      ),
+                    ),
+                  ),
+                ],
                 FutureBuilder<int>(
                   future: ref.read(fileStorageServiceProvider).storageUsed(),
                   builder: (ctx, localSnapshot) {

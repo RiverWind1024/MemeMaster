@@ -991,11 +991,50 @@ abstract class S {
   /// **'S3 存储'**
   String get s3Storage;
 
-  /// No description provided for @storageStatsDetail.
-  ///
-  /// In zh, this message translates to:
   /// **'{size} · {count} 个文件'**
   String storageStatsDetail(String size, int count);
+
+  /// No description provided for @syncNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即同步'**
+  String get syncNow;
+
+  /// No description provided for @s3StatsReferenced.
+  ///
+  /// In zh, this message translates to:
+  /// **'已引用图片：{count}'**
+  String s3StatsReferenced(int count);
+
+  /// No description provided for @s3StatsOrphan.
+  ///
+  /// In zh, this message translates to:
+  /// **'未引用图片：{count}'**
+  String s3StatsOrphan(int count);
+
+  /// No description provided for @s3StatsMeta.
+  ///
+  /// In zh, this message translates to:
+  /// **'元数据文件：{count}'**
+  String s3StatsMeta(int count);
+
+  /// No description provided for @cleanupOrphans.
+  ///
+  /// In zh, this message translates to:
+  /// **'清理未引用图片'**
+  String get cleanupOrphans;
+
+  /// No description provided for @cleanupOrphansDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已清理 {count} 个文件'**
+  String cleanupOrphansDone(int count);
+
+  /// No description provided for @cleanupOrphansConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'将删除 S3 上未被引用的图片与旧格式残留文件，确定继续？'**
+  String get cleanupOrphansConfirmBody;
 
   /// No description provided for @calculating.
   ///

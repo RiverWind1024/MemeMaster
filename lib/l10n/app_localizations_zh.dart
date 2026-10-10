@@ -499,6 +499,35 @@ class SZh extends S {
   }
 
   @override
+  String get syncNow => '立即同步';
+
+  @override
+  String s3StatsReferenced(int count) {
+    return '已引用图片：$count';
+  }
+
+  @override
+  String s3StatsOrphan(int count) {
+    return '未引用图片：$count';
+  }
+
+  @override
+  String s3StatsMeta(int count) {
+    return '元数据文件：$count';
+  }
+
+  @override
+  String get cleanupOrphans => '清理未引用图片';
+
+  @override
+  String cleanupOrphansDone(int count) {
+    return '已清理 $count 个文件';
+  }
+
+  @override
+  String get cleanupOrphansConfirmBody => '将删除 S3 上未被引用的图片与旧格式残留文件，确定继续？';
+
+  @override
   String get calculating => '统计中...';
 
   @override

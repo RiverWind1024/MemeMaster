@@ -511,6 +511,35 @@ class SEn extends S {
   }
 
   @override
+  String get syncNow => 'Sync Now';
+
+  @override
+  String s3StatsReferenced(int count) {
+    return 'Referenced images: $count';
+  }
+
+  @override
+  String s3StatsOrphan(int count) {
+    return 'Unreferenced images: $count';
+  }
+
+  @override
+  String s3StatsMeta(int count) {
+    return 'Metadata files: $count';
+  }
+
+  @override
+  String get cleanupOrphans => 'Clean up unreferenced';
+
+  @override
+  String cleanupOrphansDone(int count) {
+    return 'Removed $count files';
+  }
+
+  @override
+  String get cleanupOrphansConfirmBody => 'This deletes unreferenced images and legacy files on S3. Continue?';
+
+  @override
   String get calculating => 'Calculating...';
 
   @override
