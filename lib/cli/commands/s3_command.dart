@@ -34,13 +34,21 @@ class _InMemoryS3SecretStore implements S3SecretStore {
 class S3Command extends CliCommand {
   S3Command() : super(name: 's3', description: 'S3 同步相关操作');
 
+  /// `upload` / `download` 的兼容别名提示。
+  ///
+  /// 引擎是双向 LWW 同步，没有单向推送/拉取：跑 `s3 download` 期望「从云端恢复」
+  /// 实际上会把本地较新的数据也推上去，因此必须显式告知。
+  static const _bidirectionalNotice =
+      '提示：当前版本为双向 LWW 同步（本地较新数据也会上传），'
+      'upload/download 等价于 sync。';
+
   @override
   bool get needsCliConfig => true;
 
   @override
   Future<int> run(CliContext context, ArgResults args) async {
     if (args.rest.isEmpty) {
-      stderr.writeln('用法: mememaster s3 <test|sync|upload|download|stats>');
+      stderr.writeln(_usage());
       return 1;
     }
     final sub = args.rest.first;
@@ -58,16 +66,29 @@ class S3Command extends CliCommand {
       case 'sync':
         return _consume(service.incremental(), '增量同步');
       case 'upload':
+        stderr.writeln(_bidirectionalNotice);
         return _consume(service.uploadAll(), '全量上传');
       case 'download':
+        stderr.writeln(_bidirectionalNotice);
         return _consume(service.downloadAll(), '全量下载');
       case 'stats':
         return _stats(context, service);
       default:
         stderr.writeln('未知 s3 子命令: $sub');
+        stderr.writeln(_usage());
         return 1;
     }
   }
+
+  static String _usage() => '''
+用法: mememaster s3 <test|sync|upload|download|stats>
+  test                测试 S3 连接
+  sync                双向 LWW 同步（等价于 upload / download）
+  upload / download   兼容别名，实际执行的是双向同步
+  stats               统计 bucket 用量（总量 / 引用 / 孤儿 / 元数据）
+
+已知限制：删除操作不写墓碑，清理后的删除无法再传播到其他设备。
+$_bidirectionalNotice''';
 
   S3SyncService _buildService(CliContext context) {
     final config = context.s3Config;
@@ -133,9 +154,19 @@ class S3Command extends CliCommand {
         print(jsonEncode({
           'totalBytes': stats.totalBytes,
           'objectCount': stats.objectCount,
+          'referencedImages': stats.referencedImages,
+          'orphanImages': stats.orphanImages,
+          'metaFiles': stats.metaFiles,
         }));
       } else {
         print('S3 存储用量: ${stats.totalBytes} 字节, ${stats.objectCount} 个对象');
+        print('  引用图片: ${stats.referencedImages}');
+        print('  孤儿图片: ${stats.orphanImages}');
+        print('  元数据文件: ${stats.metaFiles}');
+        final blocked = await service.cleanupBlockedReason();
+        if (blocked != null) {
+          print('  清理提示: $blocked');
+        }
       }
       return 0;
     } catch (e) {

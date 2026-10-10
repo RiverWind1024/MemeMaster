@@ -23,8 +23,10 @@ class ColorDao {
     await _db.batch((batch) {
       batch.insertAllOnConflictUpdate(_db.colorsTable, colors);
     });
-    for (final c in colors) {
-      await _touch(c.memeId);
+    // 同一个 meme 可能带多条颜色，逐条 _touch 只会把同一个 updatedAt 重复写一遍。
+    final memeIds = colors.map((c) => c.memeId).toSet();
+    for (final memeId in memeIds) {
+      await _touch(memeId);
     }
   }
 

@@ -23,8 +23,10 @@ class TagDao {
     await _db.batch((batch) {
       batch.insertAllOnConflictUpdate(_db.tagsTable, tags);
     });
-    for (final t in tags) {
-      await _touch(t.memeId);
+    // 同一个 meme 可能带多条标签，逐条 _touch 只会把同一个 updatedAt 重复写一遍。
+    final memeIds = tags.map((t) => t.memeId).toSet();
+    for (final memeId in memeIds) {
+      await _touch(memeId);
     }
   }
 
