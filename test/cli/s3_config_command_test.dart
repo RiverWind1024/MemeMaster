@@ -227,5 +227,34 @@ void main() {
       expect(await store.exists('data/memes/x.json'), isFalse);
       expect(await store.exists('memes/hash.jpg'), isFalse);
     });
+
+    test('cleanupOrphans：manifest 缺失时中止清理且不删除任何对象', () async {
+      // 模拟 manifest 不可读（getBytes 返回 null，等同于瞬时错误）。
+      await store.delete('sync/manifest.json');
+
+      final removed = await service.cleanupOrphans();
+
+      expect(removed, 0);
+      // 无论是「在用」还是「疑似孤儿」的对象，以及遗留 key，都必须原样保留。
+      expect(await store.exists('blobs/refhash'), isTrue);
+      expect(await store.exists('blobs/orphanhash'), isTrue);
+      expect(await store.exists('snapshot-v1.json'), isTrue);
+      expect(await store.exists('data/memes.json'), isTrue);
+      expect(await store.exists('data/albums.json'), isTrue);
+      expect(await store.exists('data/memes/x.json'), isTrue);
+      expect(await store.exists('memes/hash.jpg'), isTrue);
+    });
+
+    test('getStorageStats：manifest 缺失时 orphanImages 记 0，不臆断孤儿', () async {
+      await store.delete('sync/manifest.json');
+
+      final stats = await service.getStorageStats();
+
+      expect(stats.objectCount, 7); // 8 - 1（manifest）
+      expect(stats.totalBytes, greaterThan(0));
+      expect(stats.referencedImages, 0);
+      expect(stats.orphanImages, 0);
+      expect(stats.metaFiles, 5); // 7 - 2 个 blob
+    });
   });
 }

@@ -51,6 +51,10 @@ class S3SyncService {
   /// 清空密码在 S3SecretStore 中的键名
   static const clearPasswordKey = 's3_clear_password';
 
+  /// manifest 与 blob 前缀常量
+  static const _manifestKey = 'sync/manifest.json';
+  static const _blobPrefix = 'blobs/';
+
   S3SyncService({
     required ObjectStore store,
     required SyncEngine engine,
@@ -174,6 +178,11 @@ class S3SyncService {
 
   /// 遍历 S3 bucket 统计存储用量与图片分项。
   /// 未配置 S3 时抛出异常（调用方应只在已配置时调用）。
+  ///
+  /// 使用单次列举（[ObjectStore.listWithSizes]）同时得到对象数与字节数，
+  /// 并从同一份 key 集合派生 blob 集合，避免两次列举漂移。
+  /// 若 manifest 缺失或不可读，无法确定引用集，此时将 `orphanImages`
+  /// 保守地记为 `0`（不臆断全部 blob 为孤儿）。
   Future<SyncStats> getStorageStats() async {
     if (!isConfigured) {
       throw StateError('S3 未配置');
@@ -181,24 +190,37 @@ class S3SyncService {
     int totalBytes = 0;
     int objectCount = 0;
     try {
-      final withSizes = await _store.listWithSizes('');
-      for (final size in withSizes.values) {
+      final listing = await _store.listWithSizes('');
+      for (final size in listing.values) {
         totalBytes += size;
       }
-      objectCount = withSizes.length;
+      objectCount = listing.length;
 
-      final blobs = await _store.list('blobs/');
+      final blobHashes = listing.keys
+          .where((k) => k.startsWith(_blobPrefix))
+          .map((k) => k.substring(_blobPrefix.length))
+          .toSet();
+      final metaFiles = objectCount - blobHashes.length;
+
       final referenced = await _referencedHashes();
-      final blobHashes =
-          blobs.map((k) => k.substring('blobs/'.length)).toSet();
-      final orphanImages = blobHashes.difference(referenced).length;
+      if (referenced == null) {
+        // manifest 缺失/不可读：不报告孤儿，避免误导用户误删。
+        _log?.warning('S3', 'manifest 缺失或不可读，孤儿图片统计记为 0');
+        return SyncStats(
+          totalBytes: totalBytes,
+          objectCount: objectCount,
+          referencedImages: 0,
+          orphanImages: 0,
+          metaFiles: metaFiles,
+        );
+      }
 
       return SyncStats(
         totalBytes: totalBytes,
         objectCount: objectCount,
         referencedImages: referenced.length,
-        orphanImages: orphanImages,
-        metaFiles: objectCount - blobHashes.length,
+        orphanImages: blobHashes.difference(referenced).length,
+        metaFiles: metaFiles,
       );
     } catch (e) {
       _log?.warning('S3', '获取存储统计失败: $e');
@@ -214,9 +236,13 @@ class S3SyncService {
   }
 
   /// 读取 manifest 中被引用的图片哈希集合。
-  Future<Set<String>> _referencedHashes() async {
-    final bytes = await _store.getBytes('sync/manifest.json');
-    if (bytes == null) return {};
+  ///
+  /// 返回 `null` 表示 manifest 缺失或不可读（无法确定引用集）。注意
+  /// [MinioObjectStore.getBytes] 会把任意 [MinioS3Error]（含瞬时 503）
+  /// 一律转为 `null`，因此调用方必须把 `null` 当作「无法确定」而非「无引用」。
+  Future<Set<String>?> _referencedHashes() async {
+    final bytes = await _store.getBytes(_manifestKey);
+    if (bytes == null) return null;
     final manifest = Manifest.fromJson(
         jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>);
     return manifest.memes.values
@@ -228,15 +254,23 @@ class S3SyncService {
   // ---- 孤儿清理 ----
 
   /// 删除未被 manifest 引用的 blobs 与遗留旧 key，返回删除数量。
+  ///
+  /// 若 manifest 缺失或不可读，则**中止清理且不删除任何对象**，返回 `0`
+  /// （记录 warning）。这是有意的保守策略：无法确定引用集时绝不把
+  /// 「读不到 manifest」当作「没有引用」，否则会误删全部在用 blob。
   Future<int> cleanupOrphans() async {
     if (!isConfigured) {
       throw StateError('S3 未配置');
     }
     final referenced = await _referencedHashes();
+    if (referenced == null) {
+      _log?.warning('S3', 'manifest 缺失或不可读，已中止孤儿清理（未删除任何对象）');
+      return 0;
+    }
     var removed = 0;
 
-    for (final key in await _store.list('blobs/')) {
-      final hash = key.substring('blobs/'.length);
+    for (final key in await _store.list(_blobPrefix)) {
+      final hash = key.substring(_blobPrefix.length);
       if (!referenced.contains(hash)) {
         await _store.delete(key);
         removed++;
