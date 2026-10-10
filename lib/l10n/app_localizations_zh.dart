@@ -470,15 +470,6 @@ class SZh extends S {
   String get syncOperations => '同步操作';
 
   @override
-  String get fullUpload => '全量上传';
-
-  @override
-  String get fullDownload => '全量下载';
-
-  @override
-  String get incrementalSync => '增量同步';
-
-  @override
   String get uploading => '上传中';
 
   @override
@@ -518,6 +509,12 @@ class SZh extends S {
 
   @override
   String get cleanupOrphans => '清理未引用图片';
+
+  @override
+  String get s3SyncNoCancelHint => '同步过程无法中途取消，请勿关闭应用。';
+
+  @override
+  String get s3CleanupLimitation => '已知限制：删除操作不会留下同步记录，清理后的删除无法再同步到其他设备。';
 
   @override
   String cleanupOrphansDone(int count) {

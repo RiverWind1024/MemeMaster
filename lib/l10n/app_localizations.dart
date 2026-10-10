@@ -943,24 +943,6 @@ abstract class S {
   /// **'同步操作'**
   String get syncOperations;
 
-  /// No description provided for @fullUpload.
-  ///
-  /// In zh, this message translates to:
-  /// **'全量上传'**
-  String get fullUpload;
-
-  /// No description provided for @fullDownload.
-  ///
-  /// In zh, this message translates to:
-  /// **'全量下载'**
-  String get fullDownload;
-
-  /// No description provided for @incrementalSync.
-  ///
-  /// In zh, this message translates to:
-  /// **'增量同步'**
-  String get incrementalSync;
-
   /// No description provided for @uploading.
   ///
   /// In zh, this message translates to:
@@ -1023,6 +1005,18 @@ abstract class S {
   /// In zh, this message translates to:
   /// **'清理未引用图片'**
   String get cleanupOrphans;
+
+  /// No description provided for @s3SyncNoCancelHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步过程无法中途取消，请勿关闭应用。'**
+  String get s3SyncNoCancelHint;
+
+  /// No description provided for @s3CleanupLimitation.
+  ///
+  /// In zh, this message translates to:
+  /// **'已知限制：删除操作不会留下同步记录，清理后的删除无法再同步到其他设备。'**
+  String get s3CleanupLimitation;
 
   /// No description provided for @cleanupOrphansDone.
   ///

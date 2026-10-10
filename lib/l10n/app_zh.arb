@@ -269,9 +269,6 @@
   "connectionFailed": "连接失败",
   "test": "测试",
   "syncOperations": "同步操作",
-  "fullUpload": "全量上传",
-  "fullDownload": "全量下载",
-  "incrementalSync": "增量同步",
   "uploading": "上传中",
   "downloading": "下载中",
   "error": "错误",
@@ -314,6 +311,8 @@
     }
   },
   "cleanupOrphans": "清理未引用图片",
+  "s3SyncNoCancelHint": "同步过程无法中途取消，请勿关闭应用。",
+  "s3CleanupLimitation": "已知限制：删除操作不会留下同步记录，清理后的删除无法再同步到其他设备。",
   "cleanupOrphansDone": "已清理 {count} 个文件",
   "@cleanupOrphansDone": {
     "placeholders": {

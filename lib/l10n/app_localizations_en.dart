@@ -482,15 +482,6 @@ class SEn extends S {
   String get syncOperations => 'Sync Operations';
 
   @override
-  String get fullUpload => 'Full Upload';
-
-  @override
-  String get fullDownload => 'Full Download';
-
-  @override
-  String get incrementalSync => 'Incremental Sync';
-
-  @override
   String get uploading => 'Uploading';
 
   @override
@@ -530,6 +521,12 @@ class SEn extends S {
 
   @override
   String get cleanupOrphans => 'Clean up unreferenced';
+
+  @override
+  String get s3SyncNoCancelHint => 'A sync cannot be cancelled midway; do not close the app.';
+
+  @override
+  String get s3CleanupLimitation => 'Known limitation: deletions leave no sync record, so removals made by cleanup cannot propagate to other devices.';
 
   @override
   String cleanupOrphansDone(int count) {

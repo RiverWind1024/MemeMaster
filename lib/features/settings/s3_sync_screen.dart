@@ -24,6 +24,9 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
   SyncStats? _storageStats;
   bool _loadingStats = false;
 
+  /// 「清理孤儿」被拒绝的原因（非 null 时在同步按钮下方提示）。
+  String? _cleanupBlockedReason;
+
   @override
   void dispose() {
     _syncSubscription?.cancel();
@@ -44,6 +47,8 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
         // 刷新 meme 列表
         ref.invalidate(memeListProvider);
         ref.invalidate(memeCountProvider);
+        // 同步可能改变了 bucket 的迁移状态，重新查询清理前置条件。
+        _refreshCleanupGuard();
         // 显示成功或错误提示
         if (progress.errorMessage != null && progress.errorMessage!.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -101,6 +106,23 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
     } finally {
       if (mounted) setState(() => _loadingStats = false);
     }
+    await _refreshCleanupGuard();
+  }
+
+  /// 查询「清理孤儿」当前是否被前置条件阻止（未迁移 / manifest 不可读）。
+  Future<void> _refreshCleanupGuard() async {
+    final config = ref.read(s3ConfigProvider).valueOrNull ?? const S3Config();
+    if (!config.isValid) {
+      if (mounted) setState(() => _cleanupBlockedReason = null);
+      return;
+    }
+    try {
+      final reason =
+          await ref.read(s3SyncServiceProvider).cleanupBlockedReason();
+      if (mounted) setState(() => _cleanupBlockedReason = reason);
+    } catch (_) {
+      if (mounted) setState(() => _cleanupBlockedReason = null);
+    }
   }
 
   Future<void> _cleanupOrphans() async {
@@ -130,8 +152,13 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
       final removed =
           await ref.read(s3SyncServiceProvider).cleanupOrphans();
       if (!mounted) return;
+      final reason =
+          await ref.read(s3SyncServiceProvider).cleanupBlockedReason();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(S.of(context).cleanupOrphansDone(removed))),
+        SnackBar(
+          content: Text(reason ?? S.of(context).cleanupOrphansDone(removed)),
+        ),
       );
       await _refreshStorageStats();
     } catch (e) {
@@ -362,6 +389,7 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _syncButton(
                     label: S.of(context).syncNow,
@@ -370,21 +398,28 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                     onPressed: () => _startSync(() =>
                         ref.read(s3SyncServiceProvider).incremental()),
                   ),
-                  if (inProgress)
+                  const SizedBox(height: 8),
+                  // 同步不可中断（引擎没有取消点），因此不提供取消按钮。
+                  Text(
+                    S.of(context).s3SyncNoCancelHint,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  // 「清理未引用图片」的已知限制（无墓碑，删除无法传播）。
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      S.of(context).s3CleanupLimitation,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                  // 清理前置条件不满足时的提示（例如 bucket 还没完成 v1→v2 迁移）。
+                  if (_cleanupBlockedReason != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.cancel, size: 18),
-                          label: Text(S.of(context).cancel),
-                          onPressed: () {
-                            ref.read(s3SyncServiceProvider).cancel();
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                          ),
-                        ),
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _cleanupBlockedReason!,
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: Colors.orange),
                       ),
                     ),
                 ],
