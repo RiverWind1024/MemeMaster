@@ -98,44 +98,13 @@ final albumDaoProvider = Provider((ref) {
 
 final memeRepositoryProvider = Provider<MemeRepository>((ref) {
   final db = ref.read(databaseProvider);
-  final repo = MemeRepository(
+  return MemeRepository(
     memeDao: db.memeDao,
     tagDao: db.tagDao,
     colorDao: db.colorDao,
     queueDao: db.analysisQueueDao,
     fileStorage: ref.read(fileStorageServiceProvider),
   );
-  // 删除墓碑 → S3 同步：本地 delete() 后异步触发一次双向同步，
-  // 阶段 1 会把 deletedAt != null 的本地墓碑推到云端。
-  // s3SyncServiceProvider 不读 memeRepositoryProvider，无循环依赖。
-  repo.onMemeTombstoned = (memeId) async {
-    final s3 = ref.read(s3SyncServiceProvider);
-    if (!s3.isConfigured) return;
-    final completer = Completer<void>();
-    var done = false;
-    void finish() {
-      if (done) return;
-      done = true;
-      completer.complete();
-    }
-
-    final sub = s3.incremental().listen(
-      (p) {
-        if (p.status == S3SyncStatus.idle ||
-            p.status == S3SyncStatus.error) {
-          finish();
-        }
-      },
-      onError: (_, __) => finish(),
-      onDone: finish,
-    );
-    try {
-      await completer.future;
-    } finally {
-      await sub.cancel();
-    }
-  };
-  return repo;
 });
 
 final colorRepositoryProvider = Provider<ColorRepository>((ref) {
@@ -982,9 +951,10 @@ final s3SyncServiceProvider = Provider<S3SyncService>((ref) {
 
   final store = MinioObjectStore(client: client, bucket: initial.bucket);
   const secretStore = FlutterSecureStorageS3SecretStore();
+  final memeRepo = ref.read(memeRepositoryProvider);
   final engine = SyncEngine(
     store: store,
-    memeRepo: ref.read(memeRepositoryProvider),
+    memeRepo: memeRepo,
     albumRepo: ref.read(albumRepositoryProvider),
     db: db,
     syncStateDao: db.syncStateDao,
@@ -999,6 +969,38 @@ final s3SyncServiceProvider = Provider<S3SyncService>((ref) {
     log: ref.read(logServiceProvider),
   );
   service.updateConfig(initial);
+
+  // 删除墓碑 → S3 同步：本地 delete() 后异步触发一次双向同步，
+  // 阶段 1 会把 deletedAt != null 的本地墓碑推到云端。
+  // 这里建立绑定而不是在 memeRepositoryProvider 里做，是为了避免
+  // 两个 Provider 之间形成静态类型推断循环。
+  memeRepo.onMemeTombstoned = (memeId) async {
+    if (!service.isConfigured) return;
+    final completer = Completer<void>();
+    var done = false;
+    void finish() {
+      if (done) return;
+      done = true;
+      completer.complete();
+    }
+
+    final sub = service.incremental().listen(
+      (p) {
+        if (p.status == S3SyncStatus.idle ||
+            p.status == S3SyncStatus.error) {
+          finish();
+        }
+      },
+      onError: (_, __) => finish(),
+      onDone: finish,
+    );
+    try {
+      await completer.future;
+    } finally {
+      await sub.cancel();
+    }
+  };
+
   ref.onDispose(service.dispose);
   return service;
 });
