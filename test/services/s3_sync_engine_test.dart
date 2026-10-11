@@ -581,4 +581,56 @@ void main() {
       expect(after.albums[id]!.updatedAt, before.albums[id]!.updatedAt);
     }
   });
+
+  // ---- 进度回调 ----
+
+  test('onProgress 在 push 与 pull 阶段逐条目推进', () async {
+    await insertMeme(d1, 'm1');
+    await insertMeme(d1, 'm2');
+
+    final events = <SyncEngineProgress>[];
+    d1.engine.onProgress = (p) => events.add(p);
+
+    await d1.engine.sync();
+
+    // 阶段 1：push 阶段应有 (0, total) 起步 + 每条目一次推进。
+    expect(events.first.phase, 'push');
+    expect(events.first.done, 0);
+    expect(events.first.total, 2);
+    final pushEvents =
+        events.where((e) => e.phase == 'push').toList();
+    expect(pushEvents.length, 3); // 起步 + 2 条
+    expect(pushEvents.last.done, 2);
+    expect(pushEvents.last.total, 2);
+
+    // 阶段 2：pull 阶段本机为空，远端无增量；空跑也应发出起始事件。
+    final pullEvents =
+        events.where((e) => e.phase == 'pull').toList();
+    expect(pullEvents, isNotEmpty);
+    expect(pullEvents.last.total, pullEvents.last.done);
+  });
+
+  test('onProgress 反映远端拉取进度：每个远端条目一次推进', () async {
+    // 设备 1 先建 3 张图，写入云端。
+    await insertMeme(d1, 'm1');
+    await insertMeme(d1, 'm2');
+    await insertMeme(d1, 'm3');
+    await d1.engine.sync();
+    await d1.dispose();
+
+    // 设备 2 空载拉取。
+    final d2 = await newDevice();
+    final events = <SyncEngineProgress>[];
+    d2.engine.onProgress = (p) => events.add(p);
+
+    await d2.engine.sync();
+
+    final pullEvents =
+        events.where((e) => e.phase == 'pull').toList();
+    // pull 分母 = 远端 albums + memes = 1（默认相册）+ 3 = 4
+    expect(pullEvents.first.total, 4);
+    expect(pullEvents.last.done, 4);
+
+    await d2.dispose();
+  });
 }

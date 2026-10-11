@@ -24,6 +24,11 @@ class MemeRepository {
   final Uuid _uuid = const Uuid();
   final FileStorageService? _fileStorage;
 
+  /// 删除墓碑的回调，由调用方（通常是 GUI 的 provider）注入，
+  /// 用于在本地软删除完成后把墓碑异步推到 S3。
+  /// 同步失败不应影响本地删除：UI 会在下次手动同步时自动补齐。
+  Future<void> Function(String memeId)? onMemeTombstoned;
+
   MemeRepository({
     required this._memeDao,
     required this._tagDao,
@@ -34,6 +39,7 @@ class MemeRepository {
     AiAnalysisQueueDao? aiQueueDao,
     AlbumDao? albumDao,
     this._fileStorage,
+    this.onMemeTombstoned,
   })  : _colorQueueDao = colorQueueDao ?? ColorAnalysisQueueDao(_memeDao.database),
         _ocrQueueDao = ocrQueueDao ?? OcrAnalysisQueueDao(_memeDao.database),
         _aiQueueDao = aiQueueDao ?? AiAnalysisQueueDao(_memeDao.database),
@@ -123,6 +129,17 @@ class MemeRepository {
         await storage.deleteImage(meme.filePath);
       } catch (_) {
         // 文件已不存在或无法删除，不影响逻辑删除
+      }
+    }
+
+    // 触发墓碑上传回调。失败被吞掉：本地删除已完成，下次手动同步
+    // 阶段 1 会按 `meme.updatedAt > remoteEntry.updatedAt` 比较自动补齐。
+    final hook = onMemeTombstoned;
+    if (hook != null) {
+      try {
+        await hook(id);
+      } catch (_) {
+        // 同步失败不影响本地删除语义。
       }
     }
   }

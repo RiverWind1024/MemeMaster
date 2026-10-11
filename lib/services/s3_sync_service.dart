@@ -132,16 +132,39 @@ class S3SyncService {
     );
     try {
       await _ensureBucket();
-      final r = await _engine.sync();
-      yield S3SyncProgress(
-        status: S3SyncStatus.idle,
-        completed: 1,
-        total: 1,
-        summary: '完成：推送 ${r.pushed} / 拉取 ${r.pulled} / 删除 ${r.deleted} / '
-            '上传图片 ${r.imagesUploaded} / 下载图片 ${r.imagesDownloaded} / '
-            '缺图 ${r.imagesMissing} / 失败 ${r.failed}',
-      );
+      // 引擎无法在 async* 内部 yield，因此用 broadcast controller 把
+      // 条目级进度转发出来：UI 能看到「下载中 N/Z」而不是长期停在 0/1。
+      final progressController =
+          StreamController<S3SyncProgress>.broadcast();
+      final progressSub = progressController.stream.listen(yield);
+      _engine.onProgress = (p) {
+        if (p.total <= 0) return;
+        final status = p.phase == 'push'
+            ? S3SyncStatus.uploading
+            : S3SyncStatus.downloading;
+        progressController.add(S3SyncProgress(
+          status: status,
+          completed: p.done,
+          total: p.total,
+        ));
+      };
+      try {
+        final r = await _engine.sync();
+        yield S3SyncProgress(
+          status: S3SyncStatus.idle,
+          completed: 1,
+          total: 1,
+          summary: '完成：推送 ${r.pushed} / 拉取 ${r.pulled} / 删除 ${r.deleted} / '
+              '上传图片 ${r.imagesUploaded} / 下载图片 ${r.imagesDownloaded} / '
+              '缺图 ${r.imagesMissing} / 失败 ${r.failed}',
+        );
+      } finally {
+        await progressSub.cancel();
+        await progressController.close();
+        _engine.onProgress = null;
+      }
     } catch (e) {
+      _engine.onProgress = null;
       _log?.error('S3 增量同步失败', e.toString());
       yield S3SyncProgress(
         status: S3SyncStatus.error,

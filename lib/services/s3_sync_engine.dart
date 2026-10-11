@@ -28,6 +28,27 @@ class SyncResult {
   int failed = 0;
 }
 
+/// 引擎内部进度回调事件。
+///
+/// 仅用于把阶段 1/2 的「条目级」进度暴露给上层（让 UI 能看到「下载中」状态），
+/// 阶段 3 边界不向外汇报（它要么一起成功、要么整轮失败）。
+class SyncEngineProgress {
+  /// `push` / `pull`：当前所处的同步阶段。
+  final String phase;
+
+  /// 当前阶段已完成条目数。
+  final int done;
+
+  /// 当前阶段的总条目数（同步启动后才能确定）。
+  final int total;
+
+  const SyncEngineProgress({
+    required this.phase,
+    required this.done,
+    required this.total,
+  });
+}
+
 /// 三阶段 LWW 同步引擎。
 ///
 /// 只依赖 [ObjectStore] 与各 Repository，因此可在无网络、无 Flutter 插件的
@@ -64,6 +85,18 @@ class SyncEngine {
         _secretStore = secretStore,
         _storage = storage,
         _deviceIdOverride = deviceId;
+
+  /// 阶段 1/2 条目级进度回调（可选）。
+  ///
+  /// 调用方通常把它桥接成一个 stream，让 UI 能显示「正在下载 N/Z」之类的提示。
+  /// **仅供 UI 反馈使用**，错误仍通过抛异常暴露，调用方**不应**根据它修改业务状态。
+  void Function(SyncEngineProgress p)? onProgress;
+
+  void _emitProgress(String phase, int done, int total) {
+    final cb = onProgress;
+    if (cb == null) return;
+    cb(SyncEngineProgress(phase: phase, done: done, total: total));
+  }
 
   /// 图片 blob 的对象键。
   String blobKey(String hash) => '$kBlobPrefix$hash';
@@ -132,7 +165,10 @@ class SyncEngine {
 
     // ---- 阶段 1：推送本地变更 ----
     final localMemes = await _db.memeDao.getAllIncludingDeleted();
-    for (final meme in localMemes) {
+    final pushTotal = localMemes.length;
+    _emitProgress('push', 0, pushTotal);
+    for (var i = 0; i < localMemes.length; i++) {
+      final meme = localMemes[i];
       try {
         final remoteEntry = remote.memes[meme.id];
         final isChanged =
@@ -171,6 +207,7 @@ class SyncEngine {
       } catch (_) {
         result.failed++;
       }
+      _emitProgress('push', i + 1, pushTotal);
     }
 
     // 相册推送
@@ -203,6 +240,10 @@ class SyncEngine {
     }
 
     // ---- 阶段 2：拉取远端变更 ----
+    // 总进度分母：相册 + meme，每完成一条 emit 一次，便于 UI 显示「下载中 X/Y」。
+    final pullTotal = remote.albums.length + remote.memes.length;
+    var pullDone = 0;
+    _emitProgress('pull', 0, pullTotal);
     // 先拉相册，保证随后 meme 的 meme_albums 外键可满足。
     for (final entry in remote.albums.entries) {
       try {
@@ -220,6 +261,9 @@ class SyncEngine {
         if (applied) result.pulled++;
       } catch (_) {
         result.failed++;
+      } finally {
+        pullDone++;
+        _emitProgress('pull', pullDone, pullTotal);
       }
     }
 
@@ -264,6 +308,9 @@ class SyncEngine {
         result.pulled++;
       } catch (_) {
         result.failed++;
+      } finally {
+        pullDone++;
+        _emitProgress('pull', pullDone, pullTotal);
       }
     }
 

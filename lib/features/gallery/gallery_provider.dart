@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -97,13 +98,44 @@ final albumDaoProvider = Provider((ref) {
 
 final memeRepositoryProvider = Provider<MemeRepository>((ref) {
   final db = ref.read(databaseProvider);
-  return MemeRepository(
+  final repo = MemeRepository(
     memeDao: db.memeDao,
     tagDao: db.tagDao,
     colorDao: db.colorDao,
     queueDao: db.analysisQueueDao,
     fileStorage: ref.read(fileStorageServiceProvider),
   );
+  // 删除墓碑 → S3 同步：本地 delete() 后异步触发一次双向同步，
+  // 阶段 1 会把 deletedAt != null 的本地墓碑推到云端。
+  // s3SyncServiceProvider 不读 memeRepositoryProvider，无循环依赖。
+  repo.onMemeTombstoned = (memeId) async {
+    final s3 = ref.read(s3SyncServiceProvider);
+    if (!s3.isConfigured) return;
+    final completer = Completer<void>();
+    var done = false;
+    void finish() {
+      if (done) return;
+      done = true;
+      completer.complete();
+    }
+
+    final sub = s3.incremental().listen(
+      (p) {
+        if (p.status == S3SyncStatus.idle ||
+            p.status == S3SyncStatus.error) {
+          finish();
+        }
+      },
+      onError: (_, __) => finish(),
+      onDone: finish,
+    );
+    try {
+      await completer.future;
+    } finally {
+      await sub.cancel();
+    }
+  };
+  return repo;
 });
 
 final colorRepositoryProvider = Provider<ColorRepository>((ref) {
