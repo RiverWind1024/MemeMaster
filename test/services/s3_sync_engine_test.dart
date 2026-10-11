@@ -611,26 +611,43 @@ void main() {
   });
 
   test('onProgress 反映远端拉取进度：每个远端条目一次推进', () async {
-    // 设备 1 先建 3 张图，写入云端。
+    // 设备 1 先建 3 张图，写入云端。d1 由 tearDown 释放，不要手动 dispose。
     await insertMeme(d1, 'm1');
     await insertMeme(d1, 'm2');
     await insertMeme(d1, 'm3');
     await d1.engine.sync();
-    await d1.dispose();
 
-    // 设备 2 空载拉取。
-    final d2 = await newDevice();
+    // 设备 2 用一个独立的 InMemoryObjectStore 模拟「空设备」拉取。
+    final dir = await Directory.systemTemp.createTemp('engine2_');
+    final db = AppDatabase.open('${dir.path}/t.db');
+    final d2memeRepo = MemeRepository(
+      memeDao: db.memeDao,
+      tagDao: db.tagDao,
+      colorDao: db.colorDao,
+      queueDao: db.analysisQueueDao,
+    );
+    final d2engine = SyncEngine(
+      store: store,
+      memeRepo: d2memeRepo,
+      albumRepo: AlbumRepository(db.albumDao),
+      db: db,
+      syncStateDao: db.syncStateDao,
+      secretStore: InMemorySecret(),
+      storage: FileStorageService(basePath: '${dir.path}/memes'),
+    );
     final events = <SyncEngineProgress>[];
-    d2.engine.onProgress = (p) => events.add(p);
+    d2engine.onProgress = (p) => events.add(p);
+    try {
+      await d2engine.sync();
 
-    await d2.engine.sync();
-
-    final pullEvents =
-        events.where((e) => e.phase == 'pull').toList();
-    // pull 分母 = 远端 albums + memes = 1（默认相册）+ 3 = 4
-    expect(pullEvents.first.total, 4);
-    expect(pullEvents.last.done, 4);
-
-    await d2.dispose();
+      final pullEvents =
+          events.where((e) => e.phase == 'pull').toList();
+      // pull 分母 = 远端 albums + memes = 1（默认相册）+ 3 = 4
+      expect(pullEvents.first.total, 4);
+      expect(pullEvents.last.done, 4);
+    } finally {
+      await db.close();
+      await dir.delete(recursive: true);
+    }
   });
 }
