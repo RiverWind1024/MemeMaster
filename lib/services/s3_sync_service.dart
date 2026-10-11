@@ -132,37 +132,52 @@ class S3SyncService {
     );
     try {
       await _ensureBucket();
-      // 引擎无法在 async* 内部 yield，因此用 broadcast controller 把
-      // 条目级进度转发出来：UI 能看到「下载中 N/Z」而不是长期停在 0/1。
-      final progressController =
-          StreamController<S3SyncProgress>.broadcast();
-      final progressSub = progressController.stream.listen(yield);
+      // 把引擎的 onProgress 回调桥接到一个 StreamController，
+      // 然后用 yield* 把这个流挂到 async* 函数体里——避免了「回调里
+      // 直接 yield」的限制（async* 中 yield 是关键字，不能当函数引用）。
+      final events = StreamController<S3SyncProgress>();
+      SyncResult? captured;
+      Object? capturedError;
+      final syncDone = Completer<void>();
       _engine.onProgress = (p) {
         if (p.total <= 0) return;
         final status = p.phase == 'push'
             ? S3SyncStatus.uploading
             : S3SyncStatus.downloading;
-        progressController.add(S3SyncProgress(
+        events.add(S3SyncProgress(
           status: status,
           completed: p.done,
           total: p.total,
         ));
       };
-      try {
-        final r = await _engine.sync();
-        yield S3SyncProgress(
-          status: S3SyncStatus.idle,
-          completed: 1,
-          total: 1,
-          summary: '完成：推送 ${r.pushed} / 拉取 ${r.pulled} / 删除 ${r.deleted} / '
-              '上传图片 ${r.imagesUploaded} / 下载图片 ${r.imagesDownloaded} / '
-              '缺图 ${r.imagesMissing} / 失败 ${r.failed}',
-        );
-      } finally {
-        await progressSub.cancel();
-        await progressController.close();
-        _engine.onProgress = null;
-      }
+      // 启动 sync；同步结束后向 events 注入 idle 帧并关闭流。
+      () async {
+        try {
+          captured = await _engine.sync();
+          events.add(S3SyncProgress(
+            status: S3SyncStatus.idle,
+            completed: 1,
+            total: 1,
+            summary: captured == null
+                ? ''
+                : '完成：推送 ${captured!.pushed} / 拉取 ${captured!.pulled} / '
+                    '删除 ${captured!.deleted} / '
+                    '上传图片 ${captured!.imagesUploaded} / '
+                    '下载图片 ${captured!.imagesDownloaded} / '
+                    '缺图 ${captured!.imagesMissing} / '
+                    '失败 ${captured!.failed}',
+          ));
+        } catch (e) {
+          capturedError = e;
+        } finally {
+          _engine.onProgress = null;
+          await events.close();
+          syncDone.complete();
+        }
+      }();
+      yield* events.stream;
+      await syncDone.future;
+      if (capturedError != null) throw capturedError!;
     } catch (e) {
       _engine.onProgress = null;
       _log?.error('S3 增量同步失败', e.toString());
