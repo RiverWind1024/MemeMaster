@@ -162,6 +162,9 @@ void main() {
         id: '${m.id}_${hex.substring(1)}',
         memeId: m.id,
         hexColor: hex,
+        labL: 50.0,
+        labA: 0.0,
+        labB: 0.0,
         ratio: 0.05,
       );
     });
@@ -182,6 +185,9 @@ void main() {
         id: '${m.id}_${hex.substring(1)}',
         memeId: m.id,
         hexColor: hex,
+        labL: 50.0,
+        labA: 0.0,
+        labB: 0.0,
         ratio: 0.125,
       );
     });
