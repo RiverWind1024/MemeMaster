@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show Variable;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mememaster/core/database/database.dart';
 import 'package:mememaster/core/repositories/meme_repository.dart';
