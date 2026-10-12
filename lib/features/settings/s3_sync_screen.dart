@@ -467,8 +467,16 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                     if (inProgress) ...[
                       const SizedBox(height: 12),
                       if (progress.total > 0) ...[
+                        // 不同阶段用不同颜色：上传紫色（primary），下载蓝色
+                        // （tertiary），让用户一眼区分状态。
                         LinearProgressIndicator(
                           value: progress.fraction,
+                          minHeight: 6,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            progress.status == S3SyncStatus.uploading
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.tertiary,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(
