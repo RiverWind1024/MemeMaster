@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:minio/minio.dart';
 
@@ -183,9 +184,32 @@ class S3SyncService {
       _log?.error('S3 增量同步失败', e.toString());
       yield S3SyncProgress(
         status: S3SyncStatus.error,
-        errorMessage: '同步失败: $e',
+        errorMessage: friendlyError(e),
       );
     }
+  }
+
+  /// 把底层异常转成对用户友好的提示。
+  ///
+  /// 区分「网络层故障」与「S3 / 配置错误」：前者通常瞬时且可重试，
+  /// 后者一般需要修改设置。
+  /// 友好的文案能告诉用户「之前的进度没丢，重试可继续」——LWW 协议
+  /// 本身会让已成功条目在下次同步时被引擎跳过。
+  static String friendlyError(Object e) {
+    final s = e.toString();
+    if (e is SocketException ||
+        s.contains('SocketException') ||
+        s.contains('Failed host lookup') ||
+        s.contains('ClientException') ||
+        s.contains('Connection refused') ||
+        s.contains('Connection closed')) {
+      return '网络连接失败：$s。'
+          '已完成的同步结果已保留，恢复网络后再次点同步即可继续，无需从零开始。';
+    }
+    if (s.contains('AccessDenied') || s.contains('InvalidAccessKeyId')) {
+      return 'S3 凭证或权限错误：$s。请检查设置中的 access key / secret key / region。';
+    }
+    return '同步失败: $s';
   }
 
   /// 全量上传的别名。
