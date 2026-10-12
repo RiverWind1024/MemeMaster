@@ -1506,6 +1506,9 @@ class SZh extends S {
   }
 
   @override
+  String get s3SyncAlreadyRunning => '同步正在进行中，请稍候';
+
+  @override
   String get modelManagerDownloadFailedLabel => '下载失败';
 
   @override

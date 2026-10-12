@@ -1535,6 +1535,9 @@ class SEn extends S {
   }
 
   @override
+  String get s3SyncAlreadyRunning => 'Sync already in progress, please wait';
+
+  @override
   String get modelManagerDownloadFailedLabel => 'Download Failed';
 
   @override

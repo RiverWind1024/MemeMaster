@@ -518,6 +518,7 @@
   "galleryPleaseWait": "Please wait...",
   "galleryDeleteFailed": "Delete failed: {error}",
   "colorExtractionConfigTitle": "Color Extraction Algorithm Config",
+  "s3SyncAlreadyRunning": "Sync already in progress, please wait",
   "s3SyncFailed": "Sync failed: {error}",
   "modelManagerDownloadFailedLabel": "Download Failed",
   "modelManagerNoSearchResults": "No matching models found",

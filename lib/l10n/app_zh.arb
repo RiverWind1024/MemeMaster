@@ -1043,6 +1043,8 @@
   },
   "colorExtractionConfigTitle": "颜色提取算法配置",
   "@colorExtractionConfigTitle": {},
+  "s3SyncAlreadyRunning": "同步正在进行中，请稍候",
+  "@s3SyncAlreadyRunning": {},
   "s3SyncFailed": "同步失败: {error}",
   "@s3SyncFailed": {
     "placeholders": {

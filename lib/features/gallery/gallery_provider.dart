@@ -1291,3 +1291,68 @@ final memesByAlbumProvider = FutureProvider.family<List<Meme>, String>((ref, alb
   final idSet = memeIds.toSet();
   return allMemes.where((m) => idSet.contains(m.id)).toList();
 });
+
+// ---- S3 同步全局状态 ----
+
+/// 同步进度（全局可见，独立于 S3 sync screen 的 widget state）
+///
+/// 把同步状态提升为全局 provider，让用户从 S3 同步页切到图库、再切回来
+/// 时进度条不消失；也保证「同一时刻只能跑一个同步」的互斥语义。
+class S3SyncStatusNotifier extends Notifier<S3SyncProgress> {
+  StreamSubscription<S3SyncProgress>? _sub;
+  bool _inFlight = false;
+
+  @override
+  S3SyncProgress build() {
+    ref.onDispose(() {
+      _sub?.cancel();
+      _sub = null;
+    });
+    return const S3SyncProgress();
+  }
+
+  /// 当前是否有同步正在跑。
+  bool get isRunning => _inFlight;
+
+  /// 启动一次同步。如果已经在跑，直接 return false，调用方据此禁用按钮。
+  Future<bool> start(Stream<S3SyncProgress> Function() factory) async {
+    if (_inFlight) return false;
+    _inFlight = true;
+    state = const S3SyncProgress(status: S3SyncStatus.uploading);
+
+    final completer = Completer<S3SyncProgress>();
+    _sub = factory().listen(
+      (progress) {
+        state = progress;
+        if (progress.status == S3SyncStatus.idle ||
+            progress.status == S3SyncStatus.error) {
+          if (!completer.isCompleted) completer.complete(progress);
+        }
+      },
+      onError: (e, _) {
+        state = S3SyncProgress(
+          status: S3SyncStatus.error,
+          errorMessage: '同步失败: $e',
+        );
+        if (!completer.isCompleted) completer.complete(state);
+      },
+    );
+
+    // 不 block UI，异步等待同步结束再清 inFlight 标记。
+    () async {
+      final last = await completer.future;
+      if (last.status == S3SyncStatus.idle) {
+        state = last;
+      }
+      _inFlight = false;
+      await _sub?.cancel();
+      _sub = null;
+    }();
+    return true;
+  }
+}
+
+final s3SyncStatusProvider =
+    NotifierProvider<S3SyncStatusNotifier, S3SyncProgress>(
+  S3SyncStatusNotifier.new,
+);

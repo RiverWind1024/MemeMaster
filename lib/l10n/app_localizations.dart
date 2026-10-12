@@ -2794,6 +2794,12 @@ abstract class S {
   /// **'颜色提取算法配置'**
   String get colorExtractionConfigTitle;
 
+  /// No description provided for @s3SyncAlreadyRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步正在进行中，请稍候'**
+  String get s3SyncAlreadyRunning;
+
   /// No description provided for @s3SyncFailed.
   ///
   /// In zh, this message translates to:

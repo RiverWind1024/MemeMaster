@@ -17,8 +17,6 @@ class S3SyncScreen extends ConsumerStatefulWidget {
 }
 
 class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
-  StreamSubscription<S3SyncProgress>? _syncSubscription;
-  S3SyncProgress _lastProgress = const S3SyncProgress();
   bool _testingConnection = false;
   bool? _connectionOk;
   SyncStats? _storageStats;
@@ -28,48 +26,41 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
   String? _cleanupBlockedReason;
 
   @override
-  void dispose() {
-    _syncSubscription?.cancel();
-    super.dispose();
-  }
-
-  void _startSync(Stream<S3SyncProgress> Function() syncFn) {
-    _syncSubscription?.cancel();
-    setState(() {
-      _lastProgress = const S3SyncProgress();
-    });
-    _syncSubscription = syncFn().listen((progress) {
+  void initState() {
+    super.initState();
+    // 监听全局同步状态：idle/error 时弹 snackbar，并在 idle 时刷新图库。
+    // listener 由 widget lifecycle 管理，widget dispose 时自动清理。
+    ref.listenManual<S3SyncProgress>(s3SyncStatusProvider, (prev, next) {
       if (!mounted) return;
-      setState(() => _lastProgress = progress);
-
-      // 同步完成后刷新图库
-      if (progress.status == S3SyncStatus.idle) {
-        // 刷新 meme 列表
-        ref.invalidate(memeListProvider);
-        ref.invalidate(memeCountProvider);
-        // 同步可能改变了 bucket 的迁移状态，重新查询清理前置条件。
-        _refreshCleanupGuard();
-        // 显示成功或错误提示
-        if (progress.errorMessage != null && progress.errorMessage!.isNotEmpty) {
+      if (next.status == S3SyncStatus.idle || next.status == S3SyncStatus.error) {
+        if (next.status == S3SyncStatus.idle) {
+          ref.invalidate(memeListProvider);
+          ref.invalidate(memeCountProvider);
+          _refreshCleanupGuard();
+        }
+        if (next.errorMessage != null && next.errorMessage!.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(progress.errorMessage!)),
+            SnackBar(content: Text(next.errorMessage!)),
           );
-        } else if (progress.summary != null && progress.summary!.isNotEmpty) {
+        } else if (next.summary != null && next.summary!.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(progress.summary!)),
+            SnackBar(content: Text(next.summary!)),
           );
         }
       }
-    }, onError: (error) {
-      if (!mounted) return;
-      setState(() => _lastProgress = S3SyncProgress(
-        status: S3SyncStatus.error,
-        errorMessage: '同步失败: $error',
-      ));
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(S.of(context).s3SyncFailed(error.toString()))),
-      );
     });
+  }
+
+  void _startSync(Stream<S3SyncProgress> Function() syncFn) {
+    // 启动走全局 S3SyncStatusNotifier，里面有 inFlight 互斥，避免重复
+    // 点击导致两次 incremental() 并行；返回 false 表示同步已在进行。
+    final started = ref.read(s3SyncStatusProvider.notifier).start(syncFn);
+    if (!started) {
+      // 已经在同步中，给用户提示一下（按钮 disable 也有兜底）。
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(S.of(context).s3SyncAlreadyRunning)),
+      );
+    }
   }
 
   Future<void> _testConnection() async {
@@ -298,7 +289,9 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
     final config = ref.watch(s3ConfigProvider).valueOrNull ?? const S3Config();
     final isConfigured = config.isValid;
     final theme = Theme.of(context);
-    final progress = _lastProgress;
+    // 同步进度取自全局 provider，离开页面再回来也不会丢；同步过程中
+    // 任何 watch 此 provider 的 widget 都会同步更新。
+    final progress = ref.watch(s3SyncStatusProvider);
     final inProgress = progress.status == S3SyncStatus.uploading ||
         progress.status == S3SyncStatus.downloading;
 
