@@ -51,15 +51,17 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
     });
   }
 
-  void _startSync(Stream<S3SyncProgress> Function() syncFn) {
+  Future<void> _startSync(Stream<S3SyncProgress> Function() syncFn) async {
     // 启动走全局 S3SyncStatusNotifier，里面有 inFlight 互斥，避免重复
     // 点击导致两次 incremental() 并行；返回 false 表示同步已在进行。
-    final started = ref.read(s3SyncStatusProvider.notifier).start(syncFn);
+    final started = await ref.read(s3SyncStatusProvider.notifier).start(syncFn);
     if (!started) {
       // 已经在同步中，给用户提示一下（按钮 disable 也有兜底）。
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(S.of(context).s3SyncAlreadyRunning)),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(S.of(context).s3SyncAlreadyRunning)),
+        );
+      }
     }
   }
 
