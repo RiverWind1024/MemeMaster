@@ -296,6 +296,10 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
     final progress = ref.watch(s3SyncStatusProvider);
     final inProgress = progress.status == S3SyncStatus.uploading ||
         progress.status == S3SyncStatus.downloading;
+    // 上传用 primary（紫），下载用 tertiary（青）——两者需在主题里定义为不同色。
+    final syncAccent = progress.status == S3SyncStatus.uploading
+        ? theme.colorScheme.primary
+        : theme.colorScheme.tertiary;
 
     return Scaffold(
       appBar: AppBar(title: Text(S.of(context).s3Sync)),
@@ -462,16 +466,14 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                     if (inProgress) ...[
                       const SizedBox(height: 12),
                       if (progress.total > 0) ...[
-                        // 不同阶段用不同颜色：上传紫色（primary），下载蓝色
-                        // （tertiary），让用户一眼区分状态。
+                        // 不同阶段用不同颜色：上传紫色（primary），下载青色
+                        // （tertiary），让用户一眼区分状态；轨道用同色低透明度
+                        // 保证填充边界清晰可见。
                         LinearProgressIndicator(
                           value: progress.fraction,
-                          minHeight: 6,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            progress.status == S3SyncStatus.uploading
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.tertiary,
-                          ),
+                          minHeight: 8,
+                          valueColor: AlwaysStoppedAnimation<Color>(syncAccent),
+                          backgroundColor: syncAccent.withValues(alpha: 0.18),
                         ),
                         const SizedBox(height: 8),
                         Text(

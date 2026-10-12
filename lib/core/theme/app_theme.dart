@@ -10,6 +10,10 @@ ThemeData buildLightTheme() {
       onPrimaryContainer: Color(0xFF312E81),
       secondary: Color(0xFF4F46E5),
       onSecondary: Colors.white,
+      // tertiary 未显式定义时会回退到 secondary（=primary 同色），
+      // 导致 S3 进度条上传/下载两阶段同色。这里给一个明显区分的青色。
+      tertiary: Color(0xFF0891B2),
+      onTertiary: Colors.white,
       surface: Color(0xFFFFFFFF),
       onSurface: Color(0xFF111827),
       onSurfaceVariant: Color(0xFF374151),
@@ -35,6 +39,9 @@ ThemeData buildDarkTheme() {
       onPrimaryContainer: Color(0xFFE0E7FF),
       secondary: Color(0xFF6366F1),
       onSecondary: Colors.white,
+      // 同浅色主题：显式定义 tertiary，与 primary 区分开。
+      tertiary: Color(0xFF22D3EE),
+      onTertiary: Colors.black,
       surface: Color(0xFF121215),
       onSurface: Color(0xFFF4F4F5),
       onSurfaceVariant: Color(0xFFD4D4D8),
