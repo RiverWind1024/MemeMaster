@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/database/database.dart';
 import 'gallery_provider.dart';
 import '../../l10n/app_localizations.dart';
+import '../../core/theme/app_radius.dart';
 
 class MemeDetailScreen extends ConsumerStatefulWidget {
   final String memeId;
@@ -682,7 +683,7 @@ class _ColorPalette extends ConsumerWidget {
                           height: 40,
                           decoration: BoxDecoration(
                             color: color,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
                             border: Border.all(color: Colors.grey.shade300),
                           ),
                         ),
@@ -851,7 +852,7 @@ class _CustomTagsState extends ConsumerState<_CustomTags> {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.green.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
                         border: Border.all(
                           color: Colors.green.withValues(alpha: 0.3),
                         ),
@@ -970,7 +971,7 @@ class _OcrTags extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.blue.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                       border: Border.all(
                         color: Colors.blue.withValues(alpha: 0.2),
                       ),
@@ -1044,7 +1045,7 @@ class _LlmTags extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.purple.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                       border: Border.all(
                         color: Colors.purple.withValues(alpha: 0.2),
                       ),

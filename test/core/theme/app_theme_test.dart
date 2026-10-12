@@ -19,4 +19,29 @@ void main() {
       expect(scheme.tertiary, isNot(equals(scheme.primary)));
     });
   });
+
+  group('容器色槽位（避免回退到纯色）', () {
+    test('errorContainer 与 error 不同（防止红图标叠红底不可见）', () {
+      for (final scheme in [
+        buildLightTheme().colorScheme,
+        buildDarkTheme().colorScheme,
+      ]) {
+        expect(
+          scheme.errorContainer,
+          isNot(equals(scheme.error)),
+          reason: '未定义 errorContainer 会回退到 error（纯红），'
+              '而错误卡片里的图标正是 error 色，会叠在同色背景上看不见。',
+        );
+      }
+    });
+
+    test('secondaryContainer 与 secondary 不同（防止 chip 纯色底 + 低对比字）', () {
+      for (final scheme in [
+        buildLightTheme().colorScheme,
+        buildDarkTheme().colorScheme,
+      ]) {
+        expect(scheme.secondaryContainer, isNot(equals(scheme.secondary)));
+      }
+    });
+  });
 }

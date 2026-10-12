@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/import_service.dart';
 import '../gallery/gallery_provider.dart';
 import '../../l10n/app_localizations.dart';
+import '../../core/theme/app_radius.dart';
 
 class ImportScreen extends ConsumerStatefulWidget {
   const ImportScreen({super.key});
@@ -194,7 +195,7 @@ class _FileTile extends StatelessWidget {
       child: ListTile(
         dense: true,
         leading: ClipRRect(
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
           child: SizedBox(
             width: 48,
             height: 48,

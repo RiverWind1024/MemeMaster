@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/utils/color_utils.dart';
 import '../../l10n/app_localizations.dart';
+import '../../core/theme/app_radius.dart';
 
 /// HSV 颜色选择器对话框
 class ColorPickerDialog extends StatefulWidget {
@@ -68,7 +69,7 @@ class _ColorPickerDialogState extends State<ColorPickerDialog> {
           children: [
             // 2D 饱和度×明度区域
             ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppRadius.md),
               child: SizedBox(
                 width: 260,
                 height: 180,
@@ -89,7 +90,7 @@ class _ColorPickerDialogState extends State<ColorPickerDialog> {
 
             // 色相滑块
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
               child: SizedBox(
                 width: 260,
                 height: 24,
@@ -109,7 +110,7 @@ class _ColorPickerDialogState extends State<ColorPickerDialog> {
                   height: 40,
                   decoration: BoxDecoration(
                     color: _currentColor,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
                     border: Border.all(color: Colors.grey.shade300),
                   ),
                 ),
@@ -315,7 +316,7 @@ class _HuePicker extends StatelessWidget {
                   height: 24,
                   decoration: BoxDecoration(
                     color: HSVColor.fromAHSV(1, hue, 1, 1).toColor(),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
                     border: Border.all(color: Colors.white, width: 2),
                     boxShadow: [
                       BoxShadow(
@@ -352,7 +353,7 @@ class _HueBarPainter extends CustomPainter {
     final paint = Paint()
       ..shader = gradient.createShader(rect);
     canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(8)),
+      RRect.fromRectAndRadius(rect, const Radius.circular(AppRadius.sm)),
       paint,
     );
   }
