@@ -186,6 +186,12 @@ class ParallelAnalysisScheduler {
         config: _colorConfig,
       );
 
+      // 关键：先清掉该 meme 的旧颜色行，再写新结果。
+      // 旧逻辑用 id=`${memeId}_${hex}` 做冲突覆盖，但 hex 仅落在仍存的色
+      // 上——新结果集少了的旧色会变「残留色」。
+      // 例如旧算法提取 20 个相近色，新算法收敛到 8 个，原 12 个色会一直留着。
+      await _memeRepo.deleteColors(meme.id);
+
       if (dominantColors.isNotEmpty) {
         final colorEntries = dominantColors.map((c) {
           return ColorEntry(
@@ -306,9 +312,11 @@ class ParallelAnalysisScheduler {
           }
 
           _log.info('OcrScheduler', 'OCR 标签数量: ${tags.length}');
+          // 不论新结果是否为空，都先清掉旧 ocr 标签再保存——空结果意味着
+          // 新一轮 OCR 没识别出任何文字，留着旧标签会误导用户（图片已经
+          // 变了但标签还是上次的）。
+          await _memeRepo.deleteAutoTags(job.memeId, sources: ['ocr']);
           if (tags.isNotEmpty) {
-            // 有新结果时，先删除旧的 ocr 标签再保存新标签
-            await _memeRepo.deleteAutoTags(job.memeId, sources: ['ocr']);
             await _memeRepo.saveTags(tags);
           }
         }

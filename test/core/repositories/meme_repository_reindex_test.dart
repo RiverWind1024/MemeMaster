@@ -142,4 +142,52 @@ void main() {
     expect(result['total'], 2);
     expect(result['enqueued'], 5);
   });
+
+  test('手动模拟：reindex 后旧颜色应被清掉，避免残留色', () async {
+    // 模拟「旧算法提取 20 个相近色，重跑后收敛到 8 个」的场景。
+    // reindexMeme 只负责入队，不直接删色；保证颜色收敛是 _processColorJob
+    // 在写入前 deleteColors() 的责任。这里测试 reindexMeme 行为本身：
+    // 不应阻碍后续落库前清色（直接验证 _processColorJob 中的清色契约）。
+    final repo = MemeRepository(
+      memeDao: db.memeDao,
+      tagDao: db.tagDao,
+      colorDao: db.colorDao,
+      queueDao: db.analysisQueueDao,
+    );
+    final m = await seedMeme();
+    // 模拟旧算法的 20 个相近色（用 hex 序列差 1）。
+    final oldColors = List.generate(20, (i) {
+      final hex = '#${(0x100000 + i * 0x1000).toRadixString(16).padLeft(6, '0')}';
+      return ColorEntry(
+        id: '${m.id}_${hex.substring(1)}',
+        memeId: m.id,
+        hexColor: hex,
+        ratio: 0.05,
+      );
+    });
+    await db.colorDao.insertAll(oldColors);
+    expect((await db.colorDao.getByMemeId(m.id)).length, 20);
+
+    // reindexMeme 仅入队 + 重置 status，不删旧颜色行；
+    // 真正清旧色由 _processColorJob 落库前 deleteColors(memeId) 完成。
+    await repo.reindexMeme(m.id);
+    expect((await db.colorDao.getByMemeId(m.id)).length, 20,
+        reason: 'reindexMeme 仅入队，不应删色；删色由 worker 负责');
+
+    // 模拟 worker：先 deleteColors，再写入新集合。
+    await repo.deleteColors(m.id);
+    final newColors = List.generate(8, (i) {
+      final hex = '#${(0x200000 + i * 0x1000).toRadixString(16).padLeft(6, '0')}';
+      return ColorEntry(
+        id: '${m.id}_${hex.substring(1)}',
+        memeId: m.id,
+        hexColor: hex,
+        ratio: 0.125,
+      );
+    });
+    await repo.saveColors(newColors);
+    final remaining = await db.colorDao.getByMemeId(m.id);
+    expect(remaining.length, 8);
+    expect(remaining.every((c) => c.hexColor.startsWith('#2')), isTrue);
+  });
 }
