@@ -430,7 +430,7 @@
   "@reindexMemes": {
     "description": "Reindex button"
   },
-  "reindexDescription": "Check and enqueue missing analysis data",
+  "reindexDescription": "Force re-run color and OCR; AI only fills gaps",
   "@reindexDescription": {},
   "reindexStarted": "Reindex started, progress shown in gallery",
   "@reindexStarted": {},

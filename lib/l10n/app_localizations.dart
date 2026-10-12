@@ -2341,7 +2341,7 @@ abstract class S {
   /// No description provided for @reindexDescription.
   ///
   /// In zh, this message translates to:
-  /// **'检查并补充缺失的分析数据'**
+  /// **'强制重跑主色与 OCR，AI 仅补漏'**
   String get reindexDescription;
 
   /// No description provided for @reindexStarted.

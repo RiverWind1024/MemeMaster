@@ -1268,7 +1268,7 @@ class SEn extends S {
   String get reindexMemes => 'Re-index all memes';
 
   @override
-  String get reindexDescription => 'Check and enqueue missing analysis data';
+  String get reindexDescription => 'Force re-run color and OCR; AI only fills gaps';
 
   @override
   String get reindexStarted => 'Reindex started, progress shown in gallery';

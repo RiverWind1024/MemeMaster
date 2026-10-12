@@ -1251,7 +1251,7 @@ class SZh extends S {
   String get reindexMemes => '重新索引所有表情';
 
   @override
-  String get reindexDescription => '检查并补充缺失的分析数据';
+  String get reindexDescription => '强制重跑主色与 OCR，AI 仅补漏';
 
   @override
   String get reindexStarted => '重新索引已开始，进度显示在图库顶部';
