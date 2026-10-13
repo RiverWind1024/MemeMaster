@@ -25,6 +25,7 @@ class AlbumRepository {
       sortOrder: sortOrder,
       isDefault: 0,
       createdAt: DateTime.now().millisecondsSinceEpoch,
+      updatedAt: DateTime.now().millisecondsSinceEpoch,
     );
     await _dao.insert(album);
     return album;

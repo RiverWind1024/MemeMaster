@@ -6,14 +6,28 @@ class TagDao {
   final AppDatabase _db;
   TagDao(this._db);
 
+  /// bump 父 meme 的 updatedAt（子数据变更时）
+  Future<void> _touch(String memeId) async {
+    await (_db.update(_db.memesTable)..where((t) => t.id.equals(memeId)))
+        .write(MemesTableCompanion(
+            updatedAt: Value(DateTime.now().millisecondsSinceEpoch)));
+  }
+
   Future<void> insert(TagEntry tag) async {
     await _db.into(_db.tagsTable).insertOnConflictUpdate(tag);
+    await _touch(tag.memeId);
   }
 
   Future<void> insertAll(List<TagEntry> tags) async {
+    if (tags.isEmpty) return;
     await _db.batch((batch) {
       batch.insertAllOnConflictUpdate(_db.tagsTable, tags);
     });
+    // 同一个 meme 可能带多条标签，逐条 _touch 只会把同一个 updatedAt 重复写一遍。
+    final memeIds = tags.map((t) => t.memeId).toSet();
+    for (final memeId in memeIds) {
+      await _touch(memeId);
+    }
   }
 
   Future<List<TagEntry>> getByMemeId(String memeId) {
@@ -42,22 +56,34 @@ class TagDao {
     return result.data.values.first as int;
   }
 
-  Future<int> deleteByMemeId(String memeId) {
-    return (_db.delete(_db.tagsTable)
+  Future<int> deleteByMemeId(String memeId) async {
+    final n = await (_db.delete(_db.tagsTable)
           ..where((t) => t.memeId.equals(memeId)))
         .go();
+    await _touch(memeId);
+    return n;
   }
 
   /// 删除指定 meme 下特定 source 列表的标签
-  Future<int> deleteBySourcesForMeme(String memeId, List<String> sources) {
-    if (sources.isEmpty) return Future.value(0);
-    return (_db.delete(_db.tagsTable)
+  Future<int> deleteBySourcesForMeme(String memeId, List<String> sources) async {
+    if (sources.isEmpty) return 0;
+    final n = await (_db.delete(_db.tagsTable)
           ..where((t) =>
               t.memeId.equals(memeId) & t.source.isIn(sources)))
         .go();
+    await _touch(memeId);
+    return n;
   }
 
-  Future<int> delete(String id) {
-    return (_db.delete(_db.tagsTable)..where((t) => t.id.equals(id))).go();
+  Future<int> delete(String id) async {
+    final row = await (_db.select(_db.tagsTable)
+          ..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+    final n =
+        await (_db.delete(_db.tagsTable)..where((t) => t.id.equals(id))).go();
+    if (row != null) {
+      await _touch(row.memeId);
+    }
+    return n;
   }
 }

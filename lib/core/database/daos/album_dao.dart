@@ -7,6 +7,20 @@ class AlbumDao {
   final AppDatabase _db;
   AlbumDao(this._db);
 
+  /// bump 父 meme 的 updatedAt（相册归属变更时）
+  Future<void> _touchMeme(String memeId) async {
+    await (_db.update(_db.memesTable)..where((t) => t.id.equals(memeId)))
+        .write(MemesTableCompanion(
+            updatedAt: Value(DateTime.now().millisecondsSinceEpoch)));
+  }
+
+  /// bump 相册的 updatedAt（相册信息变更时）
+  Future<void> _touchAlbum(String albumId) async {
+    await (_db.update(_db.albumsTable)..where((t) => t.id.equals(albumId)))
+        .write(AlbumsTableCompanion(
+            updatedAt: Value(DateTime.now().millisecondsSinceEpoch)));
+  }
+
   // ---- Albums ----
 
   Future<void> insert(Album album) async {
@@ -25,16 +39,20 @@ class AlbumDao {
         .get();
   }
 
-  Future<int> updateName(String id, String name) {
-    return (_db.update(_db.albumsTable)
+  Future<int> updateName(String id, String name) async {
+    final n = await (_db.update(_db.albumsTable)
           ..where((t) => t.id.equals(id)))
         .write(AlbumsTableCompanion(name: Value(name)));
+    await _touchAlbum(id);
+    return n;
   }
 
-  Future<int> updateSortOrder(String id, int sortOrder) {
-    return (_db.update(_db.albumsTable)
+  Future<int> updateSortOrder(String id, int sortOrder) async {
+    final n = await (_db.update(_db.albumsTable)
           ..where((t) => t.id.equals(id)))
         .write(AlbumsTableCompanion(sortOrder: Value(sortOrder)));
+    await _touchAlbum(id);
+    return n;
   }
 
   Future<int> delete(String id) {
@@ -61,6 +79,8 @@ class AlbumDao {
         addedAt: DateTime.now().millisecondsSinceEpoch,
       ),
     );
+    await _touchMeme(memeId);
+    await _touchAlbum(albumId);
   }
 
   Future<void> removeMemeFromAlbum(String memeId, String albumId) async {
@@ -68,6 +88,8 @@ class AlbumDao {
           ..where((t) =>
               t.memeId.equals(memeId) & t.albumId.equals(albumId)))
         .go();
+    await _touchMeme(memeId);
+    await _touchAlbum(albumId);
   }
 
   /// 获取相册中的所有 memeId
@@ -103,8 +125,10 @@ class AlbumDao {
 
   /// 删除 meme 的所有相册关联
   Future<int> removeMemeFromAllAlbums(String memeId) async {
-    return await (_db.delete(_db.memeAlbumsTable)
+    final n = await (_db.delete(_db.memeAlbumsTable)
           ..where((t) => t.memeId.equals(memeId)))
         .go();
+    await _touchMeme(memeId);
+    return n;
   }
 }

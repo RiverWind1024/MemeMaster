@@ -24,6 +24,11 @@ class MemeRepository {
   final Uuid _uuid = const Uuid();
   final FileStorageService? _fileStorage;
 
+  /// 删除墓碑的回调，由调用方（通常是 GUI 的 provider）注入，
+  /// 用于在本地软删除完成后把墓碑异步推到 S3。
+  /// 同步失败不应影响本地删除：UI 会在下次手动同步时自动补齐。
+  Future<void> Function(String memeId)? onMemeTombstoned;
+
   MemeRepository({
     required this._memeDao,
     required this._tagDao,
@@ -34,6 +39,7 @@ class MemeRepository {
     AiAnalysisQueueDao? aiQueueDao,
     AlbumDao? albumDao,
     this._fileStorage,
+    this.onMemeTombstoned,
   })  : _colorQueueDao = colorQueueDao ?? ColorAnalysisQueueDao(_memeDao.database),
         _ocrQueueDao = ocrQueueDao ?? OcrAnalysisQueueDao(_memeDao.database),
         _aiQueueDao = aiQueueDao ?? AiAnalysisQueueDao(_memeDao.database),
@@ -125,6 +131,17 @@ class MemeRepository {
         // 文件已不存在或无法删除，不影响逻辑删除
       }
     }
+
+    // 触发墓碑上传回调。失败被吞掉：本地删除已完成，下次手动同步
+    // 阶段 1 会按 `meme.updatedAt > remoteEntry.updatedAt` 比较自动补齐。
+    final hook = onMemeTombstoned;
+    if (hook != null) {
+      try {
+        await hook(id);
+      } catch (_) {
+        // 同步失败不影响本地删除语义。
+      }
+    }
   }
 
   /// 更新分析状态，若完成则清理队列
@@ -174,10 +191,12 @@ class MemeRepository {
   Future<void> updateSource(String id, String source) =>
       _memeDao.updateSource(id, source);
 
-  /// 对指定 meme 重新索引缺失的分析维度
+  /// 对指定 meme 重新索引分析维度
   ///
-  /// 检查 colorAnalysisStatus / ocrAnalysisStatus / aiAnalysisStatus，
-  /// 仅对不是 'done' 的维度入队分析。返回实际入队的数量。
+  /// 颜色和 OCR：**强制重跑**（无视 `done` 状态）。已有任务会先从队列
+  /// 移除再插入新任务，避免并发；状态字段也会重置为 `pending`。
+  /// AI：仅对未完成的维度入队（AI 推理昂贵且结果通常稳定，不做无谓重跑）。
+  /// 返回实际入队的任务数。
   Future<int> reindexMeme(String memeId) async {
     final meme = await _memeDao.getById(memeId);
     if (meme == null) return 0;
@@ -186,30 +205,33 @@ class MemeRepository {
     final now = DateTime.now().millisecondsSinceEpoch;
     final uuid = _uuid.v4();
 
-    if (meme.colorAnalysisStatus != 'done') {
-      await _colorQueueDao.insert(ColorAnalysisQueueItem(
-        id: '${uuid}_color',
-        memeId: memeId,
-        status: 'pending',
-        priority: 0,
-        retryCount: 0,
-        createdAt: now,
-      ));
-      enqueued++;
-    }
+    // 颜色：强制重跑。先清掉该 meme 旧的 color_queue 任务防止并发。
+    await _colorQueueDao.deleteByMemeId(memeId);
+    await _colorQueueDao.insert(ColorAnalysisQueueItem(
+      id: '${uuid}_color',
+      memeId: memeId,
+      status: 'pending',
+      priority: 0,
+      retryCount: 0,
+      createdAt: now,
+    ));
+    await _memeDao.updateColorAnalysisStatus(memeId, 'pending');
+    enqueued++;
 
-    if (meme.ocrAnalysisStatus != 'done') {
-      await _ocrQueueDao.insert(OcrAnalysisQueueItem(
-        id: '${uuid}_ocr',
-        memeId: memeId,
-        status: 'pending',
-        priority: 0,
-        retryCount: 0,
-        createdAt: now,
-      ));
-      enqueued++;
-    }
+    // OCR：强制重跑，逻辑同上。
+    await _ocrQueueDao.deleteByMemeId(memeId);
+    await _ocrQueueDao.insert(OcrAnalysisQueueItem(
+      id: '${uuid}_ocr',
+      memeId: memeId,
+      status: 'pending',
+      priority: 0,
+      retryCount: 0,
+      createdAt: now,
+    ));
+    await _memeDao.updateOcrAnalysisStatus(memeId, 'pending');
+    enqueued++;
 
+    // AI：仅对未完成入队（不强制重跑，避免对已满意的标签做无用 LLM 调用）。
     if (meme.aiAnalysisStatus != 'done') {
       await _aiQueueDao.insert(AiAnalysisQueueItem(
         id: '${uuid}_ai',
@@ -222,9 +244,8 @@ class MemeRepository {
       enqueued++;
     }
 
-    if (enqueued > 0) {
-      await _memeDao.updateAnalysisStatus(memeId, 'pending');
-    }
+    // 聚合分析状态：任一维度待处理都视为 pending。
+    await _memeDao.updateAnalysisStatus(memeId, 'pending');
 
     return enqueued;
   }

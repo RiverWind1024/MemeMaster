@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:minio/minio.dart';
 
+import '../../services/object_store.dart';
 import '../../services/s3_config.dart';
 import '../../services/s3_secret_store.dart';
+import '../../services/s3_sync_engine.dart';
 import '../../services/s3_sync_service.dart';
-import '../../services/s3_sync_serializer.dart';
 import '../cli_context.dart';
 import 'command.dart';
 
@@ -32,13 +34,21 @@ class _InMemoryS3SecretStore implements S3SecretStore {
 class S3Command extends CliCommand {
   S3Command() : super(name: 's3', description: 'S3 同步相关操作');
 
+  /// `upload` / `download` 的兼容别名提示。
+  ///
+  /// 引擎是双向 LWW 同步，没有单向推送/拉取：跑 `s3 download` 期望「从云端恢复」
+  /// 实际上会把本地较新的数据也推上去，因此必须显式告知。
+  static const _bidirectionalNotice =
+      '提示：当前版本为双向 LWW 同步（本地较新数据也会上传），'
+      'upload/download 等价于 sync。';
+
   @override
   bool get needsCliConfig => true;
 
   @override
   Future<int> run(CliContext context, ArgResults args) async {
     if (args.rest.isEmpty) {
-      stderr.writeln('用法: mememaster s3 <test|sync|upload|download|stats>');
+      stderr.writeln(_usage());
       return 1;
     }
     final sub = args.rest.first;
@@ -56,32 +66,58 @@ class S3Command extends CliCommand {
       case 'sync':
         return _consume(service.incremental(), '增量同步');
       case 'upload':
+        stderr.writeln(_bidirectionalNotice);
         return _consume(service.uploadAll(), '全量上传');
       case 'download':
+        stderr.writeln(_bidirectionalNotice);
         return _consume(service.downloadAll(), '全量下载');
       case 'stats':
         return _stats(context, service);
       default:
         stderr.writeln('未知 s3 子命令: $sub');
+        stderr.writeln(_usage());
         return 1;
     }
   }
 
+  static String _usage() => '''
+用法: mememaster s3 <test|sync|upload|download|stats>
+  test                测试 S3 连接
+  sync                双向 LWW 同步（等价于 upload / download）
+  upload / download   兼容别名，实际执行的是双向同步
+  stats               统计 bucket 用量（总量 / 引用 / 孤儿 / 元数据）
+
+已知限制：删除操作不写墓碑，清理后的删除无法再传播到其他设备。
+$_bidirectionalNotice''';
+
   S3SyncService _buildService(CliContext context) {
-    final service = S3SyncService(
+    final config = context.s3Config;
+    Minio client() => Minio(
+          endPoint: config.endpoint,
+          accessKey: config.accessKey,
+          secretKey: config.secretKey,
+          region: config.region,
+          useSSL: config.useSsl,
+          pathStyle: config.pathStyle,
+        );
+    final store = MinioObjectStore(client: client, bucket: config.bucket);
+    final secretStore = _InMemoryS3SecretStore();
+    final engine = SyncEngine(
+      store: store,
       memeRepo: context.memeRepo,
       albumRepo: context.albumRepo,
-      storage: context.storage,
-      syncStateDao: context.db.syncStateDao,
-      serializer: S3SyncSerializer(
-        memeRepo: context.memeRepo,
-        albumRepo: context.albumRepo,
-        db: context.db,
-      ),
-      secretStore: _InMemoryS3SecretStore(),
       db: context.db,
+      syncStateDao: context.db.syncStateDao,
+      secretStore: secretStore,
+      storage: context.storage,
     );
-    service.updateConfig(context.s3Config);
+    final service = S3SyncService(
+      store: store,
+      engine: engine,
+      syncStateDao: context.db.syncStateDao,
+      secretStore: secretStore,
+    );
+    service.updateConfig(config);
     return service;
   }
 
@@ -96,13 +132,15 @@ class S3Command extends CliCommand {
   Future<int> _consume(Stream<S3SyncProgress> stream, String label) async {
     var hadError = false;
     await for (final p in stream) {
-      if (p.errorMessage != null) {
+      if (p.status == S3SyncStatus.error) {
         stderr.writeln('错误: ${p.errorMessage}');
         hadError = true;
       } else if (p.status == S3SyncStatus.uploading ||
           p.status == S3SyncStatus.downloading) {
         final verb = p.status == S3SyncStatus.uploading ? '上传' : '下载';
         print('$verb ${p.completed}/${p.total}');
+      } else if (p.summary != null) {
+        print(p.summary);
       }
     }
     print('$label${hadError ? '完成（有错误）' : '完成'}');
@@ -116,9 +154,19 @@ class S3Command extends CliCommand {
         print(jsonEncode({
           'totalBytes': stats.totalBytes,
           'objectCount': stats.objectCount,
+          'referencedImages': stats.referencedImages,
+          'orphanImages': stats.orphanImages,
+          'metaFiles': stats.metaFiles,
         }));
       } else {
         print('S3 存储用量: ${stats.totalBytes} 字节, ${stats.objectCount} 个对象');
+        print('  引用图片: ${stats.referencedImages}');
+        print('  孤儿图片: ${stats.orphanImages}');
+        print('  元数据文件: ${stats.metaFiles}');
+        final blocked = await service.cleanupBlockedReason();
+        if (blocked != null) {
+          print('  清理提示: $blocked');
+        }
       }
       return 0;
     } catch (e) {

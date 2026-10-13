@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../../services/s3_keys.dart';
 import '../database.dart';
 import '../tables/user_stats_table.dart';
 
@@ -49,6 +50,7 @@ class UserStatsDao {
   /// 增加导入计数
   Future<void> incrementImported() async {
     await _incrementField('importedCount');
+    await _touchSync();
   }
 
   /// 增加复制计数 (可指定次数)
@@ -56,11 +58,13 @@ class UserStatsDao {
     for (int i = 0; i < count; i++) {
       await _incrementField('copiedCount');
     }
+    await _touchSync();
   }
 
   /// 增加收藏计数
   Future<void> incrementFavorited() async {
     await _incrementField('favoritedCount');
+    await _touchSync();
   }
 
   /// 增加 token 用量（累加模式）
@@ -84,6 +88,15 @@ class UserStatsDao {
             completionTokens: completion,
           ));
     }
+    await _touchSync();
+  }
+
+  /// 标记用户统计已变更，用于 S3 同步的 LWW 时间戳。
+  Future<void> _touchSync() async {
+    await _db.syncStateDao.set(
+      kUserStatsClockKey,
+      DateTime.now().millisecondsSinceEpoch.toString(),
+    );
   }
 
   /// 通用字段递增

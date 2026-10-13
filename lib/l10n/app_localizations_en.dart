@@ -482,15 +482,6 @@ class SEn extends S {
   String get syncOperations => 'Sync Operations';
 
   @override
-  String get fullUpload => 'Full Upload';
-
-  @override
-  String get fullDownload => 'Full Download';
-
-  @override
-  String get incrementalSync => 'Incremental Sync';
-
-  @override
   String get uploading => 'Uploading';
 
   @override
@@ -509,6 +500,41 @@ class SEn extends S {
   String storageStatsDetail(String size, int count) {
     return '$size · $count files';
   }
+
+  @override
+  String get syncNow => 'Sync Now';
+
+  @override
+  String s3StatsReferenced(int count) {
+    return 'Referenced images: $count';
+  }
+
+  @override
+  String s3StatsOrphan(int count) {
+    return 'Unreferenced images: $count';
+  }
+
+  @override
+  String s3StatsMeta(int count) {
+    return 'Metadata files: $count';
+  }
+
+  @override
+  String get cleanupOrphans => 'Clean up unreferenced';
+
+  @override
+  String get s3SyncNoCancelHint => 'A sync cannot be cancelled midway; do not close the app.';
+
+  @override
+  String get s3CleanupLimitation => 'Known limitation: deletions leave no sync record, so removals made by cleanup cannot propagate to other devices.';
+
+  @override
+  String cleanupOrphansDone(int count) {
+    return 'Removed $count files';
+  }
+
+  @override
+  String get cleanupOrphansConfirmBody => 'This deletes unreferenced images and legacy files on S3. Continue?';
 
   @override
   String get calculating => 'Calculating...';
@@ -1242,7 +1268,7 @@ class SEn extends S {
   String get reindexMemes => 'Re-index all memes';
 
   @override
-  String get reindexDescription => 'Check and enqueue missing analysis data';
+  String get reindexDescription => 'Force re-run color and OCR; AI only fills gaps';
 
   @override
   String get reindexStarted => 'Reindex started, progress shown in gallery';
@@ -1507,6 +1533,9 @@ class SEn extends S {
   String s3SyncFailed(String error) {
     return 'Sync failed: $error';
   }
+
+  @override
+  String get s3SyncAlreadyRunning => 'Sync already in progress, please wait';
 
   @override
   String get modelManagerDownloadFailedLabel => 'Download Failed';

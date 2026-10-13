@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../services/log_service.dart';
 import '../gallery/gallery_provider.dart';
 import '../../l10n/app_localizations.dart';
+import '../../core/theme/app_radius.dart';
 
 class LogViewerScreen extends ConsumerStatefulWidget {
   const LogViewerScreen({super.key});
@@ -99,7 +100,7 @@ class _LogViewerScreenState extends ConsumerState<LogViewerScreen> {
                     horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
                 ),
                 child: Text(
                   entry.tag,
@@ -228,7 +229,7 @@ class _LogViewerScreenState extends ConsumerState<LogViewerScreen> {
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
               ),
               onChanged: (v) => setState(() => _query = v),

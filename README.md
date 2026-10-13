@@ -8,13 +8,24 @@ MemeMaster 是一个表情包管理工具，用于导入、整理、搜索和管
 
 支持 **Linux / macOS / Windows / Android** 多平台，本地优先、数据自持，OCR 与 AI 标签均可离线或本地运行。
 
+## 界面预览
+
+<p align="center">
+  <img src="docs/assets/screenshots/gallery.jpg" width="180" alt="图库">
+  <img src="docs/assets/screenshots/search-text.jpg" width="180" alt="文字搜索">
+  <img src="docs/assets/screenshots/search-color.jpg" width="180" alt="颜色搜索">
+  <img src="docs/assets/screenshots/detail.jpg" width="180" alt="详情页">
+  <br>
+  <sub>图库 · 文字搜索 · 颜色搜索 · 详情</sub>
+</p>
+
 ## 功能
 
 - **图片导入** — 支持图片分享，批量扫描等导入方式，自动去重（SHA256 哈希），按日期归档存储
 - **颜色搜索** — HSV 滑块选色，CIE Lab ΔE 色差匹配
 - **OCR 文字识别** — Android: Google ML Kit / macOS: Apple Vision / Linux/Windows: Tesseract CLI，支持中英文
 - **AI 标签与描述** — OpenAI / Ollama / 本地 LLM 驱动，根据 OCR 结果自动生成标签和文字描述
-- **S3 云同步** — 兼容 AWS S3、MinIO、Cloudflare R2，支持全量上传/下载和增量同步
+- **S3 云同步** — 兼容 AWS S3、MinIO、Cloudflare R2、七牛云等 S3 协议存储；基于逻辑时钟的增量双向同步（LWW 冲突消解），支持多设备、删除传播（墓碑）、断点续传
 - **配置导出/导入** — 一键备份/恢复 S3、LLM、颜色提取、主题、语言等全部配置，支持文件保存和分享
 - **文件夹管理** — 图片分组
 - **定时同步** — 可配置的自动同步间隔（5 分钟 ~ 1 天）
