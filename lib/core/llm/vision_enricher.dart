@@ -8,6 +8,7 @@ import 'package:image/image.dart' as img;
 
 import '../../services/log_service.dart';
 import '../database/database.dart';
+import '../image/analysis_frame.dart';
 import '../repositories/meme_repository.dart';
 import 'config.dart';
 import 'local_config.dart';
@@ -228,8 +229,18 @@ class VisionLlmEnricher {
   Future<Uint8List> _readAndResizeImage(String imagePath) async {
     final t0 = DateTime.now();
     final file = File(imagePath);
-    final bytes = await file.readAsBytes();
+    var bytes = await file.readAsBytes();
     final t1 = DateTime.now();
+
+    // 动图 GIF 统一取中间帧，避免 AI 只看到首帧
+    if (imagePath.toLowerCase().endsWith('.gif')) {
+      final gif = img.decodeImage(bytes);
+      if (gif != null && gif.numFrames > 1) {
+        bytes = Uint8List.fromList(img.encodePng(selectAnalysisFrame(gif)));
+        _log.info('VisionLLM',
+            'GIF 取帧 ${gif.numFrames ~/ 2}/${gif.numFrames}: $imagePath');
+      }
+    }
 
     // 压缩已关闭，直接返回原始图片
     if (!_compressionEnabled) {

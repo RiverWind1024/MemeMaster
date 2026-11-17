@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:image/image.dart' as img;
 
 import '../utils/color_utils.dart';
+import 'analysis_frame.dart';
 import 'color_extraction_config.dart';
 import 'color_extraction_strategies.dart';
 
@@ -28,11 +29,13 @@ class ColorExtractor {
     }
 
     final bytes = await file.readAsBytes();
-    final image = img.decodeImage(bytes);
-    if (image == null) {
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) {
       throw FormatException('Unable to decode image: $imagePath');
     }
 
+    // 动图取中间帧，避免首帧黑屏/纯色导致取色失真
+    final image = selectAnalysisFrame(decoded);
     return extractFromImage(image, config: cfg);
   }
 

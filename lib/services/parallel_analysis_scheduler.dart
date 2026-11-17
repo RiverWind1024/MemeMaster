@@ -7,6 +7,7 @@ import '../core/database/daos/analysis_queue_dao.dart';
 import '../core/database/daos/color_analysis_queue_dao.dart';
 import '../core/database/daos/ocr_analysis_queue_dao.dart';
 import '../core/database/database.dart';
+import '../core/image/analysis_frame.dart';
 import '../core/image/color_extraction_config.dart';
 import '../core/image/color_extractor.dart';
 import '../core/llm/vision_enricher.dart';
@@ -253,7 +254,11 @@ class ParallelAnalysisScheduler {
       final ocr = OcrService();
       try {
         _log.info('OcrScheduler', '开始 OCR 识别...');
-        final result = await ocr.recognizeImage(imageFile.absolute.path);
+        // 动图 GIF 用中间帧识别，避免只看到首帧
+        final result = await withAnalysisFrameFile(
+          imageFile.absolute.path,
+          ocr.recognizeImage,
+        );
         _log.info('OcrScheduler', 'OCR 结果: 文字长度=${result.text.length}, 空=${result.isEmpty}');
         _log.info('OcrScheduler', 'OCR 文本: ${result.text}');
         _log.info('OcrScheduler', 'OCR 诊断: ${result.diagnostics}');
