@@ -260,10 +260,17 @@ class ParallelAnalysisScheduler {
       final ocr = OcrService();
       try {
         _log.info('OcrScheduler', '开始 OCR 识别...');
-        // 动图 GIF 用中间帧识别，避免只看到首帧
-        final result = await withAnalysisFrameFile(
+        // 动图 GIF 同时识别首帧和中间帧，文本取并集
+        final result = await withAnalysisFramesFiles(
           imageFile.absolute.path,
-          ocr.recognizeImage,
+          (paths) async {
+            final results = <OcrResult>[];
+            for (final path in paths) {
+              _log.info('OcrScheduler', '识别帧: $path');
+              results.add(await ocr.recognizeImage(path));
+            }
+            return OcrResult.merged(results);
+          },
         );
         _log.info('OcrScheduler', 'OCR 结果: 文字长度=${result.text.length}, 空=${result.isEmpty}');
         _log.info('OcrScheduler', 'OCR 文本: ${result.text}');

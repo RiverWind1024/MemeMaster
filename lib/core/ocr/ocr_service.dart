@@ -20,6 +20,33 @@ class OcrResult {
     this.diagnostics = const [],
   });
 
+  /// 合并多帧识别结果：文本按行去重（保留首次出现顺序），blocks 依次拼接。
+  factory OcrResult.merged(List<OcrResult> results) {
+    if (results.isEmpty) {
+      return const OcrResult(text: '', blocks: []);
+    }
+    if (results.length == 1) return results.first;
+
+    final lines = <String>{};
+    final blocks = <OcrBlock>[];
+    final diagnostics = <String>[];
+
+    for (final result in results) {
+      for (final line in result.text.split('\n')) {
+        final trimmed = line.trim();
+        if (trimmed.isNotEmpty) lines.add(trimmed);
+      }
+      blocks.addAll(result.blocks);
+      diagnostics.addAll(result.diagnostics);
+    }
+
+    return OcrResult(
+      text: lines.join('\n'),
+      blocks: blocks,
+      diagnostics: diagnostics,
+    );
+  }
+
   bool get isEmpty => text.trim().isEmpty;
 }
 

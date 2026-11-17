@@ -19,27 +19,60 @@ Uint8List _animatedGifBytes() {
   return img.encodeGif(first);
 }
 
-void expectColor(img.Image image, int r, int g, int b) {
-  final pixel = image.getPixel(0, 0);
+void expectColor(img.Image image, int r, int g, int b, {int x = 0, int y = 0}) {
+  final pixel = image.getPixel(x, y);
   expect([pixel.r.toInt(), pixel.g.toInt(), pixel.b.toInt()], [r, g, b]);
 }
 
 void main() {
-  group('selectAnalysisFrame', () {
+  group('selectAnalysisFrames', () {
     test('静态图返回自身', () {
       final image = _solid(10, 20, 30);
-      final frame = selectAnalysisFrame(image);
-      expect(identical(frame, image), isTrue);
+      final frames = selectAnalysisFrames(image);
+      expect(frames, hasLength(1));
+      expect(identical(frames.first, image), isTrue);
     });
 
-    test('3 帧 GIF 返回中间帧', () {
+    test('3 帧 GIF 返回首帧和中间帧', () {
       final decoded = img.decodeImage(_animatedGifBytes())!;
       expect(decoded.numFrames, 3);
-      expectColor(selectAnalysisFrame(decoded), 0, 255, 0);
+
+      final frames = selectAnalysisFrames(decoded);
+      expect(frames, hasLength(2));
+      expectColor(frames[0], 255, 0, 0);
+      expectColor(frames[1], 0, 255, 0);
+    });
+
+    test('2 帧 GIF 返回首帧和末帧（中间索引为 1）', () {
+      final few = _solid(255, 0, 0);
+      few.addFrame(_solid(0, 0, 255));
+
+      final frames = selectAnalysisFrames(img.decodeImage(img.encodeGif(few))!);
+      expect(frames, hasLength(2));
+      expectColor(frames[0], 255, 0, 0);
+      expectColor(frames[1], 0, 0, 255);
     });
   });
 
-  group('withAnalysisFrameFile', () {
+  group('combineAnalysisFrames', () {
+    test('单帧原样返回', () {
+      final image = _solid(1, 2, 3);
+      expect(identical(combineAnalysisFrames([image]), image), isTrue);
+    });
+
+    test('两帧垂直拼接，尺寸与像素正确', () {
+      final red = _solid(255, 0, 0);
+      final green = _solid(0, 255, 0);
+
+      final combined = combineAnalysisFrames([red, green]);
+      expect(combined.width, 4);
+      expect(combined.height, 8);
+      expectColor(combined, 255, 0, 0, y: 1);
+      expectColor(combined, 0, 255, 0, y: 5);
+    });
+  });
+
+  group('withAnalysisFramesFiles', () {
     late Directory tempDir;
 
     setUp(() async {
@@ -56,32 +89,36 @@ void main() {
       final path = '${tempDir.path}/static.png';
       await File(path).writeAsBytes(img.encodePng(_solid(1, 2, 3)));
 
-      String? received;
-      final result = await withAnalysisFrameFile<String>(path, (p) async {
-        received = p;
+      List<String>? received;
+      final result = await withAnalysisFramesFiles<String>(path, (paths) async {
+        received = paths;
         return 'ok';
       });
 
       expect(result, 'ok');
-      expect(received, path);
+      expect(received, [path]);
       // 原文件未被删除
       expect(File(path).existsSync(), isTrue);
     });
 
-    test('GIF 回调拿到中间帧，且临时文件会清理', () async {
+    test('GIF 回调拿到首帧和中间帧，且临时文件会清理', () async {
       final gifPath = '${tempDir.path}/animated.gif';
       await File(gifPath).writeAsBytes(_animatedGifBytes());
 
-      String? framePath;
-      await withAnalysisFrameFile<void>(gifPath, (p) async {
-        framePath = p;
-        expect(p, isNot(gifPath));
-        expect(File(p).existsSync(), isTrue);
-        expectColor(img.decodeImage(await File(p).readAsBytes())!, 0, 255, 0);
+      List<String>? framePaths;
+      await withAnalysisFramesFiles<void>(gifPath, (paths) async {
+        framePaths = paths;
+        expect(paths, hasLength(2));
+        expect(paths, isNot(contains(gifPath)));
+
+        expectColor(img.decodeImage(await File(paths[0]).readAsBytes())!, 255, 0, 0);
+        expectColor(img.decodeImage(await File(paths[1]).readAsBytes())!, 0, 255, 0);
       });
 
-      expect(framePath, isNotNull);
-      expect(File(framePath!).existsSync(), isFalse);
+      expect(framePaths, isNotNull);
+      for (final path in framePaths!) {
+        expect(File(path).existsSync(), isFalse);
+      }
     });
   });
 }

@@ -34,8 +34,8 @@ class ColorExtractor {
       throw FormatException('Unable to decode image: $imagePath');
     }
 
-    // 动图取中间帧，避免首帧黑屏/纯色导致取色失真
-    final image = selectAnalysisFrame(decoded);
+    // 动图把首帧 + 中间帧一起聚类，静态图等价于单帧
+    final image = combineAnalysisFrames(selectAnalysisFrames(decoded));
     return extractFromImage(image, config: cfg);
   }
 

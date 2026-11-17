@@ -232,13 +232,17 @@ class VisionLlmEnricher {
     var bytes = await file.readAsBytes();
     final t1 = DateTime.now();
 
-    // 动图 GIF 统一取中间帧，避免 AI 只看到首帧
+    // 动图把首帧 + 中间帧垂直拼成一张图，避免 AI 只看到首帧
     if (imagePath.toLowerCase().endsWith('.gif')) {
       final gif = img.decodeImage(bytes);
-      if (gif != null && gif.numFrames > 1) {
-        bytes = Uint8List.fromList(img.encodePng(selectAnalysisFrame(gif)));
-        _log.info('VisionLLM',
-            'GIF 取帧 ${gif.numFrames ~/ 2}/${gif.numFrames}: $imagePath');
+      if (gif != null) {
+        final frames = selectAnalysisFrames(gif);
+        if (frames.length > 1) {
+          bytes = Uint8List.fromList(
+              img.encodePng(combineAnalysisFrames(frames)));
+          _log.info('VisionLLM',
+              'GIF 两帧拼接 ${gif.numFrames} 帧取 0,${gif.numFrames ~/ 2}: $imagePath');
+        }
       }
     }
 
