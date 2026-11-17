@@ -8,6 +8,7 @@ import '../../core/llm/config.dart';
 import '../../core/llm/local_config.dart';
 import '../gallery/gallery_provider.dart';
 import '../../l10n/app_localizations.dart';
+import '../../core/theme/app_radius.dart';
 
 /// AI 分析配置页面（关于页面入口）
 /// - 远程 API：分析参数（temperature / maxTokens / prompt / 压缩）
@@ -261,7 +262,7 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: theme.colorScheme.primaryContainer,
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.circular(AppRadius.xs),
                                 ),
                                 child: Text(
                                   '已自定义',
@@ -315,7 +316,7 @@ class _AiAnalysisConfigScreenState extends ConsumerState<AiAnalysisConfigScreen>
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: theme.colorScheme.primaryContainer,
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.circular(AppRadius.xs),
                                 ),
                                 child: Text(
                                   '已自定义',

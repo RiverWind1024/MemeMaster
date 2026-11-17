@@ -11,6 +11,7 @@ import '../../services/search_service.dart';
 import '../gallery/gallery_provider.dart';
 import 'color_picker_dialog.dart';
 import 'color_picker_palette.dart';
+import '../../core/theme/app_radius.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -237,7 +238,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             filled: true,
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(vertical: 8),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.pill), borderSide: BorderSide.none),
           ),
         ),
         actions: [
@@ -354,9 +355,9 @@ class _SearchResultGridTile extends ConsumerWidget {
             right: 4,
             child: Material(
               color: Colors.black38,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppRadius.lg),
               child: InkWell(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
                 onTap: () => _copyImage(ref),
                 child: const Padding(
                   padding: EdgeInsets.all(4),
@@ -367,7 +368,7 @@ class _SearchResultGridTile extends ConsumerWidget {
           ),
           Positioned(right: 4, bottom: 4, child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(AppRadius.sm)),
             child: Text('${(result.relevance * 100).round()}%', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500)),
           )),
         ],
@@ -386,7 +387,7 @@ class _ColorChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.only(left: 4, right: 4),
-      decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondaryContainer, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondaryContainer, borderRadius: BorderRadius.circular(AppRadius.lg)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Container(width: 14, height: 14, decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade300, width: 0.5))),
         const SizedBox(width: 4),
@@ -405,15 +406,16 @@ class _SearchLevelBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
+    final theme = Theme.of(context);
     final (label, color) = switch (level) {
       SearchLevel.full => (s.searchLevelFull, Colors.green),
       SearchLevel.colorAndKeyword => (s.searchLevelColorKeyword, Colors.orange),
       SearchLevel.colorOnly => (s.searchLevelColorOnly, Colors.blue),
-      SearchLevel.browse => (s.searchLevelBrowse, Colors.grey),
+      SearchLevel.browse => (s.searchLevelBrowse, theme.colorScheme.outline),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withValues(alpha: 0.3))),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(AppRadius.md), border: Border.all(color: color.withValues(alpha: 0.3))),
       child: Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
     );
   }

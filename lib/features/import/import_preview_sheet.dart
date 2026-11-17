@@ -7,6 +7,7 @@ import '../../services/file_storage_service.dart';
 import '../../services/import_service.dart';
 import '../gallery/gallery_provider.dart';
 import '../../l10n/app_localizations.dart';
+import '../../core/theme/app_radius.dart';
 
 /// 从底部弹出的导入预览弹窗，支持单图/多图
 Future<void> showImportPreviewSheet(
@@ -18,7 +19,7 @@ Future<void> showImportPreviewSheet(
     useSafeArea: true,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
     ),
     builder: (_) => _ImportPreviewSheet(paths: paths),
   );
@@ -74,7 +75,7 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
               height: 4,
               decoration: BoxDecoration(
                 color: colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(AppRadius.xs),
               ),
             ),
           ),
@@ -96,7 +97,7 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
             SizedBox(
               height: 180,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppRadius.md),
                 child: count == 1
                     ? _ImagePreview(filePath: widget.paths.first)
                     : Stack(
@@ -127,7 +128,7 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
                                     color: _currentPage == i
                                         ? Colors.white
                                         : Colors.white38,
-                                    borderRadius: BorderRadius.circular(4),
+                                    borderRadius: BorderRadius.circular(AppRadius.xs),
                                   ),
                                 );
                               }),

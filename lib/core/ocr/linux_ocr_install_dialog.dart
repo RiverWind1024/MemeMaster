@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../services/log_service.dart';
 import 'linux_distro_detector.dart';
 import 'linux_ocr_installer.dart';
+import '../theme/app_radius.dart';
 
 /// 显示 Linux OCR 安装向导对话框
 ///
@@ -178,7 +179,7 @@ class _LinuxOcrInstallDialogState extends State<_LinuxOcrInstallDialog> {
                 height: 200,
                 decoration: BoxDecoration(
                   color: Colors.black87,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
                 child: Stack(
                   children: [
@@ -206,7 +207,7 @@ class _LinuxOcrInstallDialogState extends State<_LinuxOcrInstallDialog> {
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.orange.withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(AppRadius.xs),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
@@ -240,7 +241,7 @@ class _LinuxOcrInstallDialogState extends State<_LinuxOcrInstallDialog> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.red.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                   border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                 ),
                 child: Row(
@@ -265,7 +266,7 @@ class _LinuxOcrInstallDialogState extends State<_LinuxOcrInstallDialog> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.green.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                   border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
                 ),
                 child: const Row(

@@ -17,50 +17,52 @@ class S3SyncScreen extends ConsumerStatefulWidget {
 }
 
 class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
-  StreamSubscription<S3SyncProgress>? _syncSubscription;
-  S3SyncProgress _lastProgress = const S3SyncProgress();
   bool _testingConnection = false;
   bool? _connectionOk;
   SyncStats? _storageStats;
   bool _loadingStats = false;
 
+  /// 「清理孤儿」被拒绝的原因（非 null 时在同步按钮下方提示）。
+  String? _cleanupBlockedReason;
+
   @override
-  void dispose() {
-    _syncSubscription?.cancel();
-    super.dispose();
-  }
-
-  void _startSync(Stream<S3SyncProgress> Function() syncFn) {
-    _syncSubscription?.cancel();
-    setState(() {
-      _lastProgress = const S3SyncProgress();
-    });
-    _syncSubscription = syncFn().listen((progress) {
+  void initState() {
+    super.initState();
+    // 监听全局同步状态：idle/error 时弹 snackbar，并在 idle 时刷新图库。
+    // listener 由 widget lifecycle 管理，widget dispose 时自动清理。
+    ref.listenManual<S3SyncProgress>(s3SyncStatusProvider, (prev, next) {
       if (!mounted) return;
-      setState(() => _lastProgress = progress);
-
-      // 同步完成后刷新图库
-      if (progress.status == S3SyncStatus.idle) {
-        // 刷新 meme 列表
-        ref.invalidate(memeListProvider);
-        ref.invalidate(memeCountProvider);
-        // 显示成功或错误提示
-        if (progress.errorMessage != null && progress.errorMessage!.isNotEmpty) {
+      if (next.status == S3SyncStatus.idle || next.status == S3SyncStatus.error) {
+        if (next.status == S3SyncStatus.idle) {
+          ref.invalidate(memeListProvider);
+          ref.invalidate(memeCountProvider);
+          _refreshCleanupGuard();
+        }
+        if (next.errorMessage != null && next.errorMessage!.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(progress.errorMessage!)),
+            SnackBar(content: Text(next.errorMessage!)),
+          );
+        } else if (next.summary != null && next.summary!.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(next.summary!)),
           );
         }
       }
-    }, onError: (error) {
-      if (!mounted) return;
-      setState(() => _lastProgress = S3SyncProgress(
-        status: S3SyncStatus.error,
-        errorMessage: '同步失败: $error',
-      ));
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(S.of(context).s3SyncFailed(error.toString()))),
-      );
     });
+  }
+
+  Future<void> _startSync(Stream<S3SyncProgress> Function() syncFn) async {
+    // 启动走全局 S3SyncStatusNotifier，里面有 inFlight 互斥，避免重复
+    // 点击导致两次 incremental() 并行；返回 false 表示同步已在进行。
+    final started = await ref.read(s3SyncStatusProvider.notifier).start(syncFn);
+    if (!started) {
+      // 已经在同步中，给用户提示一下（按钮 disable 也有兜底）。
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(S.of(context).s3SyncAlreadyRunning)),
+        );
+      }
+    }
   }
 
   Future<void> _testConnection() async {
@@ -96,6 +98,67 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
       }
     } finally {
       if (mounted) setState(() => _loadingStats = false);
+    }
+    await _refreshCleanupGuard();
+  }
+
+  /// 查询「清理孤儿」当前是否被前置条件阻止（未迁移 / manifest 不可读）。
+  Future<void> _refreshCleanupGuard() async {
+    final config = ref.read(s3ConfigProvider).valueOrNull ?? const S3Config();
+    if (!config.isValid) {
+      if (mounted) setState(() => _cleanupBlockedReason = null);
+      return;
+    }
+    try {
+      final reason =
+          await ref.read(s3SyncServiceProvider).cleanupBlockedReason();
+      if (mounted) setState(() => _cleanupBlockedReason = reason);
+    } catch (_) {
+      if (mounted) setState(() => _cleanupBlockedReason = null);
+    }
+  }
+
+  Future<void> _cleanupOrphans() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(S.of(context).cleanupOrphans),
+        content: Text(S.of(context).cleanupOrphansConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
+            child: Text(S.of(context).cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
+            child: Text(S.of(context).confirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final removed =
+          await ref.read(s3SyncServiceProvider).cleanupOrphans();
+      if (!mounted) return;
+      final reason =
+          await ref.read(s3SyncServiceProvider).cleanupBlockedReason();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(reason ?? S.of(context).cleanupOrphansDone(removed)),
+        ),
+      );
+      await _refreshStorageStats();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(S.of(context).s3SyncFailed(e.toString()))),
+      );
     }
   }
 
@@ -228,9 +291,15 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
     final config = ref.watch(s3ConfigProvider).valueOrNull ?? const S3Config();
     final isConfigured = config.isValid;
     final theme = Theme.of(context);
-    final progress = _lastProgress;
+    // 同步进度取自全局 provider，离开页面再回来也不会丢；同步过程中
+    // 任何 watch 此 provider 的 widget 都会同步更新。
+    final progress = ref.watch(s3SyncStatusProvider);
     final inProgress = progress.status == S3SyncStatus.uploading ||
         progress.status == S3SyncStatus.downloading;
+    // 上传用 primary（紫），下载用 tertiary（青）——两者需在主题里定义为不同色。
+    final syncAccent = progress.status == S3SyncStatus.uploading
+        ? theme.colorScheme.primary
+        : theme.colorScheme.tertiary;
 
     return Scaffold(
       appBar: AppBar(title: Text(S.of(context).s3Sync)),
@@ -319,55 +388,37 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _syncButton(
-                          label: S.of(context).fullUpload,
-                          icon: Icons.cloud_upload,
-                          enabled: isConfigured && !inProgress,
-                          onPressed: () => _startSync(
-                              () => ref.read(s3SyncServiceProvider).uploadAll()),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _syncButton(
-                          label: S.of(context).fullDownload,
-                          icon: Icons.cloud_download,
-                          enabled: isConfigured && !inProgress,
-                          onPressed: () => _startSync(() =>
-                              ref.read(s3SyncServiceProvider).downloadAll()),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _syncButton(
-                          label: S.of(context).incrementalSync,
-                          icon: Icons.sync,
-                          enabled: isConfigured && !inProgress,
-                          onPressed: () => _startSync(() =>
-                              ref.read(s3SyncServiceProvider).incremental()),
-                        ),
-                      ),
-                    ],
+                  _syncButton(
+                    label: S.of(context).syncNow,
+                    icon: Icons.sync,
+                    enabled: isConfigured && !inProgress,
+                    onPressed: () => _startSync(() =>
+                        ref.read(s3SyncServiceProvider).incremental()),
                   ),
-                  if (inProgress)
+                  const SizedBox(height: 8),
+                  // 同步不可中断（引擎没有取消点），因此不提供取消按钮。
+                  Text(
+                    S.of(context).s3SyncNoCancelHint,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  // 「清理未引用图片」的已知限制（无墓碑，删除无法传播）。
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      S.of(context).s3CleanupLimitation,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                  // 清理前置条件不满足时的提示（例如 bucket 还没完成 v1→v2 迁移）。
+                  if (_cleanupBlockedReason != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.cancel, size: 18),
-                          label: Text(S.of(context).cancel),
-                          onPressed: () {
-                            ref.read(s3SyncServiceProvider).cancel();
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                          ),
-                        ),
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _cleanupBlockedReason!,
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: Colors.orange),
                       ),
                     ),
                 ],
@@ -377,7 +428,9 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
           const SizedBox(height: 16),
 
           // ---- 进度 ----
-          if (inProgress || progress.status == S3SyncStatus.error) ...[
+          if (inProgress ||
+              progress.status == S3SyncStatus.error ||
+              (progress.summary != null && progress.summary!.isNotEmpty)) ...[
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -392,29 +445,44 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                           const Icon(Icons.cloud_upload, size: 18),
                         if (progress.status == S3SyncStatus.downloading)
                           const Icon(Icons.cloud_download, size: 18),
+                        if (progress.status == S3SyncStatus.idle &&
+                            progress.summary != null)
+                          const Icon(Icons.check_circle,
+                              color: Colors.green, size: 18),
                         const SizedBox(width: 8),
-                        Text(
-                          progress.status == S3SyncStatus.uploading
-                              ? S.of(context).uploading
-                              : progress.status == S3SyncStatus.downloading
-                                  ? S.of(context).downloading
-                                  : S.of(context).error,
-                          style: theme.textTheme.titleSmall,
-                        ),
+                        if (progress.status == S3SyncStatus.uploading ||
+                            progress.status == S3SyncStatus.downloading ||
+                            progress.status == S3SyncStatus.error)
+                          Text(
+                            progress.status == S3SyncStatus.uploading
+                                ? S.of(context).uploading
+                                : progress.status == S3SyncStatus.downloading
+                                    ? S.of(context).downloading
+                                    : S.of(context).error,
+                            style: theme.textTheme.titleSmall,
+                          ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    if (progress.total > 0) ...[
-                      LinearProgressIndicator(
-                        value: progress.fraction,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${progress.completed}/${progress.total}',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ] else
-                      const LinearProgressIndicator(),
+                    if (inProgress) ...[
+                      const SizedBox(height: 12),
+                      if (progress.total > 0) ...[
+                        // 不同阶段用不同颜色：上传紫色（primary），下载青色
+                        // （tertiary），让用户一眼区分状态；轨道用同色低透明度
+                        // 保证填充边界清晰可见。
+                        LinearProgressIndicator(
+                          value: progress.fraction,
+                          minHeight: 8,
+                          valueColor: AlwaysStoppedAnimation<Color>(syncAccent),
+                          backgroundColor: syncAccent.withValues(alpha: 0.18),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${progress.completed}/${progress.total}',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ] else
+                        const LinearProgressIndicator(),
+                    ],
                     if (progress.errorMessage != null) ...[
                       const SizedBox(height: 8),
                       Text(
@@ -422,6 +490,14 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: Colors.red,
                         ),
+                      ),
+                    ],
+                    if (progress.summary != null &&
+                        progress.summary!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        progress.summary!,
+                        style: theme.textTheme.bodySmall,
                       ),
                     ],
                   ],
@@ -437,31 +513,84 @@ class _S3SyncScreenState extends ConsumerState<S3SyncScreen> {
           Card(
             child: Column(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.cloud),
-                  title: Text(S.of(context).s3Storage),
-                  subtitle: Text(
-                    _storageStats != null
-                        ? S.of(context).storageStatsDetail(_formatBytes(_storageStats!.totalBytes), _storageStats!.objectCount)
-                        : _loadingStats
-                            ? S.of(context).calculating
-                            : S.of(context).clickToRefresh,
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  trailing: TextButton.icon(
-                    icon: _loadingStats
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.refresh, size: 18),
-                    label: Text(S.of(context).refresh),
-                    onPressed: isConfigured && !_loadingStats
-                        ? _refreshStorageStats
-                        : null,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Icon(Icons.cloud),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(S.of(context).s3Storage),
+                            const SizedBox(height: 4),
+                            Text(
+                              _storageStats != null
+                                  ? S.of(context).storageStatsDetail(
+                                      _formatBytes(_storageStats!.totalBytes),
+                                      _storageStats!.objectCount)
+                                  : _loadingStats
+                                      ? S.of(context).calculating
+                                      : S.of(context).clickToRefresh,
+                              style: theme.textTheme.bodySmall,
+                            ),
+                            if (_storageStats != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                S.of(context).s3StatsReferenced(
+                                    _storageStats!.referencedImages),
+                                style: theme.textTheme.bodySmall,
+                              ),
+                              Text(
+                                S.of(context).s3StatsOrphan(
+                                    _storageStats!.orphanImages),
+                                style: theme.textTheme.bodySmall,
+                              ),
+                              Text(
+                                S.of(context).s3StatsMeta(
+                                    _storageStats!.metaFiles),
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      TextButton.icon(
+                        icon: _loadingStats
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.refresh, size: 18),
+                        label: Text(S.of(context).refresh),
+                        onPressed: isConfigured && !_loadingStats
+                            ? _refreshStorageStats
+                            : null,
+                      ),
+                    ],
                   ),
                 ),
+                if (_storageStats != null) ...[
+                  const Divider(height: 1),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.cleaning_services, size: 18),
+                        label: Text(S.of(context).cleanupOrphans),
+                        onPressed: inProgress ? null : _cleanupOrphans,
+                      ),
+                    ),
+                  ),
+                ],
                 FutureBuilder<int>(
                   future: ref.read(fileStorageServiceProvider).storageUsed(),
                   builder: (ctx, localSnapshot) {

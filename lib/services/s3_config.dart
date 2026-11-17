@@ -84,13 +84,19 @@ class S3SyncProgress {
   final S3SyncStatus status;
   final int completed;
   final int total;
+
+  /// 错误信息（仅在 [status] 为 [S3SyncStatus.error] 时有意义）
   final String? errorMessage;
+
+  /// 成功完成时的人类可读汇总文案（非错误）
+  final String? summary;
 
   const S3SyncProgress({
     this.status = S3SyncStatus.idle,
     this.completed = 0,
     this.total = 0,
     this.errorMessage,
+    this.summary,
   });
 
   double? get fraction =>

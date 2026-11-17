@@ -943,24 +943,6 @@ abstract class S {
   /// **'同步操作'**
   String get syncOperations;
 
-  /// No description provided for @fullUpload.
-  ///
-  /// In zh, this message translates to:
-  /// **'全量上传'**
-  String get fullUpload;
-
-  /// No description provided for @fullDownload.
-  ///
-  /// In zh, this message translates to:
-  /// **'全量下载'**
-  String get fullDownload;
-
-  /// No description provided for @incrementalSync.
-  ///
-  /// In zh, this message translates to:
-  /// **'增量同步'**
-  String get incrementalSync;
-
   /// No description provided for @uploading.
   ///
   /// In zh, this message translates to:
@@ -991,11 +973,62 @@ abstract class S {
   /// **'S3 存储'**
   String get s3Storage;
 
-  /// No description provided for @storageStatsDetail.
-  ///
-  /// In zh, this message translates to:
   /// **'{size} · {count} 个文件'**
   String storageStatsDetail(String size, int count);
+
+  /// No description provided for @syncNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即同步'**
+  String get syncNow;
+
+  /// No description provided for @s3StatsReferenced.
+  ///
+  /// In zh, this message translates to:
+  /// **'已引用图片：{count}'**
+  String s3StatsReferenced(int count);
+
+  /// No description provided for @s3StatsOrphan.
+  ///
+  /// In zh, this message translates to:
+  /// **'未引用图片：{count}'**
+  String s3StatsOrphan(int count);
+
+  /// No description provided for @s3StatsMeta.
+  ///
+  /// In zh, this message translates to:
+  /// **'元数据文件：{count}'**
+  String s3StatsMeta(int count);
+
+  /// No description provided for @cleanupOrphans.
+  ///
+  /// In zh, this message translates to:
+  /// **'清理未引用图片'**
+  String get cleanupOrphans;
+
+  /// No description provided for @s3SyncNoCancelHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步过程无法中途取消，请勿关闭应用。'**
+  String get s3SyncNoCancelHint;
+
+  /// No description provided for @s3CleanupLimitation.
+  ///
+  /// In zh, this message translates to:
+  /// **'已知限制：删除操作不会留下同步记录，清理后的删除无法再同步到其他设备。'**
+  String get s3CleanupLimitation;
+
+  /// No description provided for @cleanupOrphansDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已清理 {count} 个文件'**
+  String cleanupOrphansDone(int count);
+
+  /// No description provided for @cleanupOrphansConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'将删除 S3 上未被引用的图片与旧格式残留文件，确定继续？'**
+  String get cleanupOrphansConfirmBody;
 
   /// No description provided for @calculating.
   ///
@@ -2308,7 +2341,7 @@ abstract class S {
   /// No description provided for @reindexDescription.
   ///
   /// In zh, this message translates to:
-  /// **'检查并补充缺失的分析数据'**
+  /// **'强制重跑主色与 OCR，AI 仅补漏'**
   String get reindexDescription;
 
   /// No description provided for @reindexStarted.
@@ -2760,6 +2793,12 @@ abstract class S {
   /// In zh, this message translates to:
   /// **'颜色提取算法配置'**
   String get colorExtractionConfigTitle;
+
+  /// No description provided for @s3SyncAlreadyRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步正在进行中，请稍候'**
+  String get s3SyncAlreadyRunning;
 
   /// No description provided for @s3SyncFailed.
   ///

@@ -4862,6 +4862,18 @@ class $AlbumsTableTable extends AlbumsTable
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4870,6 +4882,7 @@ class $AlbumsTableTable extends AlbumsTable
     sortOrder,
     isDefault,
     createdAt,
+    updatedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4922,6 +4935,12 @@ class $AlbumsTableTable extends AlbumsTable
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -4955,6 +4974,10 @@ class $AlbumsTableTable extends AlbumsTable
         DriftSqlType.int,
         data['${effectivePrefix}created_at'],
       )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
     );
   }
 
@@ -4971,6 +4994,7 @@ class Album extends DataClass implements Insertable<Album> {
   final int sortOrder;
   final int isDefault;
   final int createdAt;
+  final int updatedAt;
   const Album({
     required this.id,
     required this.name,
@@ -4978,6 +5002,7 @@ class Album extends DataClass implements Insertable<Album> {
     required this.sortOrder,
     required this.isDefault,
     required this.createdAt,
+    required this.updatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4990,6 +5015,7 @@ class Album extends DataClass implements Insertable<Album> {
     map['sort_order'] = Variable<int>(sortOrder);
     map['is_default'] = Variable<int>(isDefault);
     map['created_at'] = Variable<int>(createdAt);
+    map['updated_at'] = Variable<int>(updatedAt);
     return map;
   }
 
@@ -5001,6 +5027,7 @@ class Album extends DataClass implements Insertable<Album> {
       sortOrder: Value(sortOrder),
       isDefault: Value(isDefault),
       createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
     );
   }
 
@@ -5016,6 +5043,7 @@ class Album extends DataClass implements Insertable<Album> {
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
       isDefault: serializer.fromJson<int>(json['isDefault']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
     );
   }
   @override
@@ -5028,6 +5056,7 @@ class Album extends DataClass implements Insertable<Album> {
       'sortOrder': serializer.toJson<int>(sortOrder),
       'isDefault': serializer.toJson<int>(isDefault),
       'createdAt': serializer.toJson<int>(createdAt),
+      'updatedAt': serializer.toJson<int>(updatedAt),
     };
   }
 
@@ -5038,6 +5067,7 @@ class Album extends DataClass implements Insertable<Album> {
     int? sortOrder,
     int? isDefault,
     int? createdAt,
+    int? updatedAt,
   }) => Album(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -5045,6 +5075,7 @@ class Album extends DataClass implements Insertable<Album> {
     sortOrder: sortOrder ?? this.sortOrder,
     isDefault: isDefault ?? this.isDefault,
     createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
   );
   Album copyWithCompanion(AlbumsTableCompanion data) {
     return Album(
@@ -5054,6 +5085,7 @@ class Album extends DataClass implements Insertable<Album> {
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
       isDefault: data.isDefault.present ? data.isDefault.value : this.isDefault,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -5065,14 +5097,15 @@ class Album extends DataClass implements Insertable<Album> {
           ..write('icon: $icon, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('isDefault: $isDefault, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, name, icon, sortOrder, isDefault, createdAt);
+      Object.hash(id, name, icon, sortOrder, isDefault, createdAt, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -5082,7 +5115,8 @@ class Album extends DataClass implements Insertable<Album> {
           other.icon == this.icon &&
           other.sortOrder == this.sortOrder &&
           other.isDefault == this.isDefault &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
 }
 
 class AlbumsTableCompanion extends UpdateCompanion<Album> {
@@ -5092,6 +5126,7 @@ class AlbumsTableCompanion extends UpdateCompanion<Album> {
   final Value<int> sortOrder;
   final Value<int> isDefault;
   final Value<int> createdAt;
+  final Value<int> updatedAt;
   final Value<int> rowid;
   const AlbumsTableCompanion({
     this.id = const Value.absent(),
@@ -5100,6 +5135,7 @@ class AlbumsTableCompanion extends UpdateCompanion<Album> {
     this.sortOrder = const Value.absent(),
     this.isDefault = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AlbumsTableCompanion.insert({
@@ -5109,6 +5145,7 @@ class AlbumsTableCompanion extends UpdateCompanion<Album> {
     this.sortOrder = const Value.absent(),
     this.isDefault = const Value.absent(),
     required int createdAt,
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -5120,6 +5157,7 @@ class AlbumsTableCompanion extends UpdateCompanion<Album> {
     Expression<int>? sortOrder,
     Expression<int>? isDefault,
     Expression<int>? createdAt,
+    Expression<int>? updatedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -5129,6 +5167,7 @@ class AlbumsTableCompanion extends UpdateCompanion<Album> {
       if (sortOrder != null) 'sort_order': sortOrder,
       if (isDefault != null) 'is_default': isDefault,
       if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5140,6 +5179,7 @@ class AlbumsTableCompanion extends UpdateCompanion<Album> {
     Value<int>? sortOrder,
     Value<int>? isDefault,
     Value<int>? createdAt,
+    Value<int>? updatedAt,
     Value<int>? rowid,
   }) {
     return AlbumsTableCompanion(
@@ -5149,6 +5189,7 @@ class AlbumsTableCompanion extends UpdateCompanion<Album> {
       sortOrder: sortOrder ?? this.sortOrder,
       isDefault: isDefault ?? this.isDefault,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5174,6 +5215,9 @@ class AlbumsTableCompanion extends UpdateCompanion<Album> {
     if (createdAt.present) {
       map['created_at'] = Variable<int>(createdAt.value);
     }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5189,6 +5233,7 @@ class AlbumsTableCompanion extends UpdateCompanion<Album> {
           ..write('sortOrder: $sortOrder, ')
           ..write('isDefault: $isDefault, ')
           ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -9894,6 +9939,7 @@ typedef $$AlbumsTableTableCreateCompanionBuilder =
       Value<int> sortOrder,
       Value<int> isDefault,
       required int createdAt,
+      Value<int> updatedAt,
       Value<int> rowid,
     });
 typedef $$AlbumsTableTableUpdateCompanionBuilder =
@@ -9904,6 +9950,7 @@ typedef $$AlbumsTableTableUpdateCompanionBuilder =
       Value<int> sortOrder,
       Value<int> isDefault,
       Value<int> createdAt,
+      Value<int> updatedAt,
       Value<int> rowid,
     });
 
@@ -9974,6 +10021,11 @@ class $$AlbumsTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> memeAlbumsTableRefs(
     Expression<bool> Function($$MemeAlbumsTableTableFilterComposer f) f,
   ) {
@@ -10038,6 +10090,11 @@ class $$AlbumsTableTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AlbumsTableTableAnnotationComposer
@@ -10066,6 +10123,9 @@ class $$AlbumsTableTableAnnotationComposer
 
   GeneratedColumn<int> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
   Expression<T> memeAlbumsTableRefs<T extends Object>(
     Expression<T> Function($$MemeAlbumsTableTableAnnotationComposer a) f,
@@ -10127,6 +10187,7 @@ class $$AlbumsTableTableTableManager
                 Value<int> sortOrder = const Value.absent(),
                 Value<int> isDefault = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AlbumsTableCompanion(
                 id: id,
@@ -10135,6 +10196,7 @@ class $$AlbumsTableTableTableManager
                 sortOrder: sortOrder,
                 isDefault: isDefault,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -10145,6 +10207,7 @@ class $$AlbumsTableTableTableManager
                 Value<int> sortOrder = const Value.absent(),
                 Value<int> isDefault = const Value.absent(),
                 required int createdAt,
+                Value<int> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AlbumsTableCompanion.insert(
                 id: id,
@@ -10153,6 +10216,7 @@ class $$AlbumsTableTableTableManager
                 sortOrder: sortOrder,
                 isDefault: isDefault,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

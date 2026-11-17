@@ -52,7 +52,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration {
@@ -102,6 +102,10 @@ class AppDatabase extends _$AppDatabase {
         if (from < 6) {
           // 添加用户自定义名称
           await m.addColumn(memesTable, memesTable.customName);
+        }
+        if (from < 7) {
+          // album 增加 updatedAt（S3 同步 LWW 用）
+          await m.addColumn(albumsTable, albumsTable.updatedAt);
         }
       },
     );

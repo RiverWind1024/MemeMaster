@@ -470,15 +470,6 @@ class SZh extends S {
   String get syncOperations => '同步操作';
 
   @override
-  String get fullUpload => '全量上传';
-
-  @override
-  String get fullDownload => '全量下载';
-
-  @override
-  String get incrementalSync => '增量同步';
-
-  @override
   String get uploading => '上传中';
 
   @override
@@ -497,6 +488,41 @@ class SZh extends S {
   String storageStatsDetail(String size, int count) {
     return '$size · $count 个文件';
   }
+
+  @override
+  String get syncNow => '立即同步';
+
+  @override
+  String s3StatsReferenced(int count) {
+    return '已引用图片：$count';
+  }
+
+  @override
+  String s3StatsOrphan(int count) {
+    return '未引用图片：$count';
+  }
+
+  @override
+  String s3StatsMeta(int count) {
+    return '元数据文件：$count';
+  }
+
+  @override
+  String get cleanupOrphans => '清理未引用图片';
+
+  @override
+  String get s3SyncNoCancelHint => '同步过程无法中途取消，请勿关闭应用。';
+
+  @override
+  String get s3CleanupLimitation => '已知限制：删除操作不会留下同步记录，清理后的删除无法再同步到其他设备。';
+
+  @override
+  String cleanupOrphansDone(int count) {
+    return '已清理 $count 个文件';
+  }
+
+  @override
+  String get cleanupOrphansConfirmBody => '将删除 S3 上未被引用的图片与旧格式残留文件，确定继续？';
 
   @override
   String get calculating => '统计中...';
@@ -1225,7 +1251,7 @@ class SZh extends S {
   String get reindexMemes => '重新索引所有表情';
 
   @override
-  String get reindexDescription => '检查并补充缺失的分析数据';
+  String get reindexDescription => '强制重跑主色与 OCR，AI 仅补漏';
 
   @override
   String get reindexStarted => '重新索引已开始，进度显示在图库顶部';
@@ -1478,6 +1504,9 @@ class SZh extends S {
   String s3SyncFailed(String error) {
     return '同步失败: $error';
   }
+
+  @override
+  String get s3SyncAlreadyRunning => '同步正在进行中，请稍候';
 
   @override
   String get modelManagerDownloadFailedLabel => '下载失败';

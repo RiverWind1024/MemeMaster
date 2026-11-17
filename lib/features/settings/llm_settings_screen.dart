@@ -11,6 +11,7 @@ import '../../core/llm/local_config.dart';
 import '../../core/llm/local_service.dart';
 import '../gallery/gallery_provider.dart';
 import '../../l10n/app_localizations.dart';
+import '../../core/theme/app_radius.dart';
 
 class LlmSettingsScreen extends ConsumerStatefulWidget {
   const LlmSettingsScreen({super.key});
@@ -256,7 +257,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                           margin: EdgeInsets.symmetric(horizontal: 16),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
                           ),
                           child: ListView(
                             controller: _logScrollController,
@@ -264,7 +265,7 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                             children: [
                               if (_loadingLogs.isEmpty)
                                 Text(S.of(context).llmLlWaitingLog,
-                                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey))
+                                    style: theme.textTheme.bodySmall)
                               else
                                 Text(_loadingLogs,
                                   style: TextStyle(fontFamily: 'monospace', fontSize: 11, height: 1.3),
@@ -278,11 +279,12 @@ class _LlmSettingsScreenState extends ConsumerState<LlmSettingsScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                             child: Text(
                               '分析图片时将自动加载模型',
-                              style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                              style: theme.textTheme.bodySmall,
                             ),
                             ),
                     ] else ...[
-                      const Icon(Icons.download_outlined, size: 48, color: Colors.grey),
+                      Icon(Icons.download_outlined,
+                          size: 48, color: theme.colorScheme.outline),
                       const SizedBox(height: 8),
                       Text(S.of(context).noDownloadedModelsHint),
                       const SizedBox(height: 4),

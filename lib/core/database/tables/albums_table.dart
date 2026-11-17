@@ -9,6 +9,7 @@ class AlbumsTable extends Table {
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   IntColumn get isDefault => integer().withDefault(const Constant(0))();
   IntColumn get createdAt => integer()();
+  IntColumn get updatedAt => integer().withDefault(const Constant(0))();
 
   @override
   Set<Column> get primaryKey => {id};

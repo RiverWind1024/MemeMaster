@@ -18,6 +18,7 @@ import '../../services/meme_import_service.dart';
 import '../../services/shared_media_handler.dart';
 import 'gallery_provider.dart';
 import '../../l10n/app_localizations.dart';
+import '../../core/theme/app_radius.dart';
 
 class GalleryScreen extends ConsumerStatefulWidget {
   const GalleryScreen({super.key});
@@ -804,7 +805,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
           hoverElevation: 8,
           highlightElevation: 12,
           shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(20)),
+            borderRadius: BorderRadius.all(Radius.circular(AppRadius.xl)),
           ),
           child: AnimatedRotation(
             turns: _radialOpen ? 0.125 : 0.0, // 45°
@@ -1390,9 +1391,9 @@ class _MemeGridTile extends ConsumerWidget {
             right: 4,
             child: Material(
               color: Colors.black38,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppRadius.lg),
               child: InkWell(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
                 onTap: () => _copyMeme(ref),
                 child: const Padding(
                   padding: EdgeInsets.all(4),
@@ -1410,7 +1411,7 @@ class _MemeGridTile extends ConsumerWidget {
                   color: selected
                       ? Theme.of(context).colorScheme.primary
                       : Colors.black38,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
                 child: Icon(
                   selected ? Icons.check_circle : Icons.circle_outlined,
@@ -1554,7 +1555,7 @@ class _SpeedDialItem extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
                 border: Border.all(
                   color: colorScheme.outlineVariant.withValues(alpha: 0.5),
                 ),

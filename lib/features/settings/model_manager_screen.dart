@@ -10,6 +10,7 @@ import '../../core/llm/model_manager.dart';
 import '../../services/model_search_service.dart';
 import '../gallery/gallery_provider.dart';
 import '../../l10n/app_localizations.dart';
+import '../../core/theme/app_radius.dart';
 
 /// 当前选中的下载源
 final selectedSourceProvider = StateProvider<DownloadSource>((ref) => DownloadSource.modelscope);
@@ -576,7 +577,7 @@ class _SearchResultCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(AppRadius.xs),
                     ),
                     child: Text(
                       model.parameterSize!,
@@ -871,7 +872,7 @@ class _DownloadedModelCard extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                   decoration: BoxDecoration(
                     color: Colors.green.withAlpha(30),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(AppRadius.xs),
                   ),
                     child: Text(
                       S.of(context).loaded,

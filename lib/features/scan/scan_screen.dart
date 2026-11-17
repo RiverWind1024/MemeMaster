@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/meme_detector.dart';
 import '../gallery/gallery_provider.dart';
 import '../../l10n/app_localizations.dart';
+import '../../core/theme/app_radius.dart';
 
 class ScanScreen extends ConsumerStatefulWidget {
   const ScanScreen({super.key});
@@ -175,7 +176,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                           leading: GestureDetector(
                             onTap: () => _showImagePreview(m.filePath),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
                               child: SizedBox(
                                 width: 48,
                                 height: 48,

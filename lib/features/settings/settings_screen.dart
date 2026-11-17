@@ -479,45 +479,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const SizedBox(height: 24),
 
-          // 悬浮窗
-          Text(S.of(context).overlaySection, style: theme.textTheme.titleSmall),
-          const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: [
-                Consumer(
-                  builder: (_, ref, __) {
-                    final overlayState = ref.watch(overlayProvider);
-                    return SwitchListTile(
-                      title: Text(S.of(context).overlayDragDropTitle),
-                      subtitle: Text(S.of(context).overlayDragDropDescription),
-                      value: overlayState.isActive,
-                      secondary: const Icon(Icons.picture_in_picture_alt),
-                      onChanged: (_) async {
-                        await ref.read(overlayProvider.notifier).toggle();
-                      },
-                    );
-                  },
-                ),
-                SwitchListTile(
-                  title: Text(S.of(context).overlayAutoStartTitle),
-                  subtitle: Text(S.of(context).overlayAutoStartDescription),
-                  value: ref.watch(autoOverlayEnabledProvider),
-                  secondary: const Icon(Icons.auto_mode),
-                  onChanged: (value) async {
-                    ref.read(autoOverlayEnabledProvider.notifier).setEnabled(value);
-                    // 开自动 -> 若尚未开启悬浮窗则一并打开
-                    if (value) {
-                      final controller = ref.read(overlayProvider.notifier);
-                      if (!controller.state.isActive) {
-                        await controller.toggle();
+          // 悬浮窗（仅移动端：Android / iOS 提供系统悬浮窗能力，PC 平台无对应概念）
+          if (Platform.isAndroid || Platform.isIOS) ...[
+            Text(S.of(context).overlaySection, style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  Consumer(
+                    builder: (_, ref, __) {
+                      final overlayState = ref.watch(overlayProvider);
+                      return SwitchListTile(
+                        title: Text(S.of(context).overlayDragDropTitle),
+                        subtitle: Text(S.of(context).overlayDragDropDescription),
+                        value: overlayState.isActive,
+                        secondary: const Icon(Icons.picture_in_picture_alt),
+                        onChanged: (_) async {
+                          await ref.read(overlayProvider.notifier).toggle();
+                        },
+                      );
+                    },
+                  ),
+                  SwitchListTile(
+                    title: Text(S.of(context).overlayAutoStartTitle),
+                    subtitle: Text(S.of(context).overlayAutoStartDescription),
+                    value: ref.watch(autoOverlayEnabledProvider),
+                    secondary: const Icon(Icons.auto_mode),
+                    onChanged: (value) async {
+                      ref.read(autoOverlayEnabledProvider.notifier).setEnabled(value);
+                      // 开自动 -> 若尚未开启悬浮窗则一并打开
+                      if (value) {
+                        final controller = ref.read(overlayProvider.notifier);
+                        if (!controller.state.isActive) {
+                          await controller.toggle();
+                        }
                       }
-                    }
-                  },
-                ),
-              ],
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
+            const SizedBox(height: 24),
+          ],
 
           const SizedBox(height: 24),
 

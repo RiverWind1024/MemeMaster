@@ -269,9 +269,6 @@
   "connectionFailed": "连接失败",
   "test": "测试",
   "syncOperations": "同步操作",
-  "fullUpload": "全量上传",
-  "fullDownload": "全量下载",
-  "incrementalSync": "增量同步",
   "uploading": "上传中",
   "downloading": "下载中",
   "error": "错误",
@@ -288,6 +285,43 @@
       }
     }
   },
+  "syncNow": "立即同步",
+  "s3StatsReferenced": "已引用图片：{count}",
+  "@s3StatsReferenced": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "s3StatsOrphan": "未引用图片：{count}",
+  "@s3StatsOrphan": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "s3StatsMeta": "元数据文件：{count}",
+  "@s3StatsMeta": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cleanupOrphans": "清理未引用图片",
+  "s3SyncNoCancelHint": "同步过程无法中途取消，请勿关闭应用。",
+  "s3CleanupLimitation": "已知限制：删除操作不会留下同步记录，清理后的删除无法再同步到其他设备。",
+  "cleanupOrphansDone": "已清理 {count} 个文件",
+  "@cleanupOrphansDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cleanupOrphansConfirmBody": "将删除 S3 上未被引用的图片与旧格式残留文件，确定继续？",
   "calculating": "统计中...",
   "clickToRefresh": "点击右侧按钮刷新",
   "refresh": "刷新",
@@ -790,7 +824,7 @@
   "@reindexMemes": {
     "description": "重新索引按钮"
   },
-  "reindexDescription": "检查并补充缺失的分析数据",
+  "reindexDescription": "强制重跑主色与 OCR，AI 仅补漏",
   "@reindexDescription": {},
   "reindexStarted": "重新索引已开始，进度显示在图库顶部",
   "@reindexStarted": {},
@@ -1009,6 +1043,8 @@
   },
   "colorExtractionConfigTitle": "颜色提取算法配置",
   "@colorExtractionConfigTitle": {},
+  "s3SyncAlreadyRunning": "同步正在进行中，请稍候",
+  "@s3SyncAlreadyRunning": {},
   "s3SyncFailed": "同步失败: {error}",
   "@s3SyncFailed": {
     "placeholders": {

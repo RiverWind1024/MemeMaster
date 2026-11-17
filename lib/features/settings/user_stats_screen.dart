@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/database/database.dart';
 import '../../l10n/app_localizations.dart';
 import '../gallery/gallery_provider.dart';
+import '../../core/theme/app_radius.dart';
 
 /// 用户统计页面（含 Meme 活跃度热度图）
 class UserStatsScreen extends ConsumerStatefulWidget {
@@ -139,7 +140,7 @@ class _DateRangeSelector extends StatelessWidget {
     final theme = Theme.of(context);
     return Card(
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -312,7 +313,7 @@ class _HeatmapCard extends StatelessWidget {
                           margin: EdgeInsets.only(bottom: cellMargin),
                           decoration: BoxDecoration(
                             color: color,
-                            borderRadius: BorderRadius.circular(2),
+                            borderRadius: BorderRadius.circular(AppRadius.xs),
                           ),
                         ),
                       );
