@@ -425,7 +425,7 @@ jobs:
         run: flutter pub get
 
       - name: Setup Android SDK and NDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       # Pre-fetch gradle distribution to avoid timeout during gradlew run
       - name: Setup Gradle
